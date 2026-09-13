@@ -5,7 +5,8 @@
 **Module naming.** `sinclaire_<feature>`, lowercase with underscores. Every
 module depends on `sinclaire_base`.
 
-**Module layout.** Mirror `docs/module_template/`:
+**Module layout.** Modules live at the repository root (Odoo.sh's addons
+path), not in a subdirectory. Mirror `docs/module_template/`:
 
 ```
 sinclaire_<feature>/

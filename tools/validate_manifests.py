@@ -17,16 +17,21 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ADDONS_DIR = REPO_ROOT / "addons"
+# Odoo.sh puts the repository root on the addons path, so modules live at the
+# top level. Everything else at that level is tooling, not an addon.
+ADDONS_DIR = REPO_ROOT
+NON_ADDON_DIRS = {".git", ".github", "conf", "docs", "tools", ".ruff_cache"}
 ODOO_SERIES = "19.0"
 REQUIRED_KEYS = ("name", "version", "license", "depends")
 PATH_KEYS = ("data", "demo", "qweb")
 
 
 def iter_addons() -> list[Path]:
-    if not ADDONS_DIR.is_dir():
-        return []
-    return sorted(p for p in ADDONS_DIR.iterdir() if (p / "__manifest__.py").is_file())
+    return sorted(
+        p
+        for p in ADDONS_DIR.iterdir()
+        if p.is_dir() and p.name not in NON_ADDON_DIRS and (p / "__manifest__.py").is_file()
+    )
 
 
 def check_manifest(addon: Path, errors: list[str]) -> None:
@@ -48,8 +53,7 @@ def check_manifest(addon: Path, errors: list[str]) -> None:
     version = str(manifest.get("version", ""))
     if not version.startswith(f"{ODOO_SERIES}."):
         errors.append(
-            f"{manifest_path}: version {version!r} should start with {ODOO_SERIES!r} "
-            "(<series>.<major>.<minor>.<patch>)"
+            f"{manifest_path}: version {version!r} should start with {ODOO_SERIES!r} (<series>.<major>.<minor>.<patch>)"
         )
 
     for key in PATH_KEYS:
@@ -79,7 +83,7 @@ def check_xml(errors: list[str]) -> None:
 def main() -> int:
     addons = iter_addons()
     if not addons:
-        print("No addons found under addons/ - nothing to validate.")
+        print("No addons found at the repository root - nothing to validate.")
         return 0
 
     errors: list[str] = []

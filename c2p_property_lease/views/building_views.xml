@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_building_list" model="ir.ui.view">
+        <field name="name">c2p.building.list</field>
+        <field name="model">c2p.building</field>
+        <field name="arch" type="xml">
+            <list string="Buildings">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="community"/>
+                <field name="owner_id"/>
+                <field name="unit_count"/>
+                <field name="occupied_count"/>
+                <field name="vacant_count" decoration-warning="vacant_count &gt; 0"/>
+                <field name="occupancy_rate" widget="percentage" optional="show"/>
+                <field name="contracted_rent" sum="Contracted rent"/>
+                <field name="management_fee_pct" optional="hide"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_building_kanban" model="ir.ui.view">
+        <field name="name">c2p.building.kanban</field>
+        <field name="model">c2p.building</field>
+        <field name="arch" type="xml">
+            <kanban>
+                <templates>
+                    <t t-name="card">
+                        <field name="image_512" widget="image" class="w-100 mb-2"
+                               options="{'zoom': true, 'img_class': 'w-100 rounded'}"/>
+                        <div class="d-flex justify-content-between">
+                            <strong><field name="name"/></strong>
+                            <span class="badge text-bg-primary"><field name="code"/></span>
+                        </div>
+                        <div class="text-muted"><field name="community"/></div>
+                        <div class="mt-2">
+                            Landlord: <field name="owner_id"/><br/>
+                            <field name="occupied_count"/> of <field name="unit_count"/> units occupied
+                            (<field name="occupancy_rate" widget="percentage"/>)
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_building_form" model="ir.ui.view">
+        <field name="name">c2p.building.form</field>
+        <field name="model">c2p.building</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_units" type="object" class="oe_stat_button" icon="fa-building-o">
+                            <field name="unit_count" widget="statinfo" string="Units"/>
+                        </button>
+                    </div>
+                    <field name="image_1920" widget="image" class="oe_avatar"
+                           options="{'preview_image': 'image_128'}"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Al Mankhool Residence"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="owner_id"/>
+                            <field name="management_fee_pct"/>
+                            <field name="analytic_account_id"/>
+                        </group>
+                        <group>
+                            <field name="street"/>
+                            <field name="community"/>
+                            <field name="city"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="occupancy_rate" widget="percentage"/>
+                            <field name="contracted_rent"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Units" name="units">
+                            <field name="unit_ids">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="unit_type"/>
+                                    <field name="floor"/>
+                                    <field name="area_sqft"/>
+                                    <field name="market_rent"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'occupied'"
+                                           decoration-warning="state == 'notice'"
+                                           decoration-danger="state == 'vacant'"/>
+                                    <field name="tenant_id" readonly="1"/>
+                                    <field name="lease_end" readonly="1"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_building" model="ir.actions.act_window">
+        <field name="name">Buildings</field>
+        <field name="res_model">c2p.building</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+</odoo>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_category_property" model="ir.module.category">
+        <field name="name">Property Management</field>
+        <field name="sequence">20</field>
+    </record>
+
+    <record id="res_groups_privilege_property" model="res.groups.privilege">
+        <field name="name">Property Management</field>
+        <field name="sequence">20</field>
+        <field name="category_id" ref="module_category_property"/>
+    </record>
+
+    <record id="group_property_user" model="res.groups">
+        <field name="name">Leasing User</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_property"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Manage units, leases and cheques.</field>
+    </record>
+
+    <record id="group_property_manager" model="res.groups">
+        <field name="name">Leasing Manager</field>
+        <field name="sequence">20</field>
+        <field name="privilege_id" ref="res_groups_privilege_property"/>
+        <field name="implied_ids" eval="[(4, ref('group_property_user'))]"/>
+        <field name="comment">Full access including buildings, landlord statements and terminations.</field>
+    </record>
+
+    <record id="rule_building_company" model="ir.rule">
+        <field name="name">Building: multi-company</field>
+        <field name="model_id" ref="model_c2p_building"/>
+        <field name="domain_force">[('company_id','in',company_ids)]</field>
+    </record>
+
+    <record id="rule_unit_company" model="ir.rule">
+        <field name="name">Unit: multi-company</field>
+        <field name="model_id" ref="model_c2p_unit"/>
+        <field name="domain_force">[('company_id','in',company_ids)]</field>
+    </record>
+
+    <record id="rule_lease_company" model="ir.rule">
+        <field name="name">Lease: multi-company</field>
+        <field name="model_id" ref="model_c2p_lease"/>
+        <field name="domain_force">[('company_id','in',company_ids)]</field>
+    </record>
+</odoo>

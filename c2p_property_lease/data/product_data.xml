@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Resolved by XML ID, never by name: product names are translatable,
+             so a name lookup breaks in an Arabic database or on a rename.
+
+             VAT is deliberately left unset here. UAE treatment differs per
+             product - commercial rent is standard-rated at 5%, residential
+             rent is exempt - and the correct tax records depend on the
+             company's fiscal localisation. Set them during configuration and
+             confirm before the first invoice run. -->
+
+        <record id="product_residential_rent" model="product.template">
+            <field name="name">Residential Rent</field>
+            <field name="type">service</field>
+            <field name="purchase_ok" eval="False"/>
+            <field name="description_sale">Residential tenancy rent. Exempt from UAE VAT.</field>
+        </record>
+
+        <record id="product_commercial_rent" model="product.template">
+            <field name="name">Commercial Rent</field>
+            <field name="type">service</field>
+            <field name="purchase_ok" eval="False"/>
+            <field name="description_sale">Commercial tenancy rent. Standard-rated for UAE VAT.</field>
+        </record>
+
+        <record id="product_property_management_fee" model="product.template">
+            <field name="name">Property Management Fee</field>
+            <field name="type">service</field>
+            <field name="purchase_ok" eval="False"/>
+            <field name="description_sale">Management fee retained on rent collected.</field>
+        </record>
+
+    </data>
+</odoo>

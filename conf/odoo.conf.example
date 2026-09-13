@@ -1,7 +1,7 @@
 ; Sample Odoo server configuration for local Sinclaire development.
 ; Copy to odoo.conf (git-ignored) and adjust to your machine.
 [options]
-addons_path = /path/to/odoo/addons,/path/to/odoo/enterprise,./addons
+addons_path = /path/to/odoo/addons,/path/to/odoo/enterprise,.
 data_dir = ./.odoo-data
 
 db_host = localhost
