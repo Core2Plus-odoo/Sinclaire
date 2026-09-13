@@ -152,6 +152,26 @@ class OwnerStatement(models.TransientModel):
         invoice = self._create_fee_invoice()
         return {"type": "ir.actions.act_window", "res_model": "account.move", "res_id": invoice.id, "view_mode": "form"}
 
+    OWNER_INVOICE_JOURNAL_CODE = "OWNI"
+
+    def _fee_journal(self, company):
+        """Journal for management-fee invoices.
+
+        Prefer the dedicated owner-invoice journal where the company has one
+        (company 1 has OWNI, company 2 does not); otherwise fall back to that
+        company's ordinary sales journal so the setup still works.
+        """
+        journals = self.env["account.journal"]
+        dedicated = journals.search(
+            [
+                ("code", "=", self.OWNER_INVOICE_JOURNAL_CODE),
+                ("type", "=", "sale"),
+                ("company_id", "=", company.id),
+            ],
+            limit=1,
+        )
+        return dedicated or journals.search([("type", "=", "sale"), ("company_id", "=", company.id)], limit=1)
+
     def _create_fee_invoice(self):
         self.ensure_one()
         company = self.building_id.company_id
@@ -164,7 +184,7 @@ class OwnerStatement(models.TransientModel):
                     "Reinstall or repair the module data before invoicing."
                 )
             )
-        journal = self.env["account.journal"].search([("type", "=", "sale"), ("company_id", "=", company.id)], limit=1)
+        journal = self._fee_journal(company)
         if not journal:
             raise UserError(
                 self.env._(

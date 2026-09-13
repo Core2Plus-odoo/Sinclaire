@@ -33,7 +33,7 @@
                     <button name="action_activate" type="object" string="Activate"
                             class="btn-primary" invisible="state != 'draft'"/>
                     <button name="action_create_subscription" type="object" string="Create Rent Subscription"
-                            class="btn-primary" invisible="state != 'active' or subscription_id"/>
+                            class="btn-primary" invisible="state != 'active' or subscription_id or not subscriptions_available"/>
                     <button name="action_register_pdcs" type="object" string="Register PDCs"
                             invisible="state not in ('active','notice')"/>
                     <button name="action_renew" type="object" string="Renew"
@@ -83,6 +83,7 @@
                             <field name="dewa_no"/>
                         </group>
                         <group string="Links">
+                            <field name="subscriptions_available" invisible="1"/>
                             <field name="subscription_id" readonly="1"/>
                             <field name="renewed_from_id" readonly="1" invisible="not renewed_from_id"/>
                             <field name="company_id" groups="base.group_multi_company"/>

@@ -130,3 +130,63 @@ class TestLease(TransactionCase):
         self.assertFalse(payment.is_pdc)
         payment.write({"cheque_no": "123456"})
         self.assertTrue(payment.is_pdc)
+
+    def test_subscription_action_refuses_without_the_enterprise_app(self):
+        """Soft dependency: on Community the action must refuse clearly rather
+        than raise KeyError on a missing model."""
+        lease = self._lease()
+        if lease._subscriptions_installed():
+            self.skipTest("Subscriptions is installed on this database")
+        with self.assertRaises(UserError):
+            lease.action_create_subscription()
+
+    def test_subscriptions_available_matches_the_registry(self):
+        lease = self._lease()
+        self.assertEqual(
+            lease.subscriptions_available,
+            "sale.subscription.plan" in self.env,
+        )
+
+    def test_terminating_is_safe_without_subscriptions(self):
+        lease = self._lease()
+        lease.action_activate()
+        wizard = self.env["c2p.lease.terminate"].create(
+            {
+                "lease_id": lease.id,
+                "date_termination": "2026-06-30",
+            }
+        )
+        wizard.action_terminate()
+        self.assertEqual(lease.state, "terminated")
+
+    def test_plan_lookup_prefers_the_rent_plan_over_the_generic_one(self):
+        """The live database holds both "Monthly" and "Monthly Rent (12 cheques)"
+        on the same period; a bare limit=1 search would take the generic one."""
+        lease = self._lease(cheque_count="12")
+        if not lease._subscriptions_installed():
+            self.skipTest("Subscriptions is not installed on this database")
+        plan = lease._find_subscription_plan()
+        self.assertTrue(plan, "no plan matched a 12-cheque schedule")
+        self.assertIn("rent", plan.name.lower())
+
+    def test_annual_schedule_falls_back_to_a_yearly_plan(self):
+        lease = self._lease(cheque_count="1")
+        if not lease._subscriptions_installed():
+            self.skipTest("Subscriptions is not installed on this database")
+        plan = lease._find_subscription_plan()
+        self.assertTrue(plan)
+        self.assertEqual(plan.billing_period_unit, "year")
+        self.assertEqual(plan.billing_period_value, 1)
+
+    def test_creating_a_subscription_confirms_it(self):
+        lease = self._lease(cheque_count="4")
+        if not lease._subscriptions_installed():
+            self.skipTest("Subscriptions is not installed on this database")
+        lease.action_activate()
+        lease.action_create_subscription()
+        order = lease.subscription_id
+        self.assertTrue(order)
+        self.assertEqual(order.plan_id, lease._find_subscription_plan())
+        self.assertEqual(order.subscription_state, "3_progress")
+        self.assertEqual(order.c2p_lease_id, lease)
+        self.assertEqual(order.order_line.price_unit, lease.instalment_amount)

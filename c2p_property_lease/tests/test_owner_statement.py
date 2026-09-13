@@ -82,3 +82,27 @@ class TestOwnerStatement(TransactionCase):
         self.building.analytic_account_id = False
         with self.assertRaises(UserError):
             self._statement().action_print()
+
+    def test_fee_journal_prefers_the_dedicated_owner_journal(self):
+        company = self.building.company_id
+        sales = self.env["account.journal"].search([("type", "=", "sale"), ("company_id", "=", company.id)])
+        if not sales:
+            self.skipTest("no sales journal in this company")
+        statement = self._statement()
+        owni = self.env["account.journal"].create(
+            {
+                "name": "Owner Invoices (test)",
+                "code": "OWNI",
+                "type": "sale",
+                "company_id": company.id,
+            }
+        )
+        self.assertEqual(statement._fee_journal(company), owni)
+
+    def test_fee_journal_falls_back_to_the_sales_journal(self):
+        company = self.building.company_id
+        self.env["account.journal"].search([("code", "=", "OWNI"), ("company_id", "=", company.id)]).unlink()
+        sales = self.env["account.journal"].search([("type", "=", "sale"), ("company_id", "=", company.id)], limit=1)
+        if not sales:
+            self.skipTest("no sales journal in this company")
+        self.assertEqual(self._statement()._fee_journal(company), sales)

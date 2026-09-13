@@ -53,6 +53,7 @@ class C2pLease(models.Model):
 
     subscription_id = fields.Many2one("sale.order", string="Rent Subscription", copy=False, readonly=True)
     payment_ids = fields.One2many("account.payment", "lease_id", string="Cheques")
+    subscriptions_available = fields.Boolean(compute="_compute_subscriptions_available")
     pdc_count = fields.Integer(compute="_compute_pdc")
     pdc_pending = fields.Monetary(compute="_compute_pdc", string="Cheques Outstanding")
 
@@ -162,23 +163,58 @@ class C2pLease(models.Model):
             )
         return product
 
+    @api.model
+    def _subscriptions_installed(self):
+        """Subscriptions (Enterprise) is a soft dependency - it may be absent."""
+        return "sale.subscription.plan" in self.env
+
+    @api.depends_context("uid")
+    def _compute_subscriptions_available(self):
+        available = self._subscriptions_installed()
+        for rec in self:
+            rec.subscriptions_available = available
+
+    def _find_subscription_plan(self):
+        """Plan whose billing period matches the cheque schedule.
+
+        Prefer a plan named for rent: a database can hold both a generic
+        "Monthly" plan and a "Monthly Rent (12 cheques)" plan with the same
+        period, and the rent-specific one is the intended match.
+        """
+        self.ensure_one()
+        months = CHEQUE_PLAN[int(self.cheque_count)]
+        Plan = self.env["sale.subscription.plan"]
+        periods = [("month", months)]
+        if months == 12:
+            periods.append(("year", 1))
+        for unit, value in periods:
+            plans = Plan.search([("billing_period_unit", "=", unit), ("billing_period_value", "=", value)])
+            if not plans:
+                continue
+            preferred = plans.filtered(lambda p: "rent" in (p.name or "").lower())
+            return (preferred or plans)[0]
+        return Plan
+
     def action_create_subscription(self):
         """Generate the recurring rent subscription matching the cheque schedule."""
         self.ensure_one()
+        if not self._subscriptions_installed():
+            raise UserError(
+                self.env._(
+                    "Rent subscriptions need the Subscriptions app, which is not "
+                    "installed on this database. Everything else on the lease works "
+                    "without it."
+                )
+            )
         if self.subscription_id:
             raise UserError(self.env._("A rent subscription already exists for this lease."))
-        months = CHEQUE_PLAN[int(self.cheque_count)]
-        plan = self.env["sale.subscription.plan"].search(
-            [("billing_period_unit", "=", "month"), ("billing_period_value", "=", months)], limit=1
-        )
-        if not plan and months == 12:
-            plan = self.env["sale.subscription.plan"].search(
-                [("billing_period_unit", "=", "year"), ("billing_period_value", "=", 1)], limit=1
-            )
+        plan = self._find_subscription_plan()
         if not plan:
             raise UserError(self.env._("No subscription plan matches this cheque schedule."))
         product = self._rent_product()
         analytic = self.building_id.analytic_account_id
+        # Creating with plan_id and confirming is enough: is_subscription and
+        # subscription_state ("3_progress") follow from action_confirm().
         order = self.env["sale.order"].create(
             {
                 "partner_id": self.tenant_id.id,

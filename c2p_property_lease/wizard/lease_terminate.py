@@ -22,7 +22,8 @@ class LeaseTerminate(models.TransientModel):
         self.ensure_one()
         lease = self.lease_id
         lease.write({"state": "terminated", "date_end": self.date_termination})
-        if lease.subscription_id:
+        # Soft dependency: the field only exists when Subscriptions is installed.
+        if lease.subscription_id and "subscription_state" in lease.subscription_id._fields:
             lease.subscription_id.write({"subscription_state": "6_churn"})
         lease.unit_id.write({"state": "vacant", "current_lease_id": False})
         lease.message_post(

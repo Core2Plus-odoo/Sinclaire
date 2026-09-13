@@ -6,11 +6,16 @@
     "author": "C2P Consultants",
     "website": "https://www.core2plus.com",
     "license": "OPL-1",
+    # sale_subscription (Enterprise) is a SOFT dependency on purpose: it cannot
+    # be vendored into this repo or installed in CI, so hard-depending on it
+    # would mean this module is never install-tested. Everything here works on
+    # Community; the rent-subscription actions light up when Subscriptions is
+    # present and refuse with a clear message when it is not.
     "depends": [
         "base",
         "mail",
         "account",
-        "sale_subscription",
+        "sale",
         "analytic",
         "contacts",
     ],
@@ -31,6 +36,7 @@
         "wizard/owner_statement_views.xml",
         "views/menus.xml",
     ],
+    "pre_init_hook": "pre_init_hook",
     "application": True,
     "installable": True,
 }
