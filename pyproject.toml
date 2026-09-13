@@ -1,5 +1,6 @@
 [tool.ruff]
-line-length = 100
+# 120 matches Odoo core and the OCA pylint-odoo default.
+line-length = 120
 target-version = "py312"
 extend-exclude = ["setup/", "*/migrations/*"]
 
@@ -10,6 +11,10 @@ ignore = [
     # class attributes that look unused to static analysis.
     "B008",
     "RUF012",
+    # User-facing strings use typographic dashes on purpose (e.g. "Unit 101 - Tower").
+    "RUF001",
+    "RUF002",
+    "RUF003",
 ]
 
 [tool.ruff.lint.per-file-ignores]

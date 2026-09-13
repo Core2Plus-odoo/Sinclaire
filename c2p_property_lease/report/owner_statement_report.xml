@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_owner_statement" model="ir.actions.report">
+        <field name="name">Landlord Statement</field>
+        <field name="model">c2p.owner.statement</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">c2p_property_lease.report_owner_statement</field>
+        <field name="report_file">c2p_property_lease.report_owner_statement</field>
+        <field name="print_report_name">'Landlord Statement - %s' % (object.building_id.name)</field>
+    </record>
+
+    <template id="report_owner_statement">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>Landlord Statement</h2>
+                        <div class="row mt-4 mb-4">
+                            <div class="col-6">
+                                <strong>Landlord:</strong> <span t-field="doc.owner_id.name"/><br/>
+                                <strong>Building:</strong> <span t-field="doc.building_id.name"/><br/>
+                                <strong>Units:</strong> <span t-field="doc.building_id.unit_count"/>
+                                (<span t-field="doc.building_id.occupied_count"/> occupied)
+                            </div>
+                            <div class="col-6 text-end">
+                                <strong>Period:</strong>
+                                <span t-field="doc.date_from"/> – <span t-field="doc.date_to"/><br/>
+                                <strong>Management fee:</strong>
+                                <span t-field="doc.management_fee_pct"/>%
+                            </div>
+                        </div>
+
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Description</th><th class="text-end">Amount (AED)</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Rent and charges invoiced</td>
+                                    <td class="text-end"><span t-field="doc.rent_invoiced"/></td>
+                                </tr>
+                                <tr>
+                                    <td>Less: building expenses recharged</td>
+                                    <td class="text-end">(<span t-field="doc.expenses"/>)</td>
+                                </tr>
+                                <tr>
+                                    <td>Less: management fee</td>
+                                    <td class="text-end">(<span t-field="doc.management_fee"/>)</td>
+                                </tr>
+                                <tr class="border-top">
+                                    <td><strong>Net payable to landlord</strong></td>
+                                    <td class="text-end"><strong><span t-field="doc.net_payable"/></strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <p class="mt-4 text-muted" style="font-size:11px;">
+                            Residential rent is exempt from UAE VAT. Service charges, commissions and the
+                            management fee are standard-rated at 5%. Input VAT attributable to exempt
+                            residential income is not recoverable and has been apportioned accordingly.
+                        </p>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

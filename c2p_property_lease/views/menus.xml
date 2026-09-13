@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_property_root" name="Property"
+              sequence="15" groups="group_property_user"/>
+
+    <menuitem id="menu_property_operations" name="Operations" parent="menu_property_root" sequence="10"/>
+    <menuitem id="menu_lease" name="Leases" parent="menu_property_operations" action="action_lease" sequence="10"/>
+    <menuitem id="menu_lease_expiring" name="Expiring Leases" parent="menu_property_operations"
+              action="action_lease_expiring" sequence="20"/>
+    <menuitem id="menu_unit" name="Units" parent="menu_property_operations" action="action_unit" sequence="30"/>
+
+    <menuitem id="menu_property_finance" name="Finance" parent="menu_property_root" sequence="20"/>
+    <menuitem id="menu_pdc" name="Cheque Register" parent="menu_property_finance"
+              action="action_pdc_register" sequence="10"/>
+    <menuitem id="menu_owner_statement" name="Landlord Statement" parent="menu_property_finance"
+              action="action_owner_statement" sequence="20"
+              groups="group_property_manager"/>
+
+    <menuitem id="menu_property_config" name="Configuration" parent="menu_property_root" sequence="90"
+              groups="group_property_manager"/>
+    <menuitem id="menu_building" name="Buildings" parent="menu_property_config"
+              action="action_building" sequence="10"/>
+</odoo>

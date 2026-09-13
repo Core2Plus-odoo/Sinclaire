@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pdc_list" model="ir.ui.view">
+        <field name="name">account.payment.pdc.list</field>
+        <field name="model">account.payment</field>
+        <field name="arch" type="xml">
+            <list string="Cheque Register" decoration-danger="pdc_state == 'bounced'"
+                  decoration-success="pdc_state == 'cleared'">
+                <field name="cheque_no"/>
+                <field name="partner_id" string="Tenant"/>
+                <field name="unit_id"/>
+                <field name="building_id" optional="show"/>
+                <field name="cheque_bank"/>
+                <field name="maturity_date"/>
+                <field name="amount" sum="Total"/>
+                <field name="pdc_state" widget="badge"/>
+                <field name="state"/>
+                <field name="currency_id" column_invisible="1"/>
+                <button name="action_pdc_deposit" type="object" string="Deposit"
+                        icon="fa-university" invisible="pdc_state != 'held'"/>
+                <button name="action_pdc_clear" type="object" string="Cleared"
+                        icon="fa-check" invisible="pdc_state not in ('held','deposited')"/>
+                <button name="action_pdc_bounce" type="object" string="Bounced"
+                        icon="fa-times" invisible="pdc_state == 'bounced'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_pdc_search" model="ir.ui.view">
+        <field name="name">account.payment.pdc.search</field>
+        <field name="model">account.payment</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="cheque_no"/>
+                <field name="partner_id"/>
+                <field name="building_id"/>
+                <filter name="f_held" string="In Hand" domain="[('pdc_state','=','held')]"/>
+                <filter name="f_due" string="Due Now"
+                        domain="[('maturity_date','&lt;=',context_today().strftime('%Y-%m-%d')),('pdc_state','=','held')]"/>
+                <filter name="f_bounced" string="Bounced" domain="[('pdc_state','=','bounced')]"/>
+                <group>
+                    <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
+                    <filter name="g_state" string="Cheque Status" context="{'group_by':'pdc_state'}"/>
+                    <filter name="g_month" string="Maturity Month" context="{'group_by':'maturity_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_pdc_register" model="ir.actions.act_window">
+        <field name="name">Cheque Register</field>
+        <field name="res_model">account.payment</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('cheque_no','!=',False)]</field>
+        <field name="context">{'search_default_f_held': 1}</field>
+    </record>
+
+    <record id="action_pdc_register_view" model="ir.actions.act_window.view">
+        <field name="sequence">1</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_pdc_list"/>
+        <field name="act_window_id" ref="action_pdc_register"/>
+    </record>
+</odoo>

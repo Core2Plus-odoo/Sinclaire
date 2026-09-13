@@ -5,11 +5,11 @@
 # a field renamed between Odoo series (res.groups.category_id -> privilege_id
 # in 19.0, for instance) passes every static check and still breaks `-i`.
 #
-# NOTE: the public `odoo:19.0` image ships Community only. A module that depends
-# on an Enterprise app (account_accountant, sale_subscription, documents, ...)
-# will fail to install here. When that happens, either mount the Enterprise
-# addons from a private source onto the addons-path below, or restrict `--init`
-# to the Community-only subset.
+# NOTE: the public `odoo:19.0` image ships Community only, so a module depending
+# on an Enterprise app (sale_subscription, account_accountant, documents, ...)
+# cannot be installed here. tools/ci_addons.py resolves each addon's dependency
+# tree and skips those, naming them in the job log rather than failing the run.
+# Mount the Enterprise addons onto the addons-path below to cover them too.
 name: Odoo tests
 
 on:
@@ -45,20 +45,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Collect addon names
+      - name: Select installable addons
         id: addons
         run: |
-          names=$(find addons -mindepth 2 -maxdepth 2 -name __manifest__.py \
-            -printf '%h\n' | xargs -r -n1 basename | sort | paste -sd, -)
-          # Restrict the run to OUR tests. Without this, --test-enable also runs
-          # the suite of every dependency Odoo pulls in (base, web, bus, ... -
-          # ~1500 core tests, many of them browser tours that cannot pass in
-          # this container). The install itself still validates our data files.
-          tags=$(echo "$names" | tr ',' '\n' | sed 's|^|/|' | paste -sd, -)
-          echo "names=${names}" >> "$GITHUB_OUTPUT"
-          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
-          echo "Addons to install: ${names:-<none>}"
-          echo "Test tags: ${tags:-<none>}"
+          python3 tools/ci_addons.py \
+            --addons-path "$CORE_ADDONS,$GITHUB_WORKSPACE" >> "$GITHUB_OUTPUT"
+        env:
+          CORE_ADDONS: /usr/lib/python3/dist-packages/odoo/addons
 
       - name: Install addons and run tests
         if: steps.addons.outputs.names != ''
@@ -70,11 +63,11 @@ jobs:
           odoo \
             --db_host="$PGHOST" --db_user="$PGUSER" --db_password="$PGPASSWORD" \
             --database=sinclaire_ci \
-            --addons-path=/usr/lib/python3/dist-packages/odoo/addons,"$GITHUB_WORKSPACE/addons" \
+            --addons-path=/usr/lib/python3/dist-packages/odoo/addons,"$GITHUB_WORKSPACE" \
             --init="${{ steps.addons.outputs.names }}" \
             --test-enable \
             --test-tags="${{ steps.addons.outputs.tags }}" \
             --log-level=test \
-            --without-demo=all \
+            --without-demo=True \
             --stop-after-init \
             --max-cron-threads=0

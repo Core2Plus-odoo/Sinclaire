@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_lease_list" model="ir.ui.view">
+        <field name="name">c2p.lease.list</field>
+        <field name="model">c2p.lease</field>
+        <field name="arch" type="xml">
+            <list string="Leases" decoration-warning="days_to_expiry &lt; 60 and state == 'active'"
+                  decoration-muted="state in ('expired','terminated')">
+                <field name="name"/>
+                <field name="tenant_id"/>
+                <field name="unit_id"/>
+                <field name="building_id" optional="show"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="days_to_expiry" string="Days left"/>
+                <field name="annual_rent" sum="Annual rent"/>
+                <field name="cheque_count"/>
+                <field name="ejari_no" optional="hide"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'active'"
+                       decoration-warning="state == 'notice'"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_lease_form" model="ir.ui.view">
+        <field name="name">c2p.lease.form</field>
+        <field name="model">c2p.lease</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_activate" type="object" string="Activate"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_create_subscription" type="object" string="Create Rent Subscription"
+                            class="btn-primary" invisible="state != 'active' or subscription_id or not subscriptions_available"/>
+                    <button name="action_register_pdcs" type="object" string="Register PDCs"
+                            invisible="state not in ('active','notice')"/>
+                    <button name="action_renew" type="object" string="Renew"
+                            invisible="state not in ('active','notice','expired')"/>
+                    <button name="action_give_notice" type="object" string="Give Notice"
+                            invisible="state != 'active'"/>
+                    <button name="action_terminate" type="object" string="Terminate"
+                            invisible="state not in ('active','notice')"
+                            groups="c2p_property_lease.group_property_manager"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,active,expired"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_pdcs" type="object" class="oe_stat_button" icon="fa-money">
+                            <field name="pdc_count" widget="statinfo" string="Cheques"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Tenancy">
+                            <field name="tenant_id"/>
+                            <field name="unit_id"/>
+                            <field name="building_id" readonly="1"/>
+                            <field name="owner_id" readonly="1"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="days_to_expiry"/>
+                        </group>
+                        <group string="Commercials">
+                            <field name="annual_rent"/>
+                            <field name="cheque_count"/>
+                            <field name="instalment_amount"/>
+                            <field name="security_deposit"/>
+                            <field name="commission"/>
+                            <field name="is_commercial"/>
+                            <field name="pdc_pending"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Registration">
+                            <field name="ejari_no"/>
+                            <field name="ejari_date"/>
+                            <field name="dewa_no"/>
+                        </group>
+                        <group string="Links">
+                            <field name="subscriptions_available" invisible="1"/>
+                            <field name="subscription_id" readonly="1"/>
+                            <field name="renewed_from_id" readonly="1" invisible="not renewed_from_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Cheques" name="cheques">
+                            <field name="payment_ids" readonly="1">
+                                <list>
+                                    <field name="cheque_no"/>
+                                    <field name="cheque_bank"/>
+                                    <field name="maturity_date"/>
+                                    <field name="amount"/>
+                                    <field name="pdc_state" widget="badge"
+                                           decoration-success="pdc_state == 'cleared'"
+                                           decoration-danger="pdc_state == 'bounced'"/>
+                                    <field name="state"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_lease_search" model="ir.ui.view">
+        <field name="name">c2p.lease.search</field>
+        <field name="model">c2p.lease</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="tenant_id"/>
+                <field name="unit_id"/>
+                <field name="building_id"/>
+                <filter name="f_active" string="Active" domain="[('state','=','active')]"/>
+                <filter name="f_notice" string="Under Notice" domain="[('state','=','notice')]"/>
+                <separator/>
+                <filter name="f_30" string="Expiring in 30 days" domain="[('days_to_expiry','&lt;=',30),('state','=','active')]"/>
+                <filter name="f_60" string="Expiring in 60 days" domain="[('days_to_expiry','&lt;=',60),('state','=','active')]"/>
+                <filter name="f_90" string="Expiring in 90 days" domain="[('days_to_expiry','&lt;=',90),('state','=','active')]"/>
+                <separator/>
+                <filter name="f_noejari" string="Ejari Missing" domain="[('ejari_no','=',False)]"/>
+                <group>
+                    <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
+                    <filter name="g_state" string="Status" context="{'group_by':'state'}"/>
+                    <filter name="g_end" string="Expiry Month" context="{'group_by':'date_end:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_lease" model="ir.actions.act_window">
+        <field name="name">Leases</field>
+        <field name="res_model">c2p.lease</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_lease_expiring" model="ir.actions.act_window">
+        <field name="name">Expiring Leases</field>
+        <field name="res_model">c2p.lease</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state','=','active'),('days_to_expiry','&lt;=',90)]</field>
+        <field name="context">{'search_default_g_end': 1}</field>
+    </record>
+</odoo>
