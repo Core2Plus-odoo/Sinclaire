@@ -1,9 +1,9 @@
 # Integration tests: installs every sinclaire_* addon into a throwaway database
 # and runs its Odoo test suite.
 #
-# Kept off the pull-request path on purpose - it pulls the full Odoo image and
-# takes minutes rather than seconds. Run it from the Actions tab, or remove the
-# comment on the `pull_request` trigger below once the suite is worth the wait.
+# This is the gate that matters. The lint job cannot see an install failure -
+# a field renamed between Odoo series (res.groups.category_id -> privilege_id
+# in 19.0, for instance) passes every static check and still breaks `-i`.
 #
 # NOTE: the public `odoo:19.0` image ships Community only. A module that depends
 # on an Enterprise app (account_accountant, sale_subscription, documents, ...)
@@ -14,9 +14,9 @@ name: Odoo tests
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
     branches: ["main"]
-  # pull_request:
 
 permissions:
   contents: read

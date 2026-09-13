@@ -22,6 +22,10 @@ sinclaire_<feature>/
 └── tests/             # imported from tests/__init__.py
 ```
 
+**Licence.** `LGPL-3` for modules depending only on Community. A module that
+depends on an Enterprise app must be `OPL-1` — Odoo's Enterprise licence does
+not permit an LGPL derivative of it.
+
 **Models.** Prefer extending over replacing. Use `_inherit` for existing models
 and keep custom fields prefixed with `x_` only when they must stay
 Studio-compatible. No raw SQL unless there is a measured reason, and never
@@ -33,6 +37,13 @@ use `xpath` inheritance.
 
 **Security.** Every new model needs an `ir.model.access.csv` line. Record rules
 go in `security/`, not in the model.
+
+**v19 gotchas.** `_sql_constraints` is no longer read by the ORM — declare
+`models.Constraint(...)` / `models.UniqueIndex(...)` class attributes instead, or
+your constraint silently never reaches the database. `res.groups.category_id` is
+now `privilege_id` pointing at `res.groups.privilege`, and `res.users.groups_id`
+is `group_ids`. Set `_check_company_auto = True` on any model with a
+`company_id`.
 
 **Versions.** `19.0.<major>.<minor>.<patch>`. Bump the last segment for fixes,
 the middle one for new behaviour, and add a migration script when the change

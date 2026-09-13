@@ -58,10 +58,14 @@ credentials out of the repository.
 | `python tools/validate_manifests.py` | Manifest keys, versions, data paths, XML well-formedness |
 | `pre-commit run --all-files` | All of the above, as run on commit |
 
-Every pull request runs the lint job. The **Odoo tests** workflow (full install
-of every addon into a throwaway database) runs on `main` and on demand from the
-Actions tab; enable its `pull_request` trigger once the suite is worth the extra
-minutes.
+Every pull request runs both workflows: the fast lint job, and **Odoo tests**,
+which installs every addon into a throwaway database and runs its test suite
+against the `odoo:19.0` image. The lint job cannot see an install failure — a
+field renamed between series passes every static check and still breaks `-i` —
+so the integration job is the gate that decides whether a change is releasable.
+
+The public `odoo:19.0` image is Community only. A module depending on an
+Enterprise app needs the Enterprise addons mounted onto the job's addons-path.
 
 ## Branching
 
