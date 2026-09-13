@@ -3,7 +3,7 @@
 Odoo customisations for Sinclaire, maintained by C2P Consultants.
 
 - **Odoo series:** 19.0 (Enterprise)
-- **Python:** 3.12
+- **Python:** 3.12 in CI (Odoo 19.0 itself requires >= 3.10 — `MIN_PY_VERSION` in `odoo/release.py`)
 - **Custom addons live at the repository root** — Odoo.sh puts the repo root on the addons path
 
 ## Repository layout
