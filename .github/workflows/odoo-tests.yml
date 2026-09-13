@@ -1,0 +1,66 @@
+# Integration tests: installs every sinclaire_* addon into a throwaway database
+# and runs its Odoo test suite.
+#
+# Kept off the pull-request path on purpose - it pulls the full Odoo image and
+# takes minutes rather than seconds. Run it from the Actions tab, or remove the
+# comment on the `pull_request` trigger below once the suite is worth the wait.
+name: Odoo tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+  # pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Install & test addons
+    runs-on: ubuntu-latest
+    container:
+      image: odoo:18.0
+      options: --user root
+
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd "pg_isready -U odoo"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect addon names
+        id: addons
+        run: |
+          names=$(find addons -mindepth 2 -maxdepth 2 -name __manifest__.py \
+            -printf '%h\n' | xargs -r -n1 basename | paste -sd, -)
+          echo "names=${names}" >> "$GITHUB_OUTPUT"
+          echo "Addons to install: ${names:-<none>}"
+
+      - name: Install addons and run tests
+        if: steps.addons.outputs.names != ''
+        env:
+          PGHOST: db
+          PGUSER: odoo
+          PGPASSWORD: odoo
+        run: |
+          odoo \
+            --db_host="$PGHOST" --db_user="$PGUSER" --db_password="$PGPASSWORD" \
+            --database=sinclaire_ci \
+            --addons-path=/usr/lib/python3/dist-packages/odoo/addons,"$GITHUB_WORKSPACE/addons" \
+            --init="${{ steps.addons.outputs.names }}" \
+            --test-enable \
+            --log-level=test \
+            --without-demo=all \
+            --stop-after-init \
+            --max-cron-threads=0

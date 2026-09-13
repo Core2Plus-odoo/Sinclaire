@@ -1,0 +1,53 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# ---- Testing / linting caches ----
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# ---- Odoo runtime ----
+*.log
+odoo.conf
+.odoorc
+filestore/
+sessions/
+data_dir/
+*.sqlite3
+*.dump
+*.sql
+*.sql.gz
+
+# ---- Odoo build output ----
+# Compiled translation catalogs (.po sources are tracked)
+*.mo
+
+# ---- Editors / OS ----
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ---- Secrets ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
