@@ -18,7 +18,7 @@ from xml.etree import ElementTree
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ADDONS_DIR = REPO_ROOT / "addons"
-ODOO_SERIES = "18.0"
+ODOO_SERIES = "19.0"
 REQUIRED_KEYS = ("name", "version", "license", "depends")
 PATH_KEYS = ("data", "demo", "qweb")
 

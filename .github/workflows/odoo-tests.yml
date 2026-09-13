@@ -4,6 +4,12 @@
 # Kept off the pull-request path on purpose - it pulls the full Odoo image and
 # takes minutes rather than seconds. Run it from the Actions tab, or remove the
 # comment on the `pull_request` trigger below once the suite is worth the wait.
+#
+# NOTE: the public `odoo:19.0` image ships Community only. A module that depends
+# on an Enterprise app (account_accountant, sale_subscription, documents, ...)
+# will fail to install here. When that happens, either mount the Enterprise
+# addons from a private source onto the addons-path below, or restrict `--init`
+# to the Community-only subset.
 name: Odoo tests
 
 on:
@@ -20,7 +26,7 @@ jobs:
     name: Install & test addons
     runs-on: ubuntu-latest
     container:
-      image: odoo:18.0
+      image: odoo:19.0
       options: --user root
 
     services:

@@ -2,8 +2,8 @@
 
 Odoo customisations for Sinclaire, maintained by C2P Consultants.
 
-- **Odoo series:** 18.0 (Enterprise)
-- **Python:** 3.11
+- **Odoo series:** 19.0 (Enterprise)
+- **Python:** 3.12
 - **Custom addons live in:** [`addons/`](addons/)
 
 ## Repository layout
@@ -44,7 +44,7 @@ credentials out of the repository.
 
 1. Copy `docs/module_template/` to `addons/sinclaire_<feature>/`.
 2. Fill in `__manifest__.py`; keep `"depends": ["sinclaire_base", ...]`.
-3. Version strings are `18.0.<major>.<minor>.<patch>` — the series prefix is
+3. Version strings are `19.0.<major>.<minor>.<patch>` — the series prefix is
    enforced by CI.
 4. Declare every data file in the manifest; CI fails if a listed path is missing.
 5. Add tests under `tests/` and import them from `tests/__init__.py`.

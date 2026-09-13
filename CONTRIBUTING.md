@@ -34,7 +34,7 @@ use `xpath` inheritance.
 **Security.** Every new model needs an `ir.model.access.csv` line. Record rules
 go in `security/`, not in the model.
 
-**Versions.** `18.0.<major>.<minor>.<patch>`. Bump the last segment for fixes,
+**Versions.** `19.0.<major>.<minor>.<patch>`. Bump the last segment for fixes,
 the middle one for new behaviour, and add a migration script when the change
 needs one.
 

@@ -10,7 +10,7 @@ suite. Every other ``sinclaire_*`` module depends on this one so that common
 data, security groups and assets are loaded exactly once and in a predictable
 order.
 """,
-    "version": "18.0.1.0.0",
+    "version": "19.0.1.0.0",
     "category": "Technical",
     "author": "C2P Consultants",
     "website": "https://github.com/core2plus-odoo/sinclaire",
