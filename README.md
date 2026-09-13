@@ -59,8 +59,9 @@ credentials out of the repository.
 | `pre-commit run --all-files` | All of the above, as run on commit |
 
 Every pull request runs both workflows: the fast lint job, and **Odoo tests**,
-which installs every addon into a throwaway database and runs its test suite
-against the `odoo:19.0` image. The lint job cannot see an install failure — a
+which installs every addon into a throwaway database and runs *our* test
+suites against the `odoo:19.0` image (scoped with `--test-tags=/<module>`; the
+core suite of every dependency is not our gate to keep green). The lint job cannot see an install failure — a
 field renamed between series passes every static check and still breaks `-i` —
 so the integration job is the gate that decides whether a change is releasable.
 

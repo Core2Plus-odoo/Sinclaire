@@ -49,9 +49,16 @@ jobs:
         id: addons
         run: |
           names=$(find addons -mindepth 2 -maxdepth 2 -name __manifest__.py \
-            -printf '%h\n' | xargs -r -n1 basename | paste -sd, -)
+            -printf '%h\n' | xargs -r -n1 basename | sort | paste -sd, -)
+          # Restrict the run to OUR tests. Without this, --test-enable also runs
+          # the suite of every dependency Odoo pulls in (base, web, bus, ... -
+          # ~1500 core tests, many of them browser tours that cannot pass in
+          # this container). The install itself still validates our data files.
+          tags=$(echo "$names" | tr ',' '\n' | sed 's|^|/|' | paste -sd, -)
           echo "names=${names}" >> "$GITHUB_OUTPUT"
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
           echo "Addons to install: ${names:-<none>}"
+          echo "Test tags: ${tags:-<none>}"
 
       - name: Install addons and run tests
         if: steps.addons.outputs.names != ''
@@ -66,6 +73,7 @@ jobs:
             --addons-path=/usr/lib/python3/dist-packages/odoo/addons,"$GITHUB_WORKSPACE/addons" \
             --init="${{ steps.addons.outputs.names }}" \
             --test-enable \
+            --test-tags="${{ steps.addons.outputs.tags }}" \
             --log-level=test \
             --without-demo=all \
             --stop-after-init \
