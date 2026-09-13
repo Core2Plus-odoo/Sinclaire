@@ -46,8 +46,24 @@ export ODOO_URL=https://<your-odoo.sh-build>.dev.odoo.com
 export ODOO_DB=<your-database>
 export ODOO_USER=admin
 export ODOO_PWD=<use an API key, not the account password>
+
+# Optional - these default to the Sinclair setup:
+# export ODOO_COMPANY="New Sinclair Property Management LLC"
+# export TENANT_TAG=Tenant
+# export PDC_JOURNAL_CODE=PDCR
+
 python3 tools/demo/backfill_property_data.py
 ```
+
+Nothing is keyed to a fixed database id: the company is resolved by name and
+the visible companies are read from the database. If the PDC journal is absent
+(company 2 has none) the script says so and carries on without attaching
+cheques rather than silently doing nothing.
+
+It finishes with a reconciliation block — tenants read, units and leases
+created, cheques attached, and every skipped tenant named with a reason. If the
+counts do not add up it says so. Check that block before you treat the data as
+good.
 
 The script reads the existing tenants, derives their unit from the notes field,
 creates the three buildings, ~54 units and 50 active leases, links each lease to
@@ -68,6 +84,11 @@ in your shell environment or a secret store.
 - The landlord statement reads posted journal items by the building's analytic
   account, weighted by each line's analytic percentage, and excludes the
   module's own management-fee invoices.
+- Management-fee invoices go to the company's `OWNI` journal where it exists,
+  falling back to that company's sales journal.
+- Rent subscriptions need the Subscriptions app. Without it the module still
+  installs and everything else works; the subscription button is hidden and the
+  action refuses with an explanation.
 - The statement's **Rent Invoiced** figure is invoiced, not collected. A cheque
   that later bounces does not reduce it — check the PDC register before paying
   a landlord.
