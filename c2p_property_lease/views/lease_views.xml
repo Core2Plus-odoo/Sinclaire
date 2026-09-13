@@ -128,7 +128,7 @@
                 <filter name="f_90" string="Expiring in 90 days" domain="[('days_to_expiry','&lt;=',90),('state','=','active')]"/>
                 <separator/>
                 <filter name="f_noejari" string="Ejari Missing" domain="[('ejari_no','=',False)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
                     <filter name="g_state" string="Status" context="{'group_by':'state'}"/>
                     <filter name="g_end" string="Expiry Month" context="{'group_by':'date_end:month'}"/>

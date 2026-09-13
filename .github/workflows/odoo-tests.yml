@@ -68,6 +68,6 @@ jobs:
             --test-enable \
             --test-tags="${{ steps.addons.outputs.tags }}" \
             --log-level=test \
-            --without-demo=all \
+            --without-demo=True \
             --stop-after-init \
             --max-cron-threads=0

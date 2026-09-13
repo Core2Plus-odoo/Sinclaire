@@ -111,7 +111,7 @@
                 <filter name="f_vacant" string="Vacant" domain="[('state','=','vacant')]"/>
                 <filter name="f_occupied" string="Occupied" domain="[('state','=','occupied')]"/>
                 <filter name="f_notice" string="Under Notice" domain="[('state','=','notice')]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
                     <filter name="g_state" string="Status" context="{'group_by':'state'}"/>
                     <filter name="g_type" string="Type" context="{'group_by':'unit_type'}"/>

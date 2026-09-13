@@ -38,7 +38,7 @@
                 <filter name="f_due" string="Due Now"
                         domain="[('maturity_date','&lt;=',context_today().strftime('%Y-%m-%d')),('pdc_state','=','held')]"/>
                 <filter name="f_bounced" string="Bounced" domain="[('pdc_state','=','bounced')]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
                     <filter name="g_state" string="Cheque Status" context="{'group_by':'pdc_state'}"/>
                     <filter name="g_month" string="Maturity Month" context="{'group_by':'maturity_date:month'}"/>
