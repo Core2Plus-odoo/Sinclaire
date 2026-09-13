@@ -1,0 +1,22 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["setup/", "*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "RUF"]
+ignore = [
+    # Odoo manifests and models legitimately shadow/extend builtins and use
+    # class attributes that look unused to static analysis.
+    "B008",
+    "RUF012",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Manifests are bare dicts evaluated by Odoo, not importable modules.
+"**/__manifest__.py" = ["B018"]
+# Odoo's module loader relies on star-free but order-dependent imports.
+"**/__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["odoo"]

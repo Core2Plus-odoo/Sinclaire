@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_sinclaire_model_name_user,sinclaire.model.name user,model_sinclaire_model_name,sinclaire_base.group_sinclaire_user,1,0,0,0
+access_sinclaire_model_name_manager,sinclaire.model.name manager,model_sinclaire_model_name,sinclaire_base.group_sinclaire_manager,1,1,1,1
