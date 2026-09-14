@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_ceo_dashboard_form" model="ir.ui.view">
+        <field name="name">c2p.ceo.dashboard.form</field>
+        <field name="model">c2p.ceo.dashboard</field>
+        <field name="arch" type="xml">
+            <form string="CEO Command Center" create="false" edit="true">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Command Center</h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="company_id" options="{'no_create': True}"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                        </group>
+                    </group>
+
+                    <group string="Portfolio">
+                        <group>
+                            <field name="building_count"/>
+                            <field name="unit_count"/>
+                            <field name="occupancy_rate" widget="percentage"/>
+                        </group>
+                        <group>
+                            <field name="occupied_count"/>
+                            <field name="vacant_count"/>
+                            <field name="contracted_rent"/>
+                        </group>
+                    </group>
+
+                    <group string="Leases">
+                        <group>
+                            <field name="active_lease_count"/>
+                            <field name="expiring_lease_count"/>
+                        </group>
+                        <group>
+                            <field name="expiring_rent"/>
+                        </group>
+                    </group>
+
+                    <group string="Cheque Position">
+                        <group>
+                            <field name="pdc_held_count"/>
+                            <field name="pdc_held_amount"/>
+                        </group>
+                        <group>
+                            <field name="pdc_bounced_count"/>
+                            <field name="pdc_bounced_amount"/>
+                        </group>
+                    </group>
+
+                    <group string="Income">
+                        <group>
+                            <field name="rent_invoiced"/>
+                            <field name="fee_invoiced"/>
+                        </group>
+                        <group>
+                            <field name="overdue_receivable"/>
+                        </group>
+                    </group>
+
+                    <footer>
+                        <button name="action_open_vacant_units" type="object"
+                                string="Vacant Units" class="btn-secondary"/>
+                        <button name="action_open_expiring_leases" type="object"
+                                string="Expiring Leases" class="btn-secondary"/>
+                        <button name="action_open_cheques_in_hand" type="object"
+                                string="Cheques in Hand" class="btn-secondary"/>
+                        <button name="action_open_bounced_cheques" type="object"
+                                string="Bounced Cheques" class="btn-secondary"/>
+                        <button name="action_open_active_leases" type="object"
+                                string="Active Leases" class="btn-secondary"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ceo_dashboard" model="ir.actions.act_window">
+        <field name="name">CEO Command Center</field>
+        <field name="res_model">c2p.ceo.dashboard</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="view_id" ref="view_ceo_dashboard_form"/>
+    </record>
+
+</odoo>
