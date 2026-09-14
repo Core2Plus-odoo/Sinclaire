@@ -1,0 +1,1236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Landlords and the tenant tag -->
+        <record id="partner_category_tenant" model="res.partner.category">
+            <field name="name">Tenant</field>
+        </record>
+
+        <record id="landlord_rashid" model="res.partner">
+            <field name="name">Rashid Bin Hamad Real Estate Holdings</field>
+            <field name="is_company" eval="True"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="landlord_abdulla" model="res.partner">
+            <field name="name">Abdulla Al Mansoori Properties</field>
+            <field name="is_company" eval="True"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <!-- Buildings -->
+        <record id="building_mkh" model="c2p.building">
+            <field name="name">Al Mankhool Residence</field>
+            <field name="code">MKH</field>
+            <field name="community">Al Mankhool</field>
+            <field name="city">Dubai</field>
+            <field name="owner_id" ref="landlord_rashid"/>
+            <field name="management_fee_pct">5.0</field>
+        </record>
+
+        <record id="building_krm" model="c2p.building">
+            <field name="name">Karama Court</field>
+            <field name="code">KRM</field>
+            <field name="community">Al Karama</field>
+            <field name="city">Dubai</field>
+            <field name="owner_id" ref="landlord_abdulla"/>
+            <field name="management_fee_pct">5.0</field>
+        </record>
+
+        <record id="building_wrq" model="c2p.building">
+            <field name="name">Warqa Gardens</field>
+            <field name="code">WRQ</field>
+            <field name="community">Al Warqa</field>
+            <field name="city">Dubai</field>
+            <field name="owner_id" ref="landlord_abdulla"/>
+            <field name="management_fee_pct">6.0</field>
+        </record>
+
+        <!-- Units -->
+        <record id="unit_mkh_101" model="c2p.unit">
+            <field name="name">MKH-101</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">studio</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">525</field>
+            <field name="market_rent">48300.0</field>
+            <field name="rera_index_low">38000</field>
+            <field name="rera_index_high">52000</field>
+            <field name="dewa_no">2491442</field>
+        </record>
+
+        <record id="unit_mkh_102" model="c2p.unit">
+            <field name="name">MKH-102</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">1br</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">789</field>
+            <field name="market_rent">72200.0</field>
+            <field name="rera_index_low">55000</field>
+            <field name="rera_index_high">78000</field>
+            <field name="dewa_no">2662178</field>
+        </record>
+
+        <record id="unit_mkh_103" model="c2p.unit">
+            <field name="name">MKH-103</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">2br</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">1245</field>
+            <field name="market_rent">87500.0</field>
+            <field name="rera_index_low">85000</field>
+            <field name="rera_index_high">125000</field>
+            <field name="dewa_no">2757105</field>
+        </record>
+
+        <record id="unit_mkh_104" model="c2p.unit">
+            <field name="name">MKH-104</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">3br</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">1894</field>
+            <field name="market_rent">124800.0</field>
+            <field name="rera_index_low">120000</field>
+            <field name="rera_index_high">170000</field>
+            <field name="dewa_no">2363622</field>
+        </record>
+
+        <record id="unit_mkh_201" model="c2p.unit">
+            <field name="name">MKH-201</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">studio</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">486</field>
+            <field name="market_rent">44600.0</field>
+            <field name="rera_index_low">38000</field>
+            <field name="rera_index_high">52000</field>
+            <field name="dewa_no">2466443</field>
+        </record>
+
+        <record id="unit_mkh_202" model="c2p.unit">
+            <field name="name">MKH-202</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">1br</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">829</field>
+            <field name="market_rent">75200.0</field>
+            <field name="rera_index_low">55000</field>
+            <field name="rera_index_high">78000</field>
+            <field name="dewa_no">2255155</field>
+        </record>
+
+        <record id="unit_mkh_203" model="c2p.unit">
+            <field name="name">MKH-203</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">2br</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">1130</field>
+            <field name="market_rent">100200.0</field>
+            <field name="rera_index_low">85000</field>
+            <field name="rera_index_high">125000</field>
+            <field name="dewa_no">2921289</field>
+        </record>
+
+        <record id="unit_mkh_204" model="c2p.unit">
+            <field name="name">MKH-204</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">3br</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">1778</field>
+            <field name="market_rent">125000.0</field>
+            <field name="rera_index_low">120000</field>
+            <field name="rera_index_high">170000</field>
+            <field name="dewa_no">2508500</field>
+        </record>
+
+        <record id="unit_mkh_301" model="c2p.unit">
+            <field name="name">MKH-301</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">studio</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">436</field>
+            <field name="market_rent">41600.0</field>
+            <field name="rera_index_low">38000</field>
+            <field name="rera_index_high">52000</field>
+            <field name="dewa_no">2555265</field>
+        </record>
+
+        <record id="unit_mkh_302" model="c2p.unit">
+            <field name="name">MKH-302</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">1br</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">949</field>
+            <field name="market_rent">63800.0</field>
+            <field name="rera_index_low">55000</field>
+            <field name="rera_index_high">78000</field>
+            <field name="dewa_no">2711153</field>
+        </record>
+
+        <record id="unit_mkh_303" model="c2p.unit">
+            <field name="name">MKH-303</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">2br</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">1242</field>
+            <field name="market_rent">116500.0</field>
+            <field name="rera_index_low">85000</field>
+            <field name="rera_index_high">125000</field>
+            <field name="dewa_no">2494612</field>
+        </record>
+
+        <record id="unit_mkh_304" model="c2p.unit">
+            <field name="name">MKH-304</field>
+            <field name="building_id" ref="building_mkh"/>
+            <field name="unit_type">3br</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">1579</field>
+            <field name="market_rent">146700.0</field>
+            <field name="rera_index_low">120000</field>
+            <field name="rera_index_high">170000</field>
+            <field name="dewa_no">2152354</field>
+        </record>
+
+        <record id="unit_krm_101" model="c2p.unit">
+            <field name="name">KRM-101</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">studio</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">428</field>
+            <field name="market_rent">43100.0</field>
+            <field name="rera_index_low">38000</field>
+            <field name="rera_index_high">52000</field>
+            <field name="dewa_no">2915432</field>
+        </record>
+
+        <record id="unit_krm_102" model="c2p.unit">
+            <field name="name">KRM-102</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">1br</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">867</field>
+            <field name="market_rent">73300.0</field>
+            <field name="rera_index_low">55000</field>
+            <field name="rera_index_high">78000</field>
+            <field name="dewa_no">2669996</field>
+        </record>
+
+        <record id="unit_krm_103" model="c2p.unit">
+            <field name="name">KRM-103</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">2br</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">1235</field>
+            <field name="market_rent">107300.0</field>
+            <field name="rera_index_low">85000</field>
+            <field name="rera_index_high">125000</field>
+            <field name="dewa_no">2131762</field>
+        </record>
+
+        <record id="unit_krm_104" model="c2p.unit">
+            <field name="name">KRM-104</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">3br</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">1777</field>
+            <field name="market_rent">153100.0</field>
+            <field name="rera_index_low">120000</field>
+            <field name="rera_index_high">170000</field>
+            <field name="dewa_no">2371029</field>
+        </record>
+
+        <record id="unit_krm_201" model="c2p.unit">
+            <field name="name">KRM-201</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">studio</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">426</field>
+            <field name="market_rent">48300.0</field>
+            <field name="rera_index_low">38000</field>
+            <field name="rera_index_high">52000</field>
+            <field name="dewa_no">2920585</field>
+        </record>
+
+        <record id="unit_krm_202" model="c2p.unit">
+            <field name="name">KRM-202</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">1br</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">833</field>
+            <field name="market_rent">65600.0</field>
+            <field name="rera_index_low">55000</field>
+            <field name="rera_index_high">78000</field>
+            <field name="dewa_no">2892461</field>
+        </record>
+
+        <record id="unit_krm_203" model="c2p.unit">
+            <field name="name">KRM-203</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">2br</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">1337</field>
+            <field name="market_rent">97900.0</field>
+            <field name="rera_index_low">85000</field>
+            <field name="rera_index_high">125000</field>
+            <field name="dewa_no">2604081</field>
+        </record>
+
+        <record id="unit_krm_204" model="c2p.unit">
+            <field name="name">KRM-204</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">3br</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">1787</field>
+            <field name="market_rent">140000.0</field>
+            <field name="rera_index_low">120000</field>
+            <field name="rera_index_high">170000</field>
+            <field name="dewa_no">2390388</field>
+        </record>
+
+        <record id="unit_krm_301" model="c2p.unit">
+            <field name="name">KRM-301</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">studio</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">428</field>
+            <field name="market_rent">49800.0</field>
+            <field name="rera_index_low">38000</field>
+            <field name="rera_index_high">52000</field>
+            <field name="dewa_no">2609195</field>
+        </record>
+
+        <record id="unit_krm_302" model="c2p.unit">
+            <field name="name">KRM-302</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">1br</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">843</field>
+            <field name="market_rent">61200.0</field>
+            <field name="rera_index_low">55000</field>
+            <field name="rera_index_high">78000</field>
+            <field name="dewa_no">2194506</field>
+        </record>
+
+        <record id="unit_krm_303" model="c2p.unit">
+            <field name="name">KRM-303</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">2br</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">1111</field>
+            <field name="market_rent">86400.0</field>
+            <field name="rera_index_low">85000</field>
+            <field name="rera_index_high">125000</field>
+            <field name="dewa_no">2522731</field>
+        </record>
+
+        <record id="unit_krm_304" model="c2p.unit">
+            <field name="name">KRM-304</field>
+            <field name="building_id" ref="building_krm"/>
+            <field name="unit_type">3br</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">1783</field>
+            <field name="market_rent">144300.0</field>
+            <field name="rera_index_low">120000</field>
+            <field name="rera_index_high">170000</field>
+            <field name="dewa_no">2085287</field>
+        </record>
+
+        <record id="unit_wrq_101" model="c2p.unit">
+            <field name="name">WRQ-101</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">studio</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">540</field>
+            <field name="market_rent">47000.0</field>
+            <field name="rera_index_low">38000</field>
+            <field name="rera_index_high">52000</field>
+            <field name="dewa_no">2043692</field>
+        </record>
+
+        <record id="unit_wrq_102" model="c2p.unit">
+            <field name="name">WRQ-102</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">1br</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">870</field>
+            <field name="market_rent">76400.0</field>
+            <field name="rera_index_low">55000</field>
+            <field name="rera_index_high">78000</field>
+            <field name="dewa_no">2182626</field>
+        </record>
+
+        <record id="unit_wrq_103" model="c2p.unit">
+            <field name="name">WRQ-103</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">2br</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">1140</field>
+            <field name="market_rent">97700.0</field>
+            <field name="rera_index_low">85000</field>
+            <field name="rera_index_high">125000</field>
+            <field name="dewa_no">2840240</field>
+        </record>
+
+        <record id="unit_wrq_104" model="c2p.unit">
+            <field name="name">WRQ-104</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">shop</field>
+            <field name="floor">1</field>
+            <field name="area_sqft">1069</field>
+            <field name="market_rent">134200.0</field>
+            <field name="rera_index_low">90000</field>
+            <field name="rera_index_high">160000</field>
+            <field name="dewa_no">2436991</field>
+        </record>
+
+        <record id="unit_wrq_201" model="c2p.unit">
+            <field name="name">WRQ-201</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">studio</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">559</field>
+            <field name="market_rent">40600.0</field>
+            <field name="rera_index_low">38000</field>
+            <field name="rera_index_high">52000</field>
+            <field name="dewa_no">2506363</field>
+        </record>
+
+        <record id="unit_wrq_202" model="c2p.unit">
+            <field name="name">WRQ-202</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">1br</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">833</field>
+            <field name="market_rent">73800.0</field>
+            <field name="rera_index_low">55000</field>
+            <field name="rera_index_high">78000</field>
+            <field name="dewa_no">2561912</field>
+        </record>
+
+        <record id="unit_wrq_203" model="c2p.unit">
+            <field name="name">WRQ-203</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">2br</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">1281</field>
+            <field name="market_rent">123700.0</field>
+            <field name="rera_index_low">85000</field>
+            <field name="rera_index_high">125000</field>
+            <field name="dewa_no">2139666</field>
+        </record>
+
+        <record id="unit_wrq_204" model="c2p.unit">
+            <field name="name">WRQ-204</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">3br</field>
+            <field name="floor">2</field>
+            <field name="area_sqft">1797</field>
+            <field name="market_rent">150200.0</field>
+            <field name="rera_index_low">120000</field>
+            <field name="rera_index_high">170000</field>
+            <field name="dewa_no">2864782</field>
+        </record>
+
+        <record id="unit_wrq_301" model="c2p.unit">
+            <field name="name">WRQ-301</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">studio</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">479</field>
+            <field name="market_rent">42500.0</field>
+            <field name="rera_index_low">38000</field>
+            <field name="rera_index_high">52000</field>
+            <field name="dewa_no">2919768</field>
+        </record>
+
+        <record id="unit_wrq_302" model="c2p.unit">
+            <field name="name">WRQ-302</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">1br</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">797</field>
+            <field name="market_rent">60900.0</field>
+            <field name="rera_index_low">55000</field>
+            <field name="rera_index_high">78000</field>
+            <field name="dewa_no">2019366</field>
+        </record>
+
+        <record id="unit_wrq_303" model="c2p.unit">
+            <field name="name">WRQ-303</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">2br</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">1370</field>
+            <field name="market_rent">94400.0</field>
+            <field name="rera_index_low">85000</field>
+            <field name="rera_index_high">125000</field>
+            <field name="dewa_no">2468644</field>
+        </record>
+
+        <record id="unit_wrq_304" model="c2p.unit">
+            <field name="name">WRQ-304</field>
+            <field name="building_id" ref="building_wrq"/>
+            <field name="unit_type">3br</field>
+            <field name="floor">3</field>
+            <field name="area_sqft">1581</field>
+            <field name="market_rent">166100.0</field>
+            <field name="rera_index_low">120000</field>
+            <field name="rera_index_high">170000</field>
+            <field name="dewa_no">2265908</field>
+        </record>
+
+        <!-- Tenants and their active leases -->
+        <record id="tenant_0" model="res.partner">
+            <field name="name">Omar Al Rashid</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_mkh_101" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_0"/>
+            <field name="unit_id" ref="unit_mkh_101"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=20)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=20) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">47300.0</field>
+            <field name="cheque_count">6</field>
+            <field name="security_deposit">2365.0</field>
+            <field name="commission">2365.0</field>
+            <field name="ejari_no">E-878220</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=17)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_1" model="res.partner">
+            <field name="name">Fatima Haddad</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_mkh_102" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_1"/>
+            <field name="unit_id" ref="unit_mkh_102"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=140)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=140) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">61600.0</field>
+            <field name="cheque_count">6</field>
+            <field name="security_deposit">3080.0</field>
+            <field name="commission">3080.0</field>
+            <field name="ejari_no">E-671892</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=137)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_2" model="res.partner">
+            <field name="name">Yusuf Nasser</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_mkh_103" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_2"/>
+            <field name="unit_id" ref="unit_mkh_103"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=140)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=140) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">116400.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">5820.0</field>
+            <field name="commission">5820.0</field>
+            <field name="ejari_no">E-210746</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=137)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_3" model="res.partner">
+            <field name="name">Aisha Khoury</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_mkh_201" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_3"/>
+            <field name="unit_id" ref="unit_mkh_201"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=55)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=55) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">38500.0</field>
+            <field name="cheque_count">12</field>
+            <field name="security_deposit">1925.0</field>
+            <field name="commission">1925.0</field>
+            <field name="ejari_no">E-311426</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=52)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_4" model="res.partner">
+            <field name="name">Bilal Siddiqui</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_mkh_202" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_4"/>
+            <field name="unit_id" ref="unit_mkh_202"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=80)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=80) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">67500.0</field>
+            <field name="cheque_count">2</field>
+            <field name="security_deposit">3375.0</field>
+            <field name="commission">3375.0</field>
+            <field name="ejari_no">E-402976</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=77)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_5" model="res.partner">
+            <field name="name">Noor Farouk</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_mkh_203" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_5"/>
+            <field name="unit_id" ref="unit_mkh_203"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=330)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=330) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">112200.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">5610.0</field>
+            <field name="commission">5610.0</field>
+            <field name="ejari_no">E-942469</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=327)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_6" model="res.partner">
+            <field name="name">Khalid Mansour</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_mkh_204" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_6"/>
+            <field name="unit_id" ref="unit_mkh_204"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=200)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=200) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">136900.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">6845.0</field>
+            <field name="commission">6845.0</field>
+            <field name="ejari_no">E-466865</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=197)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_7" model="res.partner">
+            <field name="name">Sara Darwish</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_mkh_301" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_7"/>
+            <field name="unit_id" ref="unit_mkh_301"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=20)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=20) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">49400.0</field>
+            <field name="cheque_count">12</field>
+            <field name="security_deposit">2470.0</field>
+            <field name="commission">2470.0</field>
+            <field name="ejari_no">E-111935</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=17)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_8" model="res.partner">
+            <field name="name">Imran Qureshi</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_mkh_302" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_8"/>
+            <field name="unit_id" ref="unit_mkh_302"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=20)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=20) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">69300.0</field>
+            <field name="cheque_count">6</field>
+            <field name="security_deposit">3465.0</field>
+            <field name="commission">3465.0</field>
+            <field name="ejari_no">E-837266</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=17)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_9" model="res.partner">
+            <field name="name">Layla Bakr</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_mkh_303" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_9"/>
+            <field name="unit_id" ref="unit_mkh_303"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=200)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=200) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">96100.0</field>
+            <field name="cheque_count">6</field>
+            <field name="security_deposit">4805.0</field>
+            <field name="commission">4805.0</field>
+            <field name="ejari_no">E-841885</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=197)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_10" model="res.partner">
+            <field name="name">Tariq Aziz</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_krm_101" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_10"/>
+            <field name="unit_id" ref="unit_krm_101"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=300)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=300) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">41400.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">2070.0</field>
+            <field name="commission">2070.0</field>
+            <field name="ejari_no">E-877081</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=297)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_11" model="res.partner">
+            <field name="name">Huda Halabi</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_krm_102" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_11"/>
+            <field name="unit_id" ref="unit_krm_102"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=330)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=330) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">76400.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">3820.0</field>
+            <field name="commission">3820.0</field>
+            <field name="ejari_no">E-594980</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=327)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_12" model="res.partner">
+            <field name="name">Zain Al Rashid</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_krm_103" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_12"/>
+            <field name="unit_id" ref="unit_krm_103"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=260)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=260) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">90300.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">4515.0</field>
+            <field name="commission">4515.0</field>
+            <field name="ejari_no">E-220719</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=257)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_13" model="res.partner">
+            <field name="name">Mariam Haddad</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_krm_201" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_13"/>
+            <field name="unit_id" ref="unit_krm_201"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=300)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=300) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">39400.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">1970.0</field>
+            <field name="commission">1970.0</field>
+            <field name="ejari_no">E-209253</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=297)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_14" model="res.partner">
+            <field name="name">Faisal Nasser</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_krm_202" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_14"/>
+            <field name="unit_id" ref="unit_krm_202"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=140)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=140) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">68900.0</field>
+            <field name="cheque_count">2</field>
+            <field name="security_deposit">3445.0</field>
+            <field name="commission">3445.0</field>
+            <field name="ejari_no">E-747360</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=137)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_15" model="res.partner">
+            <field name="name">Rania Khoury</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_krm_203" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_15"/>
+            <field name="unit_id" ref="unit_krm_203"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=200)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=200) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">90600.0</field>
+            <field name="cheque_count">1</field>
+            <field name="security_deposit">4530.0</field>
+            <field name="commission">4530.0</field>
+            <field name="ejari_no">E-986817</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=197)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_16" model="res.partner">
+            <field name="name">Adnan Siddiqui</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_krm_204" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_16"/>
+            <field name="unit_id" ref="unit_krm_204"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=55)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=55) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">160800.0</field>
+            <field name="cheque_count">2</field>
+            <field name="security_deposit">8040.0</field>
+            <field name="commission">8040.0</field>
+            <field name="ejari_no">E-675548</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=52)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_17" model="res.partner">
+            <field name="name">Salma Farouk</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_krm_301" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_17"/>
+            <field name="unit_id" ref="unit_krm_301"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=260)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=260) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">50900.0</field>
+            <field name="cheque_count">6</field>
+            <field name="security_deposit">2545.0</field>
+            <field name="commission">2545.0</field>
+            <field name="ejari_no">E-472160</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=257)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_18" model="res.partner">
+            <field name="name">Nabil Mansour</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_krm_302" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_18"/>
+            <field name="unit_id" ref="unit_krm_302"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=300)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=300) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">60500.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">3025.0</field>
+            <field name="commission">3025.0</field>
+            <field name="ejari_no">E-738594</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=297)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_19" model="res.partner">
+            <field name="name">Dina Darwish</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_krm_303" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_19"/>
+            <field name="unit_id" ref="unit_krm_303"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=140)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=140) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">97700.0</field>
+            <field name="cheque_count">1</field>
+            <field name="security_deposit">4885.0</field>
+            <field name="commission">4885.0</field>
+            <field name="ejari_no">E-529224</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=137)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_20" model="res.partner">
+            <field name="name">Hassan Qureshi</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_wrq_101" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_20"/>
+            <field name="unit_id" ref="unit_wrq_101"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=55)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=55) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">45500.0</field>
+            <field name="cheque_count">2</field>
+            <field name="security_deposit">2275.0</field>
+            <field name="commission">2275.0</field>
+            <field name="ejari_no">E-387318</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=52)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_21" model="res.partner">
+            <field name="name">Amal Bakr</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_wrq_102" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_21"/>
+            <field name="unit_id" ref="unit_wrq_102"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=330)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=330) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">65700.0</field>
+            <field name="cheque_count">6</field>
+            <field name="security_deposit">3285.0</field>
+            <field name="commission">3285.0</field>
+            <field name="ejari_no">E-554398</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=327)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_22" model="res.partner">
+            <field name="name">Omar Aziz</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_wrq_103" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_22"/>
+            <field name="unit_id" ref="unit_wrq_103"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=300)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=300) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">116200.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">5810.0</field>
+            <field name="commission">5810.0</field>
+            <field name="ejari_no">E-978157</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=297)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_23" model="res.partner">
+            <field name="name">Fatima Halabi</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_wrq_201" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_23"/>
+            <field name="unit_id" ref="unit_wrq_201"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=300)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=300) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">49100.0</field>
+            <field name="cheque_count">1</field>
+            <field name="security_deposit">2455.0</field>
+            <field name="commission">2455.0</field>
+            <field name="ejari_no">E-888340</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=297)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_24" model="res.partner">
+            <field name="name">Yusuf Al Rashid</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_wrq_202" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_24"/>
+            <field name="unit_id" ref="unit_wrq_202"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=140)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=140) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">73300.0</field>
+            <field name="cheque_count">2</field>
+            <field name="security_deposit">3665.0</field>
+            <field name="commission">3665.0</field>
+            <field name="ejari_no">E-263204</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=137)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_25" model="res.partner">
+            <field name="name">Aisha Haddad</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_wrq_203" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_25"/>
+            <field name="unit_id" ref="unit_wrq_203"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=200)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=200) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">108000.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">5400.0</field>
+            <field name="commission">5400.0</field>
+            <field name="ejari_no">E-972246</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=197)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_26" model="res.partner">
+            <field name="name">Bilal Nasser</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_wrq_204" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_26"/>
+            <field name="unit_id" ref="unit_wrq_204"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=200)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=200) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">150100.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">7505.0</field>
+            <field name="commission">7505.0</field>
+            <field name="ejari_no">E-602904</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=197)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_27" model="res.partner">
+            <field name="name">Noor Khoury</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_wrq_301" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_27"/>
+            <field name="unit_id" ref="unit_wrq_301"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=20)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=20) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">42500.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">2125.0</field>
+            <field name="commission">2125.0</field>
+            <field name="ejari_no">E-555906</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=17)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_28" model="res.partner">
+            <field name="name">Khalid Siddiqui</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_wrq_302" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_28"/>
+            <field name="unit_id" ref="unit_wrq_302"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=260)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=260) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">59300.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">2965.0</field>
+            <field name="commission">2965.0</field>
+            <field name="ejari_no">E-734489</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=257)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <record id="tenant_29" model="res.partner">
+            <field name="name">Sara Farouk</field>
+            <field name="category_id" eval="[(4, ref('partner_category_tenant'))]"/>
+            <field name="city">Dubai</field>
+        </record>
+
+        <record id="lease_wrq_303" model="c2p.lease">
+            <field name="tenant_id" ref="tenant_29"/>
+            <field name="unit_id" ref="unit_wrq_303"/>
+            <field name="date_start" eval="(DateTime.today() - relativedelta(days=140)).strftime('%Y-%m-%d')"/>
+            <field name="date_end" eval="(DateTime.today() - relativedelta(days=140) + relativedelta(years=1, days=-1)).strftime('%Y-%m-%d')"/>
+            <field name="annual_rent">101400.0</field>
+            <field name="cheque_count">4</field>
+            <field name="security_deposit">5070.0</field>
+            <field name="commission">5070.0</field>
+            <field name="ejari_no">E-893175</field>
+            <field name="ejari_date" eval="(DateTime.today() - relativedelta(days=137)).strftime('%Y-%m-%d')"/>
+            <field name="state">active</field>
+        </record>
+
+        <!-- Occupancy follows from the leases above -->
+        <record id="unit_mkh_101" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_mkh_101"/>
+        </record>
+
+        <record id="unit_mkh_102" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_mkh_102"/>
+        </record>
+
+        <record id="unit_mkh_103" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_mkh_103"/>
+        </record>
+
+        <record id="unit_mkh_201" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_mkh_201"/>
+        </record>
+
+        <record id="unit_mkh_202" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_mkh_202"/>
+        </record>
+
+        <record id="unit_mkh_203" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_mkh_203"/>
+        </record>
+
+        <record id="unit_mkh_204" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_mkh_204"/>
+        </record>
+
+        <record id="unit_mkh_301" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_mkh_301"/>
+        </record>
+
+        <record id="unit_mkh_302" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_mkh_302"/>
+        </record>
+
+        <record id="unit_mkh_303" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_mkh_303"/>
+        </record>
+
+        <record id="unit_krm_101" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_krm_101"/>
+        </record>
+
+        <record id="unit_krm_102" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_krm_102"/>
+        </record>
+
+        <record id="unit_krm_103" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_krm_103"/>
+        </record>
+
+        <record id="unit_krm_201" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_krm_201"/>
+        </record>
+
+        <record id="unit_krm_202" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_krm_202"/>
+        </record>
+
+        <record id="unit_krm_203" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_krm_203"/>
+        </record>
+
+        <record id="unit_krm_204" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_krm_204"/>
+        </record>
+
+        <record id="unit_krm_301" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_krm_301"/>
+        </record>
+
+        <record id="unit_krm_302" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_krm_302"/>
+        </record>
+
+        <record id="unit_krm_303" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_krm_303"/>
+        </record>
+
+        <record id="unit_wrq_101" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_wrq_101"/>
+        </record>
+
+        <record id="unit_wrq_102" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_wrq_102"/>
+        </record>
+
+        <record id="unit_wrq_103" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_wrq_103"/>
+        </record>
+
+        <record id="unit_wrq_201" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_wrq_201"/>
+        </record>
+
+        <record id="unit_wrq_202" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_wrq_202"/>
+        </record>
+
+        <record id="unit_wrq_203" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_wrq_203"/>
+        </record>
+
+        <record id="unit_wrq_204" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_wrq_204"/>
+        </record>
+
+        <record id="unit_wrq_301" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_wrq_301"/>
+        </record>
+
+        <record id="unit_wrq_302" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_wrq_302"/>
+        </record>
+
+        <record id="unit_wrq_303" model="c2p.unit">
+            <field name="state">occupied</field>
+            <field name="current_lease_id" ref="lease_wrq_303"/>
+        </record>
+
+    </data>
+</odoo>

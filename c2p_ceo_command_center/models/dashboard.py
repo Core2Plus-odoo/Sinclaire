@@ -26,6 +26,17 @@ class CeoDashboard(models.TransientModel):
     vacant_count = fields.Integer(compute="_compute_portfolio")
     occupancy_rate = fields.Float(compute="_compute_portfolio", string="Occupancy %")
     contracted_rent = fields.Monetary(compute="_compute_portfolio")
+    vacant_market_rent = fields.Monetary(
+        compute="_compute_portfolio",
+        string="Revenue Foregone",
+        help="Annual market rent of the units standing empty - what vacancy costs per year.",
+    )
+    avg_rent_per_unit = fields.Monetary(compute="_compute_portfolio", string="Average Rent")
+    avg_rent_per_sqft = fields.Float(
+        compute="_compute_portfolio",
+        string="Rent per sq ft",
+        help="Contracted annual rent divided by the leased area.",
+    )
 
     # ---------------------------------------------------------------- leases
     active_lease_count = fields.Integer(compute="_compute_leases")
@@ -35,12 +46,30 @@ class CeoDashboard(models.TransientModel):
         string="Rent at Risk",
         help="Annual rent on leases expiring within the renewal horizon.",
     )
+    expiring_30 = fields.Integer(compute="_compute_leases", string="Within 30 Days")
+    expiring_60 = fields.Integer(compute="_compute_leases", string="31-60 Days")
+    expiring_90 = fields.Integer(compute="_compute_leases", string="61-90 Days")
+    lease_at_risk_rate = fields.Float(
+        compute="_compute_leases",
+        string="Portfolio at Risk %",
+        help="Share of active leases expiring inside the renewal horizon.",
+    )
 
     # ---------------------------------------------------------------- cheques
     pdc_held_amount = fields.Monetary(compute="_compute_cheques", string="Cheques in Hand")
     pdc_held_count = fields.Integer(compute="_compute_cheques")
     pdc_bounced_amount = fields.Monetary(compute="_compute_cheques", string="Bounced")
     pdc_bounced_count = fields.Integer(compute="_compute_cheques")
+    pdc_deposited_amount = fields.Monetary(compute="_compute_cheques", string="Deposited")
+    pdc_deposited_count = fields.Integer(compute="_compute_cheques")
+    pdc_cleared_amount = fields.Monetary(compute="_compute_cheques", string="Cleared")
+    pdc_cleared_count = fields.Integer(compute="_compute_cheques")
+    bounce_rate = fields.Float(
+        compute="_compute_cheques",
+        string="Bounce Rate %",
+        help="Bounced cheques as a share of those that reached a conclusion "
+        "(cleared or bounced). Cheques still in hand are not counted.",
+    )
 
     # ---------------------------------------------------------------- income
     rent_invoiced = fields.Monetary(
@@ -65,6 +94,7 @@ class CeoDashboard(models.TransientModel):
     def _compute_portfolio(self):
         Unit = self.env["c2p.unit"]
         Building = self.env["c2p.building"]
+        Lease = self.env["c2p.lease"]
         for rec in self:
             domain = rec._company_domain()
             rec.building_count = Building.search_count(domain)
@@ -75,42 +105,85 @@ class CeoDashboard(models.TransientModel):
             rec.occupied_count = by_state.get("occupied", 0)
             rec.vacant_count = by_state.get("vacant", 0)
             rec.occupancy_rate = rec.occupied_count / rec.unit_count * 100.0 if rec.unit_count else 0.0
-            rec.contracted_rent = rec.currency_id.round(
-                rec._sum(
-                    self.env["c2p.lease"]._read_group([*domain, ("state", "=", "active")], [], ["annual_rent:sum"])
-                )
+
+            active = [*domain, ("state", "=", "active")]
+            groups = Lease._read_group(active, [], ["__count", "annual_rent:sum"])
+            lease_count = groups[0][0] if groups else 0
+            contracted = (groups[0][1] or 0.0) if groups else 0.0
+            rec.contracted_rent = rec.currency_id.round(contracted)
+            rec.avg_rent_per_unit = rec.currency_id.round(contracted / lease_count if lease_count else 0.0)
+
+            # What the empty units would earn at market rate.
+            rec.vacant_market_rent = rec.currency_id.round(
+                rec._sum(Unit._read_group([*domain, ("state", "=", "vacant")], [], ["market_rent:sum"]))
             )
+
+            leased_area = rec._sum(Unit._read_group([*domain, ("state", "=", "occupied")], [], ["area_sqft:sum"]))
+            rec.avg_rent_per_sqft = contracted / leased_area if leased_area else 0.0
 
     @api.depends("company_id")
     def _compute_leases(self):
         Lease = self.env["c2p.lease"]
         today = fields.Date.context_today(self)
-        horizon = today + relativedelta(days=RENEWAL_HORIZON_DAYS)
         for rec in self:
             domain = rec._company_domain()
             rec.active_lease_count = Lease.search_count([*domain, ("state", "=", "active")])
-            expiring = [
-                *domain,
-                ("state", "in", ("active", "notice")),
-                ("date_end", ">=", today),
-                ("date_end", "<=", horizon),
-            ]
-            groups = Lease._read_group(expiring, [], ["__count", "annual_rent:sum"])
+
+            def window(start_day, end_day, _dom=domain, _today=today):
+                return Lease._read_group(
+                    [
+                        *_dom,
+                        ("state", "in", ("active", "notice")),
+                        ("date_end", ">=", _today + relativedelta(days=start_day)),
+                        ("date_end", "<=", _today + relativedelta(days=end_day)),
+                    ],
+                    [],
+                    ["__count", "annual_rent:sum"],
+                )
+
+            for field_name, (start, end) in (
+                ("expiring_30", (0, 30)),
+                ("expiring_60", (31, 60)),
+                ("expiring_90", (61, 90)),
+            ):
+                bucket = window(start, end)
+                rec[field_name] = bucket[0][0] if bucket else 0
+
+            groups = window(0, RENEWAL_HORIZON_DAYS)
             rec.expiring_lease_count = groups[0][0] if groups else 0
             rec.expiring_rent = rec.currency_id.round((groups[0][1] or 0.0) if groups else 0.0)
+            rec.lease_at_risk_rate = (
+                rec.expiring_lease_count / rec.active_lease_count * 100.0 if rec.active_lease_count else 0.0
+            )
 
     @api.depends("company_id")
     def _compute_cheques(self):
         Payment = self.env["account.payment"]
         for rec in self:
             base = [("company_id", "=", rec.company_id.id), ("is_pdc", "=", True)]
+            # One grouped query covers every cheque state.
+            by_state = {
+                state: (count, amount or 0.0)
+                for state, count, amount in Payment._read_group(base, ["pdc_state"], ["__count", "amount:sum"])
+            }
+
+            def bucket(state, _by=by_state):
+                return _by.get(state, (0, 0.0))
+
             for state, amount_field, count_field in (
                 ("held", "pdc_held_amount", "pdc_held_count"),
+                ("deposited", "pdc_deposited_amount", "pdc_deposited_count"),
+                ("cleared", "pdc_cleared_amount", "pdc_cleared_count"),
                 ("bounced", "pdc_bounced_amount", "pdc_bounced_count"),
             ):
-                groups = Payment._read_group([*base, ("pdc_state", "=", state)], [], ["__count", "amount:sum"])
-                rec[count_field] = groups[0][0] if groups else 0
-                rec[amount_field] = rec.currency_id.round((groups[0][1] or 0.0) if groups else 0.0)
+                count, amount = bucket(state)
+                rec[count_field] = count
+                rec[amount_field] = rec.currency_id.round(amount)
+
+            # Only cheques that reached a conclusion belong in the ratio;
+            # counting those still in hand would flatter it.
+            concluded = rec.pdc_cleared_count + rec.pdc_bounced_count
+            rec.bounce_rate = rec.pdc_bounced_count / concluded * 100.0 if concluded else 0.0
 
     @api.depends("company_id", "date_from", "date_to")
     def _compute_income(self):
@@ -214,6 +287,42 @@ class CeoDashboard(models.TransientModel):
                 ("is_pdc", "=", True),
                 ("pdc_state", "=", "held"),
             ],
+        )
+
+    def action_open_vacant_market_rent(self):
+        return self.action_open_vacant_units()
+
+    def action_lease_expiry_profile(self):
+        """Expiry by month - where the renewal workload actually falls."""
+        return self._drill(
+            self.env._("Lease Expiry Profile"),
+            "c2p.lease",
+            [*self._company_domain(), ("state", "in", ("active", "notice"))],
+            view_mode="graph,pivot,list,form",
+        )
+
+    def action_rent_by_building(self):
+        return self._drill(
+            self.env._("Rent by Building"),
+            "c2p.lease",
+            [*self._company_domain(), ("state", "=", "active")],
+            view_mode="pivot,graph,list,form",
+        )
+
+    def action_open_unit_mix(self):
+        return self._drill(
+            self.env._("Unit Mix"),
+            "c2p.unit",
+            self._company_domain(),
+            view_mode="graph,pivot,kanban,list,form",
+        )
+
+    def action_open_cheque_register(self):
+        return self._drill(
+            self.env._("Cheque Register"),
+            "account.payment",
+            [("company_id", "=", self.company_id.id), ("is_pdc", "=", True)],
+            view_mode="pivot,graph,list,form",
         )
 
     def action_open_active_leases(self):
