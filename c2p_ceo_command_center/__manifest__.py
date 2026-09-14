@@ -26,6 +26,11 @@ and invoices. That aggregation is all this module adds.
         "views/dashboard_views.xml",
         "views/menus.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "c2p_ceo_command_center/static/src/scss/dashboard.scss",
+        ],
+    },
     "installable": True,
     "application": False,
 }

@@ -1,0 +1,120 @@
+// Command Center design tokens.
+//
+// Surfaces borrow Bootstrap's variables so the screen follows Odoo's own light
+// and dark themes; only the semantic status colours are fixed, because "danger"
+// has to read as danger in either theme.
+
+.o_c2p_dashboard {
+    --c2p-surface: var(--bs-body-bg, #ffffff);
+    --c2p-ink: var(--bs-body-color, #101828);
+    --c2p-muted: var(--bs-secondary-color, #667085);
+    --c2p-border: var(--bs-border-color, #eaecf0);
+
+    --c2p-brand: #175cd3;
+    --c2p-positive: #027a48;
+    --c2p-warning: #b54708;
+    --c2p-danger: #b42318;
+
+    padding: 4px 0 24px;
+
+    .o_c2p_section_title {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--c2p-muted);
+        margin: 24px 0 12px;
+    }
+
+    .o_c2p_card {
+        position: relative;
+        height: 100%;
+        padding: 18px 20px;
+        background: var(--c2p-surface);
+        border: 1px solid var(--c2p-border);
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+        overflow: hidden;
+    }
+
+    // Status strip along the top of a headline card.
+    .o_c2p_card.o_c2p_accent::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 3px;
+        background: var(--c2p-brand);
+    }
+    .o_c2p_card.o_c2p_accent_positive::before { background: var(--c2p-positive); }
+    .o_c2p_card.o_c2p_accent_warning::before { background: var(--c2p-warning); }
+    .o_c2p_card.o_c2p_accent_danger::before { background: var(--c2p-danger); }
+
+    .o_c2p_label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--c2p-muted);
+        margin-bottom: 6px;
+
+        > .fa { opacity: 0.7; }
+    }
+
+    // Tabular figures keep the columns of numbers aligned.
+    .o_c2p_value {
+        font-size: 28px;
+        line-height: 1.15;
+        font-weight: 600;
+        color: var(--c2p-ink);
+        font-variant-numeric: tabular-nums;
+
+        .o_field_widget { font-size: inherit; font-weight: inherit; }
+    }
+
+    .o_c2p_sub {
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--c2p-muted);
+
+        .o_field_widget { font-size: inherit; }
+    }
+
+    .o_c2p_positive { color: var(--c2p-positive); }
+    .o_c2p_warning  { color: var(--c2p-warning); }
+    .o_c2p_danger   { color: var(--c2p-danger); }
+
+    // Label / value rows inside the detail cards.
+    .o_c2p_row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--c2p-border);
+        font-size: 13px;
+
+        &:last-child { border-bottom: 0; }
+
+        > span:first-child { color: var(--c2p-muted); }
+
+        .o_c2p_row_value {
+            font-weight: 600;
+            color: var(--c2p-ink);
+            font-variant-numeric: tabular-nums;
+            text-align: right;
+        }
+    }
+
+    .o_c2p_meter {
+        margin-top: 10px;
+
+        .o_field_widget { width: 100%; }
+    }
+
+    .o_c2p_actions .btn {
+        margin: 0 6px 6px 0;
+    }
+}

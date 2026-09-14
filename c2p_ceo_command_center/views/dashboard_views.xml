@@ -6,160 +6,215 @@
         <field name="model">c2p.ceo.dashboard</field>
         <field name="arch" type="xml">
             <form string="Command Center" create="false">
-                <sheet>
-                    <div class="oe_title mb-3">
-                        <h1>Command Center</h1>
-                    </div>
+                <sheet class="o_c2p_dashboard">
 
-                    <group col="4" class="mb-4">
-                        <field name="company_id" options="{'no_create': True}"/>
-                        <field name="date_from"/>
-                        <field name="date_to"/>
-                        <field name="currency_id" invisible="1"/>
-                    </group>
-
-                    <!-- Headline: the four numbers worth waking up to -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-6 col-lg-3">
-                            <div class="card h-100 border-0 shadow-sm">
-                                <div class="card-body text-center">
-                                    <div class="text-muted small text-uppercase">Occupancy</div>
-                                    <div class="display-6 fw-bold text-success"
-                                         invisible="occupancy_rate &lt; 85">
-                                        <field name="occupancy_rate" widget="percentage" nolabel="1"/>
-                                    </div>
-                                    <div class="display-6 fw-bold text-warning"
-                                         invisible="occupancy_rate &gt;= 85 or occupancy_rate &lt; 70">
-                                        <field name="occupancy_rate" widget="percentage" nolabel="1"/>
-                                    </div>
-                                    <div class="display-6 fw-bold text-danger"
-                                         invisible="occupancy_rate &gt;= 70">
-                                        <field name="occupancy_rate" widget="percentage" nolabel="1"/>
-                                    </div>
-                                    <div class="small text-muted">
-                                        <field name="occupied_count" nolabel="1"/> of
-                                        <field name="unit_count" nolabel="1"/> units
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="d-flex flex-wrap align-items-end justify-content-between mb-2">
+                        <div>
+                            <h1 class="mb-0">Command Center</h1>
+                            <div class="text-muted small">Portfolio, cash and risk at a glance</div>
                         </div>
-                        <div class="col-6 col-lg-3">
-                            <div class="card h-100 border-0 shadow-sm">
-                                <div class="card-body text-center">
-                                    <div class="text-muted small text-uppercase">Contracted Rent</div>
-                                    <div class="display-6 fw-bold">
-                                        <field name="contracted_rent" nolabel="1"/>
-                                    </div>
-                                    <div class="small text-muted">
-                                        <field name="active_lease_count" nolabel="1"/> active leases
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-lg-3">
-                            <div class="card h-100 border-0 shadow-sm">
-                                <div class="card-body text-center">
-                                    <div class="text-muted small text-uppercase">Rent at Risk</div>
-                                    <div class="display-6 fw-bold text-warning">
-                                        <field name="expiring_rent" nolabel="1"/>
-                                    </div>
-                                    <div class="small text-muted">
-                                        <field name="expiring_lease_count" nolabel="1"/> leases,
-                                        <field name="lease_at_risk_rate" widget="percentage" nolabel="1"/>
-                                        of portfolio
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-lg-3">
-                            <div class="card h-100 border-0 shadow-sm">
-                                <div class="card-body text-center">
-                                    <div class="text-muted small text-uppercase">Revenue Foregone</div>
-                                    <div class="display-6 fw-bold text-danger">
-                                        <field name="vacant_market_rent" nolabel="1"/>
-                                    </div>
-                                    <div class="small text-muted">
-                                        <field name="vacant_count" nolabel="1"/> units vacant
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="d-flex gap-3">
+                            <span><field name="company_id" options="{'no_create': True}"/></span>
+                            <span><field name="date_from"/></span>
+                            <span><field name="date_to"/></span>
+                            <field name="currency_id" invisible="1"/>
                         </div>
                     </div>
 
-                    <group>
-                        <group string="Portfolio">
-                            <field name="building_count"/>
-                            <field name="unit_count"/>
-                            <field name="occupied_count"/>
-                            <field name="vacant_count"/>
-                            <field name="avg_rent_per_unit"/>
-                            <field name="avg_rent_per_sqft"/>
-                        </group>
-                        <group string="Renewal Pipeline">
-                            <field name="expiring_30"/>
-                            <field name="expiring_60"/>
-                            <field name="expiring_90"/>
-                            <field name="expiring_rent"/>
-                            <field name="lease_at_risk_rate" widget="percentage"/>
-                        </group>
-                    </group>
-
-                    <group>
-                        <group string="Cheque Position">
-                            <field name="pdc_held_count"/>
-                            <field name="pdc_held_amount"/>
-                            <field name="pdc_deposited_count"/>
-                            <field name="pdc_deposited_amount"/>
-                            <field name="pdc_cleared_count"/>
-                            <field name="pdc_cleared_amount"/>
-                        </group>
-                        <group string="Collection Health">
-                            <field name="pdc_bounced_count"/>
-                            <field name="pdc_bounced_amount"/>
-                            <label for="bounce_rate"/>
-                            <div>
-                                <field name="bounce_rate" widget="percentage" nolabel="1"
-                                       class="text-danger fw-bold" invisible="bounce_rate &lt; 5"/>
-                                <field name="bounce_rate" widget="percentage" nolabel="1"
-                                       invisible="bounce_rate &gt;= 5"/>
+                    <!-- Headline -->
+                    <div class="row g-3">
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="o_c2p_card o_c2p_accent o_c2p_accent_positive"
+                                 invisible="occupancy_rate &lt; 85">
+                                <div class="o_c2p_label"><i class="fa fa-building-o"/>Occupancy</div>
+                                <div class="o_c2p_value o_c2p_positive">
+                                    <field name="occupancy_rate" widget="percentage" nolabel="1"/>
+                                </div>
+                                <div class="o_c2p_sub">
+                                    <field name="occupied_count" nolabel="1"/> of
+                                    <field name="unit_count" nolabel="1"/> units let
+                                </div>
+                                <div class="o_c2p_meter">
+                                    <field name="occupancy_rate" widget="progressbar" nolabel="1"/>
+                                </div>
                             </div>
-                            <field name="overdue_receivable"/>
-                        </group>
-                    </group>
+                            <div class="o_c2p_card o_c2p_accent o_c2p_accent_warning"
+                                 invisible="occupancy_rate &gt;= 85 or occupancy_rate &lt; 70">
+                                <div class="o_c2p_label"><i class="fa fa-building-o"/>Occupancy</div>
+                                <div class="o_c2p_value o_c2p_warning">
+                                    <field name="occupancy_rate" widget="percentage" nolabel="1"/>
+                                </div>
+                                <div class="o_c2p_sub">
+                                    <field name="occupied_count" nolabel="1"/> of
+                                    <field name="unit_count" nolabel="1"/> units let
+                                </div>
+                                <div class="o_c2p_meter">
+                                    <field name="occupancy_rate" widget="progressbar" nolabel="1"/>
+                                </div>
+                            </div>
+                            <div class="o_c2p_card o_c2p_accent o_c2p_accent_danger"
+                                 invisible="occupancy_rate &gt;= 70">
+                                <div class="o_c2p_label"><i class="fa fa-building-o"/>Occupancy</div>
+                                <div class="o_c2p_value o_c2p_danger">
+                                    <field name="occupancy_rate" widget="percentage" nolabel="1"/>
+                                </div>
+                                <div class="o_c2p_sub">
+                                    <field name="occupied_count" nolabel="1"/> of
+                                    <field name="unit_count" nolabel="1"/> units let
+                                </div>
+                                <div class="o_c2p_meter">
+                                    <field name="occupancy_rate" widget="progressbar" nolabel="1"/>
+                                </div>
+                            </div>
+                        </div>
 
-                    <group string="Income">
-                        <group>
-                            <field name="rent_invoiced"/>
-                        </group>
-                        <group>
-                            <field name="fee_invoiced"/>
-                        </group>
-                    </group>
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="o_c2p_card o_c2p_accent">
+                                <div class="o_c2p_label"><i class="fa fa-line-chart"/>Contracted Rent</div>
+                                <div class="o_c2p_value">
+                                    <field name="contracted_rent" nolabel="1"/>
+                                </div>
+                                <div class="o_c2p_sub">
+                                    <field name="active_lease_count" nolabel="1"/> active leases ·
+                                    <field name="avg_rent_per_unit" nolabel="1"/> average
+                                </div>
+                            </div>
+                        </div>
 
-                    <div class="mt-4">
-                        <h5 class="text-muted">Analyse</h5>
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="o_c2p_card o_c2p_accent o_c2p_accent_warning">
+                                <div class="o_c2p_label"><i class="fa fa-hourglass-half"/>Rent at Risk</div>
+                                <div class="o_c2p_value o_c2p_warning">
+                                    <field name="expiring_rent" nolabel="1"/>
+                                </div>
+                                <div class="o_c2p_sub">
+                                    <field name="expiring_lease_count" nolabel="1"/> leases expiring in 90 days
+                                </div>
+                                <div class="o_c2p_meter">
+                                    <field name="lease_at_risk_rate" widget="progressbar" nolabel="1"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="o_c2p_card o_c2p_accent o_c2p_accent_danger">
+                                <div class="o_c2p_label"><i class="fa fa-exclamation-triangle"/>Revenue Foregone</div>
+                                <div class="o_c2p_value o_c2p_danger">
+                                    <field name="vacant_market_rent" nolabel="1"/>
+                                </div>
+                                <div class="o_c2p_sub">
+                                    <field name="vacant_count" nolabel="1"/> units vacant at market rent
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detail -->
+                    <div class="o_c2p_section_title">Portfolio and pipeline</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-lg-4">
+                            <div class="o_c2p_card">
+                                <div class="o_c2p_label"><i class="fa fa-th-large"/>Portfolio</div>
+                                <div class="o_c2p_row"><span>Buildings</span>
+                                    <span class="o_c2p_row_value"><field name="building_count" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Units</span>
+                                    <span class="o_c2p_row_value"><field name="unit_count" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Occupied</span>
+                                    <span class="o_c2p_row_value"><field name="occupied_count" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Vacant</span>
+                                    <span class="o_c2p_row_value"><field name="vacant_count" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Rent per sq ft</span>
+                                    <span class="o_c2p_row_value"><field name="avg_rent_per_sqft" nolabel="1"/></span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-4">
+                            <div class="o_c2p_card">
+                                <div class="o_c2p_label"><i class="fa fa-calendar-o"/>Renewal Pipeline</div>
+                                <div class="o_c2p_row"><span>Within 30 days</span>
+                                    <span class="o_c2p_row_value"><field name="expiring_30" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>31 – 60 days</span>
+                                    <span class="o_c2p_row_value"><field name="expiring_60" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>61 – 90 days</span>
+                                    <span class="o_c2p_row_value"><field name="expiring_90" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Rent at risk</span>
+                                    <span class="o_c2p_row_value"><field name="expiring_rent" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Portfolio at risk</span>
+                                    <span class="o_c2p_row_value"><field name="lease_at_risk_rate" widget="percentage" nolabel="1"/></span></div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-4">
+                            <div class="o_c2p_card">
+                                <div class="o_c2p_label"><i class="fa fa-money"/>Cheque Position</div>
+                                <div class="o_c2p_row"><span>In hand</span>
+                                    <span class="o_c2p_row_value"><field name="pdc_held_amount" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Deposited</span>
+                                    <span class="o_c2p_row_value"><field name="pdc_deposited_amount" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Cleared</span>
+                                    <span class="o_c2p_row_value o_c2p_positive"><field name="pdc_cleared_amount" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Bounced</span>
+                                    <span class="o_c2p_row_value o_c2p_danger"><field name="pdc_bounced_amount" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Bounce rate</span>
+                                    <span class="o_c2p_row_value o_c2p_danger" invisible="bounce_rate &lt; 5">
+                                        <field name="bounce_rate" widget="percentage" nolabel="1"/></span>
+                                    <span class="o_c2p_row_value" invisible="bounce_rate &gt;= 5">
+                                        <field name="bounce_rate" widget="percentage" nolabel="1"/></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="o_c2p_section_title">Income to date</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                            <div class="o_c2p_card">
+                                <div class="o_c2p_label"><i class="fa fa-file-text-o"/>Rent Invoiced</div>
+                                <div class="o_c2p_value"><field name="rent_invoiced" nolabel="1"/></div>
+                                <div class="o_c2p_sub">Invoiced, not collected</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="o_c2p_card">
+                                <div class="o_c2p_label"><i class="fa fa-briefcase"/>Management Fees</div>
+                                <div class="o_c2p_value o_c2p_positive"><field name="fee_invoiced" nolabel="1"/></div>
+                                <div class="o_c2p_sub">Our income, excluded from rent</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="o_c2p_card">
+                                <div class="o_c2p_label"><i class="fa fa-clock-o"/>Overdue Receivables</div>
+                                <div class="o_c2p_value o_c2p_danger"><field name="overdue_receivable" nolabel="1"/></div>
+                                <div class="o_c2p_sub">Past due date, unreconciled</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="o_c2p_section_title">Analyse</div>
+                    <div class="o_c2p_actions">
                         <button name="action_lease_expiry_profile" type="object"
-                                string="Expiry Profile" class="btn-primary me-1"/>
+                                string="Expiry Profile" icon="fa-bar-chart" class="btn-primary"/>
                         <button name="action_rent_by_building" type="object"
-                                string="Rent by Building" class="btn-primary me-1"/>
+                                string="Rent by Building" icon="fa-table" class="btn-primary"/>
                         <button name="action_open_unit_mix" type="object"
-                                string="Unit Mix" class="btn-primary me-1"/>
+                                string="Unit Mix" icon="fa-pie-chart" class="btn-primary"/>
                         <button name="action_open_cheque_register" type="object"
-                                string="Cheque Register" class="btn-primary me-1"/>
+                                string="Cheque Register" icon="fa-list" class="btn-primary"/>
                     </div>
-                    <div class="mt-3">
-                        <h5 class="text-muted">Act</h5>
+
+                    <div class="o_c2p_section_title">Act</div>
+                    <div class="o_c2p_actions">
                         <button name="action_open_vacant_units" type="object"
-                                string="Vacant Units" class="btn-secondary me-1"/>
+                                string="Vacant Units" class="btn-secondary"/>
                         <button name="action_open_expiring_leases" type="object"
-                                string="Expiring Leases" class="btn-secondary me-1"/>
+                                string="Expiring Leases" class="btn-secondary"/>
                         <button name="action_open_cheques_in_hand" type="object"
-                                string="Cheques in Hand" class="btn-secondary me-1"/>
+                                string="Cheques in Hand" class="btn-secondary"/>
                         <button name="action_open_bounced_cheques" type="object"
-                                string="Bounced Cheques" class="btn-secondary me-1"/>
+                                string="Bounced Cheques" class="btn-secondary"/>
                         <button name="action_open_active_leases" type="object"
-                                string="Active Leases" class="btn-secondary me-1"/>
+                                string="Active Leases" class="btn-secondary"/>
                     </div>
+
                 </sheet>
             </form>
         </field>
