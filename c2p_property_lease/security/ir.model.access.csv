@@ -10,3 +10,4 @@ access_pdc_wiz_line,pdc wizard line,model_c2p_pdc_register_line,group_property_u
 access_renew_wiz,renew wizard,model_c2p_lease_renew,group_property_user,1,1,1,1
 access_terminate_wiz,terminate wizard,model_c2p_lease_terminate,group_property_manager,1,1,1,1
 access_owner_stmt,owner statement,model_c2p_owner_statement,group_property_manager,1,1,1,1
+access_sample_loader,sample loader,model_c2p_sample_loader,group_property_manager,1,1,1,1

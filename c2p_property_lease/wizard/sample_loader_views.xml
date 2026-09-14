@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_sample_loader_form" model="ir.ui.view">
+        <field name="name">c2p.sample.loader.form</field>
+        <field name="model">c2p.sample.loader</field>
+        <field name="arch" type="xml">
+            <form string="Load Sample Portfolio">
+                <div invisible="result">
+                    <p>
+                        This creates a worked example portfolio - six buildings,
+                        around a hundred units, active leases with tenants, and
+                        optionally their cheques and invoices - so the Property
+                        app and the Command Center have something to show.
+                    </p>
+                    <p class="text-muted">
+                        Records are ordinary data you can edit or delete. Running
+                        this again adds nothing: buildings are matched on their
+                        code and existing ones are reused.
+                    </p>
+                    <group>
+                        <field name="with_accounting"/>
+                    </group>
+                </div>
+                <div invisible="not result">
+                    <p><strong>Sample portfolio loaded.</strong></p>
+                    <field name="result" nolabel="1" readonly="1"/>
+                </div>
+                <footer>
+                    <button name="action_load" type="object" string="Load Sample Portfolio"
+                            class="btn-primary" invisible="result"
+                            confirm="This creates sample buildings, units, leases and tenants in this database. Continue?"/>
+                    <button name="action_open_buildings" type="object" string="Open Buildings"
+                            class="btn-primary" invisible="not result"/>
+                    <button string="Close" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sample_loader" model="ir.actions.act_window">
+        <field name="name">Load Sample Portfolio</field>
+        <field name="res_model">c2p.sample.loader</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+</odoo>

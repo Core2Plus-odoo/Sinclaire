@@ -20,4 +20,7 @@
               groups="group_property_manager"/>
     <menuitem id="menu_building" name="Buildings" parent="menu_property_config"
               action="action_building" sequence="10"/>
+    <menuitem id="menu_sample_loader" name="Load Sample Portfolio" parent="menu_property_config"
+              action="action_sample_loader" sequence="90"
+              groups="group_property_manager"/>
 </odoo>

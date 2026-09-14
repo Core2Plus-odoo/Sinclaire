@@ -53,7 +53,14 @@ print(f"company: {COMPANY_NAME} (id {COMPANY_ID}); visible companies: {ALL_COMPA
 
 def ex(model, method, *args, **kw):
     kw.setdefault("context", CTX)
-    return models.execute_kw(DB, UID, PWD, model, method, list(args), kw)
+    try:
+        return models.execute_kw(DB, UID, PWD, model, method, list(args), kw)
+    except xmlrpc.client.Fault as exc:
+        # Odoo 19 action methods commonly return None and the XML-RPC
+        # marshaller rejects it, even though the call itself succeeded.
+        if "cannot marshal None" in str(exc):
+            return None
+        raise
 
 
 def one(model, domain, fields=None):
@@ -96,7 +103,16 @@ BUILDINGS = [
 building_ids = {}
 for b in BUILDINGS:
     owner = one("res.partner", [("name", "=", b["owner"])])
-    analytic = one("account.analytic.account", [("name", "=", b["name"])])
+    if not owner:
+        raise SystemExit(f"Landlord {b['owner']!r} not found - check the partner names before running.")
+    # Live analytic names carry an en dash. Match a distinctive fragment so a
+    # dash variant does not silently miss and leave the statement empty.
+    analytic = one("account.analytic.account", [("name", "ilike", b["match"])])
+    if not analytic:
+        print(
+            f"! no analytic account matching {b['match']!r} - landlord statements "
+            f"for {b['code']} will have nothing to report"
+        )
     bid = get_or_create(
         "c2p.building",
         [("code", "=", b["code"])],
