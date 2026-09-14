@@ -121,6 +121,18 @@ class SamplePortfolio(models.AbstractModel):
     _name = "c2p.sample.portfolio"
     _description = "Sample Portfolio Generator"
 
+    @staticmethod
+    def _rng(*parts):
+        """Deterministic per-key RNG.
+
+        A single shared stream is not safe here: on a re-run the units already
+        exist, so the calls that would have drawn their attributes never happen,
+        the stream shifts, and different units come out vacant. Seeding per unit
+        makes every decision independent of call order, which is what makes a
+        second run a no-op.
+        """
+        return random.Random(f"{SEED}:" + ":".join(str(p) for p in parts))
+
     @api.model
     def load(self, with_accounting=True):
         """Create the sample portfolio. Returns a summary dict of what was made."""
@@ -183,16 +195,31 @@ class SamplePortfolio(models.AbstractModel):
                         unit_type = "shop" if slot <= 2 else "office"
                     else:
                         unit_type = SLOT_TYPE[slot]
-                    unit = self._unit(building, number, unit_type, code, rng, created)
+                    name = f"{code}-{number}"
+                    # One stream per purpose. Sharing a stream is what broke
+                    # idempotency before: on a re-run the unit already exists,
+                    # its attribute draws never happen, and a shared stream
+                    # hands the vacancy check a different number.
+                    unit = self._unit(building, name, unit_type, self._rng("unit", name), created)
 
-                    vacant = rng.random() < VACANCY_RATE
-                    if vacant or unit.current_lease_id:
+                    if self._rng("vacancy", name).random() < VACANCY_RATE:
+                        tenant_i += 1
                         continue
-                    self._lease(unit, unit_type, tag, tenant_i, today, rng, created)
+                    if unit.lease_ids:
+                        tenant_i += 1
+                        continue
+                    self._lease(
+                        unit,
+                        unit_type,
+                        tag,
+                        tenant_i,
+                        today,
+                        self._rng("lease", name),
+                        created,
+                    )
                     tenant_i += 1
 
-    def _unit(self, building, number, unit_type, code, rng, created):
-        name = f"{code}-{number}"
+    def _unit(self, building, name, unit_type, rng, created):
         unit = self.env["c2p.unit"].search([("name", "=", name), ("building_id", "=", building.id)], limit=1)
         if unit:
             return unit
@@ -204,7 +231,7 @@ class SamplePortfolio(models.AbstractModel):
                 "name": name,
                 "building_id": building.id,
                 "unit_type": unit_type,
-                "floor": str(number)[0],
+                "floor": name.split("-")[1][0],
                 "area_sqft": rng.randint(area_low, area_high),
                 "market_rent": round(rng.uniform(low, high), -2),
                 "rera_index_low": low,
