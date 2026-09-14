@@ -5,6 +5,10 @@
 # a field renamed between Odoo series (res.groups.category_id -> privilege_id
 # in 19.0, for instance) passes every static check and still breaks `-i`.
 #
+# Demo data is loaded on purpose (19.0 needs --with-demo explicitly; it is no
+# longer the default). Our demo files are shipped deliverables, so they have to
+# be exercised here or a broken one would sail through green.
+#
 # NOTE: the public `odoo:19.0` image ships Community only, so a module depending
 # on an Enterprise app (sale_subscription, account_accountant, documents, ...)
 # cannot be installed here. tools/ci_addons.py resolves each addon's dependency
@@ -68,6 +72,6 @@ jobs:
             --test-enable \
             --test-tags="${{ steps.addons.outputs.tags }}" \
             --log-level=test \
-            --without-demo=True \
+            --with-demo \
             --stop-after-init \
             --max-cron-threads=0
