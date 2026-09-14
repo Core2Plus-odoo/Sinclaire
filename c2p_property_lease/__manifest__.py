@@ -36,7 +36,9 @@
         "wizard/owner_statement_views.xml",
         "views/menus.xml",
     ],
+    "demo": ["demo/property_demo.xml"],
     "pre_init_hook": "pre_init_hook",
+    "post_init_hook": "post_init_hook",
     "application": True,
     "installable": True,
 }

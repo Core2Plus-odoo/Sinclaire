@@ -155,3 +155,52 @@ class TestCeoDashboard(TransactionCase):
         dash = self._dashboard()
         action = dash.action_open_active_leases()
         self.assertEqual(self.env["c2p.lease"].search_count(action["domain"]), dash.active_lease_count)
+
+    def test_expiry_buckets_sum_to_the_total(self):
+        """The 30/60/90 windows must partition the horizon exactly - no gaps at
+        the boundaries, no lease counted twice."""
+        dash = self._dashboard()
+        self.assertEqual(
+            dash.expiring_30 + dash.expiring_60 + dash.expiring_90,
+            dash.expiring_lease_count,
+        )
+
+    def test_portfolio_at_risk_is_a_share_of_active_leases(self):
+        dash = self._dashboard()
+        expected = dash.expiring_lease_count / dash.active_lease_count * 100.0 if dash.active_lease_count else 0.0
+        self.assertAlmostEqual(dash.lease_at_risk_rate, expected, places=6)
+
+    def test_revenue_foregone_is_the_market_rent_of_vacant_units(self):
+        dash = self._dashboard()
+        expected = sum(
+            self.env["c2p.unit"].search([*dash._company_domain(), ("state", "=", "vacant")]).mapped("market_rent")
+        )
+        self.assertAlmostEqual(dash.vacant_market_rent, expected, places=2)
+
+    def test_average_rent_is_contracted_rent_over_active_leases(self):
+        dash = self._dashboard()
+        expected = dash.contracted_rent / dash.active_lease_count if dash.active_lease_count else 0.0
+        self.assertAlmostEqual(dash.avg_rent_per_unit, expected, places=0)
+
+    def test_bounce_rate_excludes_cheques_still_in_hand(self):
+        """A cheque in hand has not failed; counting it would flatter the rate."""
+        dash = self._dashboard()
+        concluded = dash.pdc_cleared_count + dash.pdc_bounced_count
+        expected = dash.pdc_bounced_count / concluded * 100.0 if concluded else 0.0
+        self.assertAlmostEqual(dash.bounce_rate, expected, places=6)
+        self.assertLessEqual(dash.bounce_rate, 100.0)
+
+    def test_analysis_actions_open_graph_and_pivot(self):
+        dash = self._dashboard()
+        for method in (
+            "action_lease_expiry_profile",
+            "action_rent_by_building",
+            "action_open_unit_mix",
+            "action_open_cheque_register",
+        ):
+            action = getattr(dash, method)()
+            self.assertEqual(action["type"], "ir.actions.act_window")
+            self.assertTrue(
+                {"graph", "pivot"} & set(action["view_mode"].split(",")),
+                f"{method} should offer graph or pivot analysis",
+            )

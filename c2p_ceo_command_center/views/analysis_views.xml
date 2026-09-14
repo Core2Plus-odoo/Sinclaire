@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Analysis views the dashboard drills into. Standard graph and pivot,
+         not a bespoke charting layer. -->
+
+    <record id="view_lease_graph" model="ir.ui.view">
+        <field name="name">c2p.lease.graph</field>
+        <field name="model">c2p.lease</field>
+        <field name="arch" type="xml">
+            <graph string="Leases" type="bar" sample="1">
+                <field name="date_end" interval="month"/>
+                <field name="annual_rent" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_lease_pivot" model="ir.ui.view">
+        <field name="name">c2p.lease.pivot</field>
+        <field name="model">c2p.lease</field>
+        <field name="arch" type="xml">
+            <pivot string="Leases" sample="1">
+                <field name="building_id" type="row"/>
+                <field name="cheque_count" type="col"/>
+                <field name="annual_rent" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_unit_graph" model="ir.ui.view">
+        <field name="name">c2p.unit.graph</field>
+        <field name="model">c2p.unit</field>
+        <field name="arch" type="xml">
+            <graph string="Units" type="bar" sample="1">
+                <field name="building_id"/>
+                <field name="state"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_unit_pivot" model="ir.ui.view">
+        <field name="name">c2p.unit.pivot</field>
+        <field name="model">c2p.unit</field>
+        <field name="arch" type="xml">
+            <pivot string="Units" sample="1">
+                <field name="building_id" type="row"/>
+                <field name="unit_type" type="col"/>
+                <field name="market_rent" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_payment_pdc_graph" model="ir.ui.view">
+        <field name="name">account.payment.pdc.graph</field>
+        <field name="model">account.payment</field>
+        <field name="arch" type="xml">
+            <graph string="Cheques" type="bar" sample="1">
+                <field name="pdc_state"/>
+                <field name="amount" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_payment_pdc_pivot" model="ir.ui.view">
+        <field name="name">account.payment.pdc.pivot</field>
+        <field name="model">account.payment</field>
+        <field name="arch" type="xml">
+            <pivot string="Cheques" sample="1">
+                <field name="building_id" type="row"/>
+                <field name="pdc_state" type="col"/>
+                <field name="amount" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+</odoo>

@@ -22,6 +22,7 @@ and invoices. That aggregation is all this module adds.
     "depends": ["c2p_property_lease"],
     "data": [
         "security/ir.model.access.csv",
+        "views/analysis_views.xml",
         "views/dashboard_views.xml",
         "views/menus.xml",
     ],
