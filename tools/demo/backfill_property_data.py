@@ -16,7 +16,8 @@ import os
 import random
 import re
 import xmlrpc.client
-from datetime import date, timedelta
+from datetime import date
+from datetime import timedelta
 
 URL = os.environ["ODOO_URL"]
 DB = os.environ["ODOO_DB"]

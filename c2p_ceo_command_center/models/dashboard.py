@@ -1,6 +1,8 @@
 from dateutil.relativedelta import relativedelta
 
-from odoo import api, fields, models
+from odoo import api
+from odoo import fields
+from odoo import models
 
 # A lease inside this window is close enough to expiry to need a decision.
 RENEWAL_HORIZON_DAYS = 90

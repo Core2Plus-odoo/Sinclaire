@@ -1,6 +1,7 @@
 from psycopg2 import IntegrityError
 
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import UserError
+from odoo.exceptions import ValidationError
 from odoo.tests import tagged
 from odoo.tests.common import TransactionCase
 from odoo.tools import mute_logger

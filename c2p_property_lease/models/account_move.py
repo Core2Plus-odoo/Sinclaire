@@ -1,4 +1,5 @@
-from odoo import fields, models
+from odoo import fields
+from odoo import models
 
 
 class AccountMove(models.Model):

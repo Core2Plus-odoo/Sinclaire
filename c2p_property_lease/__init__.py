@@ -1,2 +1,4 @@
-from . import models, wizard
-from .hooks import post_init_hook, pre_init_hook
+from . import models
+from . import wizard
+from .hooks import post_init_hook
+from .hooks import pre_init_hook

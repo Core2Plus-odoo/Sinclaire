@@ -15,7 +15,9 @@ import random
 
 from dateutil.relativedelta import relativedelta
 
-from odoo import api, fields, models
+from odoo import api
+from odoo import fields
+from odoo import models
 
 _logger = logging.getLogger(__name__)
 

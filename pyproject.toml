@@ -25,3 +25,7 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["odoo"]
+# Odoo package __init__ files list one module per line. Collapsing them
+# into a single `from . import a, b, c` hides edits: a line-based removal
+# silently no-ops and the deleted module stays imported.
+force-single-line = true

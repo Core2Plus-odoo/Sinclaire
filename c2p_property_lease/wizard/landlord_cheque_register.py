@@ -1,6 +1,8 @@
 from dateutil.relativedelta import relativedelta
 
-from odoo import api, fields, models
+from odoo import api
+from odoo import fields
+from odoo import models
 from odoo.exceptions import UserError
 
 from ..models.head_lease import CHEQUE_PLAN

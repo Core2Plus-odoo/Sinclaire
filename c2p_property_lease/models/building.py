@@ -1,4 +1,6 @@
-from odoo import api, fields, models
+from odoo import api
+from odoo import fields
+from odoo import models
 
 
 class C2pBuilding(models.Model):
