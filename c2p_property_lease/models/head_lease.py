@@ -75,15 +75,17 @@ class HeadLease(models.Model):
     # --- the numbers that decide whether the deal works ---
     potential_rent = fields.Monetary(related="building_id.potential_rent", string="Market Rent of All Units")
     contracted_rent = fields.Monetary(related="building_id.contracted_rent", string="Contracted Tenant Rent")
-    gross_margin = fields.Monetary(compute="_compute_margin")
-    margin_pct = fields.Float(compute="_compute_margin", string="Margin %")
+    gross_margin = fields.Monetary(compute="_compute_margin", store=True)
+    margin_pct = fields.Float(compute="_compute_margin", store=True, string="Margin %")
     coverage_ratio = fields.Float(
         compute="_compute_margin",
+        store=True,
         string="Coverage",
         help="Contracted tenant rent divided by what we owe the landlord. Below 1.0 the building is losing money.",
     )
     breakeven_occupancy = fields.Float(
         compute="_compute_margin",
+        store=True,
         string="Break-even Occupancy %",
         help="Share of the building's market rent that must be let to cover "
         "the head lease. Compare it against actual occupancy.",

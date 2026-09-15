@@ -17,6 +17,7 @@ class C2pBuilding(models.Model):
     owner_id = fields.Many2one(
         "res.partner", string="Landlord", required=True, tracking=True, domain="[('is_company','in',[True,False])]"
     )
+    head_lease_ids = fields.One2many("c2p.head.lease", "building_id", string="Head Leases")
     head_lease_id = fields.Many2one(
         "c2p.head.lease",
         compute="_compute_head_lease",
@@ -59,6 +60,13 @@ class C2pBuilding(models.Model):
         "The building code must be unique.",
     )
 
+    @api.depends(
+        "head_lease_ids.state",
+        "head_lease_ids.annual_amount",
+        "head_lease_ids.date_end",
+        "contracted_rent",
+        "potential_rent",
+    )
     def _compute_head_lease(self):
         HeadLease = self.env["c2p.head.lease"]
         for rec in self:
