@@ -46,6 +46,12 @@ class C2pBuilding(models.Model):
     vacant_count = fields.Integer(compute="_compute_unit_stats", store=True)
     occupancy_rate = fields.Float(string="Occupancy %", compute="_compute_unit_stats", store=True, aggregator="avg")
     contracted_rent = fields.Monetary(compute="_compute_unit_stats", store=True, string="Contracted Annual Rent")
+    potential_rent = fields.Monetary(
+        compute="_compute_unit_stats",
+        store=True,
+        string="Market Rent of All Units",
+        help="What the building would earn fully let at market rates. The denominator for break-even occupancy.",
+    )
     currency_id = fields.Many2one(related="company_id.currency_id")
 
     _code_uniq = models.Constraint(
