@@ -12,6 +12,7 @@ nothing.
 
 import logging
 import random
+from collections import defaultdict
 
 from dateutil.relativedelta import relativedelta
 
@@ -123,6 +124,21 @@ BANKS = ["ENBD", "Mashreq", "ADCB", "FAB", "RAKBANK"]
 VACANCY_RATE = 0.15
 SEED = 20260914
 
+# Every counter the summary reports. defaultdict keeps a missing key from
+# raising mid-run; seeding from this tuple keeps the summary stable so callers
+# can read a counter that happened to create nothing. A test asserts the two
+# stay in step.
+COUNTERS = (
+    "buildings",
+    "units",
+    "leases",
+    "head_leases",
+    "cheques",
+    "landlord_cheques",
+    "invoices",
+    "facilities",
+)
+
 
 class SamplePortfolio(models.AbstractModel):
     _name = "c2p.sample.portfolio"
@@ -144,7 +160,7 @@ class SamplePortfolio(models.AbstractModel):
     def load(self, with_accounting=True):
         """Create the sample portfolio. Returns a summary dict of what was made."""
         rng = random.Random(SEED)
-        created = dict.fromkeys(("buildings", "units", "leases", "cheques", "invoices"), 0)
+        created = defaultdict(int, dict.fromkeys(COUNTERS, 0))
 
         landlords = self._landlords()
         tag = self._tenant_tag()
@@ -157,8 +173,8 @@ class SamplePortfolio(models.AbstractModel):
             self._invoices(created)
             self._facilities(created)
 
-        _logger.info("c2p.sample.portfolio: %s", created)
-        return created
+        _logger.info("c2p.sample.portfolio: %s", dict(created))
+        return dict(created)
 
     # ------------------------------------------------------------------ pieces
     def _landlords(self):

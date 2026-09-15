@@ -45,3 +45,26 @@ class TestSamplePortfolio(TransactionCase):
         wizard.action_load()
         self.assertTrue(wizard.result)
         self.assertIn("Buildings", wizard.result)
+
+    def test_every_counter_is_declared(self):
+        """Regression: the summary used a hand-written key tuple, and adding a
+        counter without updating it blew up mid-load with a KeyError."""
+        import re
+        from pathlib import Path
+
+        from odoo.addons.c2p_property_lease.models import sample_portfolio
+
+        src = Path(sample_portfolio.__file__).read_text()
+        used = set(re.findall(r'created\["(\w+)"\]', src))
+        self.assertFalse(
+            used - set(sample_portfolio.COUNTERS),
+            "a counter is incremented but missing from COUNTERS",
+        )
+
+    def test_summary_reports_every_counter_even_when_nothing_is_created(self):
+        Portfolio = self.env["c2p.sample.portfolio"]
+        Portfolio.load(with_accounting=False)
+        again = Portfolio.load(with_accounting=False)
+        for counter in ("buildings", "units", "leases", "head_leases"):
+            self.assertIn(counter, again)
+            self.assertEqual(again[counter], 0)
