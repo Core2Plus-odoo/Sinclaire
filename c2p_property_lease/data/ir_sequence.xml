@@ -7,4 +7,13 @@
         <field name="padding">5</field>
         <field name="company_id" eval="False"/>
     </record>
+
+    <record id="seq_head_lease" model="ir.sequence">
+        <field name="name">Head Lease</field>
+        <field name="code">c2p.head.lease</field>
+        <field name="prefix">HL/%(year)s/</field>
+        <field name="padding">4</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
 </odoo>

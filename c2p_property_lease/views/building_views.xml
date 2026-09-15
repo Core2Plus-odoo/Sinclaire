@@ -14,7 +14,9 @@
                 <field name="vacant_count" decoration-warning="vacant_count &gt; 0"/>
                 <field name="occupancy_rate" widget="percentage" optional="show"/>
                 <field name="contracted_rent" sum="Contracted rent"/>
-                <field name="management_fee_pct" optional="hide"/>
+                <field name="head_lease_cost" optional="show"/>
+                <field name="gross_margin" optional="show"/>
+                <field name="coverage_ratio" digits="[16,2]" optional="show"/>
                 <field name="currency_id" column_invisible="1"/>
             </list>
         </field>
@@ -66,7 +68,12 @@
                         <group>
                             <field name="code"/>
                             <field name="owner_id"/>
-                            <field name="management_fee_pct"/>
+                            <field name="head_lease_id"/>
+                            <field name="head_lease_cost"/>
+                            <field name="potential_rent"/>
+                            <field name="gross_margin"/>
+                            <field name="coverage_ratio" digits="[16,2]"/>
+                            <field name="breakeven_occupancy" widget="percentage"/>
                             <field name="analytic_account_id"/>
                         </group>
                         <group>

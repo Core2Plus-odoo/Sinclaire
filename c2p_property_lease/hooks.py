@@ -18,7 +18,6 @@ _logger = logging.getLogger(__name__)
 ADOPTED_PRODUCTS = {
     "product_residential_rent": "Residential Rent",
     "product_commercial_rent": "Commercial Rent",
-    "product_property_management_fee": "Property Management Fee",
 }
 
 

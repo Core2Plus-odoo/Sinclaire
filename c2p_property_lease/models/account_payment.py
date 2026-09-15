@@ -5,6 +5,18 @@ class AccountPayment(models.Model):
     _inherit = "account.payment"
 
     lease_id = fields.Many2one("c2p.lease", string="Lease", index=True, copy=False)
+    head_lease_id = fields.Many2one(
+        "c2p.head.lease",
+        string="Head Lease",
+        index="btree_not_null",
+        copy=False,
+        help="Set on cheques we issue to a landlord under an underwriting agreement.",
+    )
+    is_landlord_cheque = fields.Boolean(
+        compute="_compute_is_landlord_cheque",
+        store=True,
+        help="Money out to a landlord, as opposed to rent in from a tenant.",
+    )
     unit_id = fields.Many2one(related="lease_id.unit_id", store=True)
     building_id = fields.Many2one(related="lease_id.building_id", store=True)
     cheque_no = fields.Char(string="Cheque No.", copy=False)
@@ -17,6 +29,11 @@ class AccountPayment(models.Model):
         copy=False,
         tracking=True,
     )
+
+    @api.depends("head_lease_id")
+    def _compute_is_landlord_cheque(self):
+        for rec in self:
+            rec.is_landlord_cheque = bool(rec.head_lease_id)
 
     @api.depends("cheque_no")
     def _compute_is_pdc(self):

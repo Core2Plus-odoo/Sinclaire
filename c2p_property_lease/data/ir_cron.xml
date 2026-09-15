@@ -19,4 +19,25 @@
         <field name="interval_type">days</field>
         <field name="active" eval="True"/>
     </record>
+
+    <record id="cron_head_lease_expiry" model="ir.cron">
+        <field name="name">Head Leases: expire finished agreements</field>
+        <field name="model_id" ref="model_c2p_head_lease"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_expire_head_leases()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+
+    <record id="cron_landlord_cheque_alerts" model="ir.cron">
+        <field name="name">Head Leases: landlord cheque due alerts</field>
+        <field name="model_id" ref="model_c2p_head_lease"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_landlord_cheque_alerts()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+
 </odoo>
