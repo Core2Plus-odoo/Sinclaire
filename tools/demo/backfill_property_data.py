@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Backfill c2p.building / c2p.unit / c2p.lease from the existing Sinclair demo data.
+"""Backfill c2p.building / c2p.unit / c2p.lease from the existing Sinclair data.
+
+Buildings are underwritten, so head leases and the cheques we issue to
+landlords are NOT created here - those are real commitments and belong in the
+Head Leases screen, entered from the signed agreement.
 
 Run AFTER c2p_property_lease is installed on the Odoo.sh branch:
     ODOO_URL=... ODOO_DB=... ODOO_USER=admin ODOO_PWD=... python3 backfill_property_data.py
@@ -12,7 +16,8 @@ import os
 import random
 import re
 import xmlrpc.client
-from datetime import date, timedelta
+from datetime import date
+from datetime import timedelta
 
 URL = os.environ["ODOO_URL"]
 DB = os.environ["ODOO_DB"]
@@ -122,7 +127,6 @@ for b in BUILDINGS:
             "community": b["community"],
             "city": "Dubai",
             "owner_id": owner and owner["id"],
-            "management_fee_pct": b["fee"],
             "analytic_account_id": analytic and analytic["id"],
             "company_id": COMPANY_ID,
         },

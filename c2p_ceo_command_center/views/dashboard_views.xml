@@ -164,27 +164,70 @@
                         </div>
                     </div>
 
-                    <div class="o_c2p_section_title">Income to date</div>
+                    <div class="o_c2p_section_title">The deal</div>
                     <div class="row g-3">
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-lg-4">
                             <div class="o_c2p_card">
-                                <div class="o_c2p_label"><i class="fa fa-file-text-o"/>Rent Invoiced</div>
-                                <div class="o_c2p_value"><field name="rent_invoiced" nolabel="1"/></div>
-                                <div class="o_c2p_sub">Invoiced, not collected</div>
+                                <div class="o_c2p_label"><i class="fa fa-handshake-o"/>Underwriting</div>
+                                <div class="o_c2p_row"><span>Committed to landlords</span>
+                                    <span class="o_c2p_row_value"><field name="head_lease_cost" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Contracted tenant rent</span>
+                                    <span class="o_c2p_row_value"><field name="contracted_rent" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Gross margin</span>
+                                    <span class="o_c2p_row_value"><field name="gross_margin" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Margin</span>
+                                    <span class="o_c2p_row_value"><field name="margin_pct" widget="percentage" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Break-even occupancy</span>
+                                    <span class="o_c2p_row_value"><field name="breakeven_occupancy" widget="percentage" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Buildings below cost</span>
+                                    <span class="o_c2p_row_value o_c2p_danger" invisible="buildings_below_cost == 0">
+                                        <field name="buildings_below_cost" nolabel="1"/></span>
+                                    <span class="o_c2p_row_value" invisible="buildings_below_cost &gt; 0">
+                                        <field name="buildings_below_cost" nolabel="1"/></span></div>
                             </div>
                         </div>
-                        <div class="col-12 col-md-4">
+
+                        <div class="col-12 col-lg-4">
                             <div class="o_c2p_card">
-                                <div class="o_c2p_label"><i class="fa fa-briefcase"/>Management Fees</div>
-                                <div class="o_c2p_value o_c2p_positive"><field name="fee_invoiced" nolabel="1"/></div>
-                                <div class="o_c2p_sub">Our income, excluded from rent</div>
+                                <div class="o_c2p_label"><i class="fa fa-sign-out"/>Landlord Cheques</div>
+                                <div class="o_c2p_row"><span>Due in 30 days</span>
+                                    <span class="o_c2p_row_value"><field name="landlord_due_30" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Due in 90 days</span>
+                                    <span class="o_c2p_row_value"><field name="landlord_due_90" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Issued, not cleared</span>
+                                    <span class="o_c2p_row_value"><field name="landlord_outstanding" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Our cheques bounced</span>
+                                    <span class="o_c2p_row_value o_c2p_danger" invisible="landlord_bounced_count == 0">
+                                        <field name="landlord_bounced_count" nolabel="1"/></span>
+                                    <span class="o_c2p_row_value" invisible="landlord_bounced_count &gt; 0">
+                                        <field name="landlord_bounced_count" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Rent invoiced to date</span>
+                                    <span class="o_c2p_row_value"><field name="rent_invoiced" nolabel="1"/></span></div>
                             </div>
                         </div>
-                        <div class="col-12 col-md-4">
+
+                        <div class="col-12 col-lg-4">
                             <div class="o_c2p_card">
-                                <div class="o_c2p_label"><i class="fa fa-clock-o"/>Overdue Receivables</div>
-                                <div class="o_c2p_value o_c2p_danger"><field name="overdue_receivable" nolabel="1"/></div>
-                                <div class="o_c2p_sub">Past due date, unreconciled</div>
+                                <div class="o_c2p_label"><i class="fa fa-university"/>Cash and Facilities</div>
+                                <div class="o_c2p_row"><span>Tenant cheques in, 90 days</span>
+                                    <span class="o_c2p_row_value"><field name="tenant_inflow_90" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Net 90-day position</span>
+                                    <span class="o_c2p_row_value o_c2p_danger" invisible="net_position_90 &gt;= 0">
+                                        <field name="net_position_90" nolabel="1"/></span>
+                                    <span class="o_c2p_row_value o_c2p_positive" invisible="net_position_90 &lt; 0">
+                                        <field name="net_position_90" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Facility limit</span>
+                                    <span class="o_c2p_row_value"><field name="facility_limit" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Headroom</span>
+                                    <span class="o_c2p_row_value"><field name="facility_available" nolabel="1"/></span></div>
+                                <div class="o_c2p_row"><span>Unfunded gap</span>
+                                    <span class="o_c2p_row_value o_c2p_danger" invisible="funding_gap == 0">
+                                        <field name="funding_gap" nolabel="1"/></span>
+                                    <span class="o_c2p_row_value" invisible="funding_gap &gt; 0">
+                                        <field name="funding_gap" nolabel="1"/></span></div>
+                                <div class="o_c2p_meter">
+                                    <field name="facility_utilisation" widget="progressbar" nolabel="1"/>
+                                </div>
                             </div>
                         </div>
                     </div>

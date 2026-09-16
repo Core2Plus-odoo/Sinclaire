@@ -9,5 +9,9 @@ access_pdc_wiz,pdc wizard,model_c2p_pdc_register,group_property_user,1,1,1,1
 access_pdc_wiz_line,pdc wizard line,model_c2p_pdc_register_line,group_property_user,1,1,1,1
 access_renew_wiz,renew wizard,model_c2p_lease_renew,group_property_user,1,1,1,1
 access_terminate_wiz,terminate wizard,model_c2p_lease_terminate,group_property_manager,1,1,1,1
-access_owner_stmt,owner statement,model_c2p_owner_statement,group_property_manager,1,1,1,1
 access_sample_loader,sample loader,model_c2p_sample_loader,group_property_manager,1,1,1,1
+access_head_lease_user,head lease user,model_c2p_head_lease,group_property_user,1,0,0,0
+access_head_lease_manager,head lease manager,model_c2p_head_lease,group_property_manager,1,1,1,1
+access_bank_facility_manager,bank facility manager,model_c2p_bank_facility,group_property_manager,1,1,1,1
+access_landlord_cheque_wiz,landlord cheque wizard,model_c2p_landlord_cheque_register,group_property_manager,1,1,1,1
+access_landlord_cheque_line,landlord cheque line,model_c2p_landlord_cheque_line,group_property_manager,1,1,1,1

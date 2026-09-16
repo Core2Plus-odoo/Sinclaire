@@ -11,6 +11,13 @@
              company's fiscal localisation. Set them during configuration and
              confirm before the first invoice run. -->
 
+        <record id="product_head_lease_rent" model="product.template">
+            <field name="name">Head Lease Rent</field>
+            <field name="type">service</field>
+            <field name="sale_ok" eval="False"/>
+            <field name="description_purchase">Amount payable to the landlord under an underwriting agreement.</field>
+        </record>
+
         <record id="product_residential_rent" model="product.template">
             <field name="name">Residential Rent</field>
             <field name="type">service</field>
@@ -25,12 +32,6 @@
             <field name="description_sale">Commercial tenancy rent. Standard-rated for UAE VAT.</field>
         </record>
 
-        <record id="product_property_management_fee" model="product.template">
-            <field name="name">Property Management Fee</field>
-            <field name="type">service</field>
-            <field name="purchase_ok" eval="False"/>
-            <field name="description_sale">Management fee retained on rent collected.</field>
-        </record>
 
     </data>
 </odoo>

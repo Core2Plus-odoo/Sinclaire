@@ -1,6 +1,8 @@
 from dateutil.relativedelta import relativedelta
 
-from odoo import api, fields, models
+from odoo import api
+from odoo import fields
+from odoo import models
 from odoo.exceptions import UserError
 
 MONTHS = {1: 12, 2: 6, 4: 3, 6: 2, 12: 1}

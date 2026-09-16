@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_head_lease_list" model="ir.ui.view">
+        <field name="name">c2p.head.lease.list</field>
+        <field name="model">c2p.head.lease</field>
+        <field name="arch" type="xml">
+            <list decoration-danger="coverage_ratio &lt; 1 and state == 'active'"
+                  decoration-warning="coverage_ratio &gt;= 1 and coverage_ratio &lt; 1.15 and state == 'active'">
+                <field name="name"/>
+                <field name="building_id"/>
+                <field name="landlord_id"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="annual_amount" sum="Payable"/>
+                <field name="contracted_rent" sum="Contracted"/>
+                <field name="gross_margin" sum="Margin"/>
+                <field name="coverage_ratio" digits="[16,2]"/>
+                <field name="breakeven_occupancy" widget="percentage"/>
+                <field name="cheque_count"/>
+                <field name="outstanding_amount" sum="To Clear"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'active'"
+                       decoration-muted="state in ('draft', 'expired')"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_head_lease_form" model="ir.ui.view">
+        <field name="name">c2p.head.lease.form</field>
+        <field name="model">c2p.head.lease</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_activate" type="object" string="Activate"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_issue_cheques" type="object" string="Issue Landlord Cheques"
+                            class="btn-primary" invisible="state != 'active'"/>
+                    <button name="action_terminate" type="object" string="Terminate"
+                            invisible="state not in ('active', 'draft')"
+                            confirm="Terminate this head lease?"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,active,expired"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_cheques" type="object" class="oe_stat_button"
+                                icon="fa-money">
+                            <field name="cheque_count_issued" widget="statinfo" string="Cheques"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Agreement">
+                            <field name="building_id"/>
+                            <field name="landlord_id"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="ejari_no"/>
+                            <field name="ejari_date"/>
+                        </group>
+                        <group string="What We Pay">
+                            <field name="annual_amount"/>
+                            <field name="cheque_count"/>
+                            <field name="instalment_amount"/>
+                            <field name="security_deposit"/>
+                            <field name="paid_amount"/>
+                            <field name="outstanding_amount"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="company_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group string="Does the deal work?">
+                        <group>
+                            <field name="potential_rent"/>
+                            <field name="contracted_rent"/>
+                            <field name="gross_margin"/>
+                        </group>
+                        <group>
+                            <field name="margin_pct" widget="percentage"/>
+                            <field name="coverage_ratio" digits="[16,2]"/>
+                            <field name="breakeven_occupancy" widget="percentage"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Landlord Cheques">
+                            <field name="payment_ids" readonly="1">
+                                <list>
+                                    <field name="cheque_no"/>
+                                    <field name="cheque_bank"/>
+                                    <field name="maturity_date"/>
+                                    <field name="amount"/>
+                                    <field name="pdc_state" widget="badge"
+                                           decoration-success="pdc_state == 'cleared'"
+                                           decoration-danger="pdc_state == 'bounced'"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_head_lease_search" model="ir.ui.view">
+        <field name="name">c2p.head.lease.search</field>
+        <field name="model">c2p.head.lease</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="building_id"/>
+                <field name="landlord_id"/>
+                <filter name="f_active" string="Active" domain="[('state','=','active')]"/>
+                <filter name="f_under" string="Not Covering Cost"
+                        domain="[('state','=','active'),('coverage_ratio','&lt;',1)]"/>
+                <group>
+                    <filter name="g_landlord" string="Landlord" context="{'group_by':'landlord_id'}"/>
+                    <filter name="g_state" string="Status" context="{'group_by':'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_head_lease" model="ir.actions.act_window">
+        <field name="name">Head Leases</field>
+        <field name="res_model">c2p.head.lease</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_landlord_cheques" model="ir.actions.act_window">
+        <field name="name">Landlord Cheques</field>
+        <field name="res_model">account.payment</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('head_lease_id', '!=', False)]</field>
+    </record>
+
+</odoo>
