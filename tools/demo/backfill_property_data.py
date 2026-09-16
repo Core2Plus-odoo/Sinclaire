@@ -111,12 +111,12 @@ for b in BUILDINGS:
     if not owner:
         raise SystemExit(f"Landlord {b['owner']!r} not found - check the partner names before running.")
     # Live analytic names carry an en dash. Match a distinctive fragment so a
-    # dash variant does not silently miss and leave the statement empty.
+    # dash variant does not silently miss and leave the building unattributed.
     analytic = one("account.analytic.account", [("name", "ilike", b["match"])])
     if not analytic:
         print(
-            f"! no analytic account matching {b['match']!r} - landlord statements "
-            f"for {b['code']} will have nothing to report"
+            f"! no analytic account matching {b['match']!r} - journal items "
+            f"for {b['code']} will not be attributed to the building"
         )
     bid = get_or_create(
         "c2p.building",

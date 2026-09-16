@@ -10,8 +10,9 @@ Odoo customisations for Sinclaire, maintained by C2P Consultants.
 
 ```
 .
-├── sinclaire_base/             # Shared foundation; every other module depends on it
-├── c2p_property_lease/         # Buildings, units, leases, PDC register, landlord statements
+├── sinclaire_base/             # Shared security groups and privileges
+├── c2p_property_lease/         # Buildings, units, head leases, leases, cheques, bank facilities
+├── c2p_ceo_command_center/     # Portfolio KPI dashboard, built on c2p_property_lease
 ├── conf/
 │   └── odoo.conf.example       # Copy to odoo.conf (git-ignored) for local runs
 ├── docs/
@@ -29,6 +30,27 @@ path. Everything that is *not* a module (`conf/`, `docs/`, `tools/`,
 `.github/`) is excluded by name in `tools/validate_manifests.py` and
 `tools/ci_addons.py` — add any new non-module directory to `NON_ADDON_DIRS` in
 both.
+
+## What the system models
+
+Sinclaire **underwrites** buildings; it is not an agency earning a percentage.
+The company pays the landlord a fixed sum for the year in an agreed number of
+cheques, Ejari transfers to Sinclaire, and Sinclaire then sets the leasing
+rates and keeps the spread. The landlord's return is fixed and does not depend
+on occupancy.
+
+That reverses who carries vacancy: an empty unit costs Sinclaire, not the
+landlord, because the head-lease cheques clear either way. Three numbers follow
+from it and appear on both the head lease and the building:
+
+```
+break-even occupancy = head lease cost / market rent of all units
+coverage             = contracted tenant rent / head lease cost
+gross margin         = contracted tenant rent - head lease cost
+```
+
+Any change that reintroduces percentage-of-collections logic is a change to the
+business model, not a refactor — raise it before building it.
 
 ## Getting started
 
@@ -76,9 +98,24 @@ The public `odoo:19.0` image is Community only, so a module depending on an
 Enterprise app cannot be installed there. `tools/ci_addons.py` resolves each
 addon's dependency tree and skips those, naming them in the job log rather than
 failing the run — **so a skipped module's install is never verified by CI.**
-`c2p_property_lease` depends on `sale_subscription` and is skipped today; it
-must be tested on an Odoo.sh staging branch before release. Mount the
-Enterprise addons onto the job's addons-path to close this gap.
+No module is skipped today: all three install and test on the Community image.
+
+`c2p_property_lease` reaches `sale_subscription` (Enterprise) through a *soft*
+dependency — it is absent from `depends`, and the code checks the registry at
+runtime. Odoo's Enterprise licence does not permit vendoring that source here,
+so this is the sanctioned way to use it without making CI unable to install us.
+The cost is that the three subscription tests **skip** on the Community image
+and report as passes:
+
+```
+skipped TestLease.test_creating_a_subscription_confirms_it : Subscriptions is not installed
+skipped TestLease.test_annual_schedule_falls_back_to_a_yearly_plan
+skipped TestLease.test_plan_lookup_prefers_the_rent_plan_over_the_generic_one
+```
+
+A regression in the subscription path therefore reaches production unflagged.
+Exercise it on an Odoo.sh staging branch before release, or mount the
+Enterprise addons onto the job's addons-path to close the gap properly.
 
 ## Branching
 
