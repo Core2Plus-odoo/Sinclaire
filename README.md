@@ -19,7 +19,9 @@ Odoo customisations for Sinclaire, maintained by C2P Consultants.
 │   └── module_template/        # Copy-paste starting point for a new module
 ├── tools/
 │   ├── validate_manifests.py   # Manifest / XML checks, also used by CI
-│   └── ci_addons.py            # Resolves which addons CI can install here
+│   ├── ci_addons.py            # Resolves which addons CI can install here
+│   ├── import_head_leases.py   # CSV of signed agreements -> c2p.head.lease
+│   └── tests/                  # Tests for the tooling above, run by CI
 ├── .github/workflows/          # CI: lint + static checks, and Odoo integration tests
 ├── requirements.txt            # Extra runtime deps imported by our modules
 └── requirements-dev.txt        # Lint / pre-commit tooling

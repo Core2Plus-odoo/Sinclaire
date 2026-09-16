@@ -87,21 +87,18 @@ BUILDINGS = [
         "code": "MKH",
         "community": "Al Mankhool",
         "owner": "Rashid Bin Hamad Real Estate Holdings",
-        "fee": 5.0,
     },
     {
         "name": "Karama Court – Al Karama",
         "code": "KRM",
         "community": "Al Karama",
         "owner": "Abdulla Al Mansoori Properties",
-        "fee": 5.0,
     },
     {
         "name": "Warqa Gardens – Al Warqa",
         "code": "WRQ",
         "community": "Al Warqa",
         "owner": "Abdulla Al Mansoori Properties",
-        "fee": 6.0,
     },
 ]
 

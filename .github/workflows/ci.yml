@@ -35,3 +35,6 @@ jobs:
 
       - name: Validate Odoo manifests and XML
         run: python tools/validate_manifests.py
+
+      - name: Test the repo's own tooling
+        run: python -m unittest discover -s tools/tests -v

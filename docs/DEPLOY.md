@@ -110,6 +110,33 @@ to make a decision.
 entered by hand. Without them the dashboard's funding gap treats headroom as
 zero, so a negative 90-day position shows as fully unfunded.
 
+### Importing them from a CSV
+
+For more than a handful, `tools/import_head_leases.py` takes a CSV. The
+figures still come off the signed agreements — the tool transcribes, it does
+not infer.
+
+```bash
+cp tools/head_leases_template.csv myleases.csv    # one row per building; fill in the numbers
+python3 tools/import_head_leases.py myleases.csv  # DRY RUN - reports, writes nothing
+python3 tools/import_head_leases.py myleases.csv --commit
+```
+
+The dry run resolves every building code and landlord name, applies the same
+rules the model enforces (term, amount, cheque count, and whether an active
+row would clash with an existing agreement) and prints each row as it would be
+written, with the instalment worked out. Nothing is written if any row has a
+problem, so a typo cannot leave half a portfolio imported.
+
+Leave `date_end` blank for a one-year term and it fills in the day before the
+anniversary; leave `landlord` blank to take the building's owner. Rows are
+matched on building and start date, so a corrected CSV can be re-run without
+duplicating anything.
+
+Import as `draft`, read the coverage and break-even figures, and activate only
+once they look right — the dashboard counts active head leases, and only
+active ones are checked for overlap.
+
 ## Sample data for a demo database
 
 For a demo or training database with no real tenants, skip the backfill and use
