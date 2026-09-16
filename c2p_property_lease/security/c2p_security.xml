@@ -24,7 +24,7 @@
         <field name="sequence">20</field>
         <field name="privilege_id" ref="res_groups_privilege_property"/>
         <field name="implied_ids" eval="[(4, ref('group_property_user'))]"/>
-        <field name="comment">Full access including buildings, landlord statements and terminations.</field>
+        <field name="comment">Full access including buildings, head leases, bank facilities and terminations.</field>
     </record>
 
     <record id="rule_building_company" model="ir.rule">

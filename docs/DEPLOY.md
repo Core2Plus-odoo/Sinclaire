@@ -4,10 +4,11 @@ Module import over the web is disabled on Odoo.sh, so the addon goes in through
 git. Modules live at the repository root, which is what Odoo.sh puts on the
 addons path.
 
-> **Before you deploy:** `c2p_property_lease` depends on `sale_subscription`
-> (Enterprise). CI skips it for that reason — see the README — so its install is
-> **not** verified by our pipeline. Deploy to a staging branch and check the
-> build log before promoting to production.
+> **Before you deploy:** CI installs and tests `c2p_property_lease` on the
+> Community image, so the install itself is verified. What is *not* verified is
+> the `sale_subscription` (Enterprise) path — it is a soft dependency and its
+> three tests skip on Community. Deploy to a staging branch, check the build
+> log, and exercise a rent subscription there before promoting to production.
 
 ```bash
 git clone <odoo.sh repo url> sinclaire && cd sinclaire
@@ -24,15 +25,15 @@ Settings → Users, or the Property menu will not appear.
 
 The module ships three service products by XML ID
 (`product_residential_rent`, `product_commercial_rent`,
-`product_property_management_fee`) with **no taxes set**, because the correct
-tax records depend on the company's fiscal localisation. Set them before the
-first invoice run:
+`product_head_lease_rent`) with **no taxes set**, because the correct tax
+records depend on the company's fiscal localisation. Nothing in the code
+enforces these treatments — set them before the first invoice run:
 
-| Product | UAE VAT treatment |
-| --- | --- |
-| Commercial Rent | Standard-rated, 5% |
-| Residential Rent | Exempt |
-| Property Management Fee | Standard-rated, 5% |
+| Product | Direction | UAE VAT treatment |
+| --- | --- | --- |
+| Commercial Rent | Sold to tenants | Standard-rated, 5% |
+| Residential Rent | Sold to tenants | Exempt |
+| Head Lease Rent | Payable to landlords | Per the landlord's own tax status |
 
 If the target database already has products with these names, reconcile them
 with the module's records (repoint the XML ID via Settings → Technical →
@@ -79,16 +80,41 @@ in your shell environment or a secret store.
 ## Notes
 
 - Sequence `LSE/YYYY/#####` for leases.
-- Two daily crons: renewal alerts at 90/60/30 days, and expiring leases
-  releasing their unit.
-- The landlord statement reads posted journal items by the building's analytic
-  account, weighted by each line's analytic percentage, and excludes the
-  module's own management-fee invoices.
-- Management-fee invoices go to the company's `OWNI` journal where it exists,
-  falling back to that company's sales journal.
+- Four daily crons: lease renewal alerts at 90/60/30 days, expiring leases
+  releasing their unit, head leases expiring when their term ends, and landlord
+  cheque alerts raising an activity 14 days before each instalment falls due.
+- Landlord cheques are **outbound** payments sharing the register with inbound
+  tenant cheques. Issue them from the wizard on the head lease so the schedule
+  matches the agreement. A bounced outbound cheque is our cheque failing
+  against a head-lease obligation, and says so in the message it posts.
 - Rent subscriptions need the Subscriptions app. Without it the module still
   installs and everything else works; the subscription button is hidden and the
   action refuses with an explanation.
-- The statement's **Rent Invoiced** figure is invoiced, not collected. A cheque
-  that later bounces does not reduce it — check the PDC register before paying
-  a landlord.
+- Coverage, margin and break-even read **contracted** rent, not collected. A
+  cheque that later bounces does not reduce them — check the PDC register
+  alongside the dashboard.
+
+## Head leases are entered by hand, on purpose
+
+The backfill script does not create head leases and will not be changed to.
+They are signed commitments to pay real money, and inferring them from whatever
+happens to be in the database would produce authoritative-looking numbers with
+nothing behind them.
+
+Until the signed agreements are entered, **every margin, coverage and
+break-even figure reads as though the buildings cost nothing** — the dashboard
+will look excellent and mean nothing. Enter them before anyone uses that screen
+to make a decision.
+
+`c2p.bank.facility` records (limits, utilisation, review dates) are likewise
+entered by hand. Without them the dashboard's funding gap treats headroom as
+zero, so a negative 90-day position shows as fully unfunded.
+
+## Sample data for a demo database
+
+For a demo or training database with no real tenants, skip the backfill and use
+**Property → Configuration → Load Sample Portfolio**. It builds buildings,
+units, leases, head leases, cheques both ways and bank facilities, is
+idempotent, and deliberately includes buildings underwritten below cost so the
+dashboard's warning states are visible. Do not run it against a database
+holding real client data.
