@@ -19,6 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The version check diffs against the base branch, which a shallow
+          # checkout cannot see.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -35,3 +39,9 @@ jobs:
 
       - name: Validate Odoo manifests and XML
         run: python tools/validate_manifests.py
+
+      - name: Test the repo's own tooling
+        run: python -m unittest discover -s tools/tests -v
+
+      - name: Module versions bumped where source changed
+        run: python tools/check_version_bumps.py

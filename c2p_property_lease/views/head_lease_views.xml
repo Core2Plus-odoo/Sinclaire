@@ -16,7 +16,7 @@
                 <field name="contracted_rent" sum="Contracted"/>
                 <field name="gross_margin" sum="Margin"/>
                 <field name="coverage_ratio" digits="[16,2]"/>
-                <field name="breakeven_occupancy" widget="percentage"/>
+                <field name="breakeven_occupancy" digits="[16,1]"/>
                 <field name="cheque_count"/>
                 <field name="outstanding_amount" sum="To Clear"/>
                 <field name="state" widget="badge"
@@ -80,9 +80,9 @@
                             <field name="gross_margin"/>
                         </group>
                         <group>
-                            <field name="margin_pct" widget="percentage"/>
+                            <field name="margin_pct" digits="[16,1]"/>
                             <field name="coverage_ratio" digits="[16,2]"/>
-                            <field name="breakeven_occupancy" widget="percentage"/>
+                            <field name="breakeven_occupancy" digits="[16,1]"/>
                         </group>
                     </group>
                     <notebook>

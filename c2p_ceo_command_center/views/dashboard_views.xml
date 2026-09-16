@@ -28,7 +28,7 @@
                                  invisible="occupancy_rate &lt; 85">
                                 <div class="o_c2p_label"><i class="fa fa-building-o"/>Occupancy</div>
                                 <div class="o_c2p_value o_c2p_positive">
-                                    <field name="occupancy_rate" widget="percentage" nolabel="1"/>
+                                    <field name="occupancy_rate" digits="[16,1]" nolabel="1"/>%
                                 </div>
                                 <div class="o_c2p_sub">
                                     <field name="occupied_count" nolabel="1"/> of
@@ -42,7 +42,7 @@
                                  invisible="occupancy_rate &gt;= 85 or occupancy_rate &lt; 70">
                                 <div class="o_c2p_label"><i class="fa fa-building-o"/>Occupancy</div>
                                 <div class="o_c2p_value o_c2p_warning">
-                                    <field name="occupancy_rate" widget="percentage" nolabel="1"/>
+                                    <field name="occupancy_rate" digits="[16,1]" nolabel="1"/>%
                                 </div>
                                 <div class="o_c2p_sub">
                                     <field name="occupied_count" nolabel="1"/> of
@@ -56,7 +56,7 @@
                                  invisible="occupancy_rate &gt;= 70">
                                 <div class="o_c2p_label"><i class="fa fa-building-o"/>Occupancy</div>
                                 <div class="o_c2p_value o_c2p_danger">
-                                    <field name="occupancy_rate" widget="percentage" nolabel="1"/>
+                                    <field name="occupancy_rate" digits="[16,1]" nolabel="1"/>%
                                 </div>
                                 <div class="o_c2p_sub">
                                     <field name="occupied_count" nolabel="1"/> of
@@ -140,7 +140,7 @@
                                 <div class="o_c2p_row"><span>Rent at risk</span>
                                     <span class="o_c2p_row_value"><field name="expiring_rent" nolabel="1"/></span></div>
                                 <div class="o_c2p_row"><span>Portfolio at risk</span>
-                                    <span class="o_c2p_row_value"><field name="lease_at_risk_rate" widget="percentage" nolabel="1"/></span></div>
+                                    <span class="o_c2p_row_value"><field name="lease_at_risk_rate" digits="[16,1]" nolabel="1"/>%</span></div>
                             </div>
                         </div>
 
@@ -157,9 +157,9 @@
                                     <span class="o_c2p_row_value o_c2p_danger"><field name="pdc_bounced_amount" nolabel="1"/></span></div>
                                 <div class="o_c2p_row"><span>Bounce rate</span>
                                     <span class="o_c2p_row_value o_c2p_danger" invisible="bounce_rate &lt; 5">
-                                        <field name="bounce_rate" widget="percentage" nolabel="1"/></span>
+                                        <field name="bounce_rate" digits="[16,1]" nolabel="1"/>%</span>
                                     <span class="o_c2p_row_value" invisible="bounce_rate &gt;= 5">
-                                        <field name="bounce_rate" widget="percentage" nolabel="1"/></span></div>
+                                        <field name="bounce_rate" digits="[16,1]" nolabel="1"/>%</span></div>
                             </div>
                         </div>
                     </div>
@@ -176,9 +176,9 @@
                                 <div class="o_c2p_row"><span>Gross margin</span>
                                     <span class="o_c2p_row_value"><field name="gross_margin" nolabel="1"/></span></div>
                                 <div class="o_c2p_row"><span>Margin</span>
-                                    <span class="o_c2p_row_value"><field name="margin_pct" widget="percentage" nolabel="1"/></span></div>
+                                    <span class="o_c2p_row_value"><field name="margin_pct" digits="[16,1]" nolabel="1"/>%</span></div>
                                 <div class="o_c2p_row"><span>Break-even occupancy</span>
-                                    <span class="o_c2p_row_value"><field name="breakeven_occupancy" widget="percentage" nolabel="1"/></span></div>
+                                    <span class="o_c2p_row_value"><field name="breakeven_occupancy" digits="[16,1]" nolabel="1"/>%</span></div>
                                 <div class="o_c2p_row"><span>Buildings below cost</span>
                                     <span class="o_c2p_row_value o_c2p_danger" invisible="buildings_below_cost == 0">
                                         <field name="buildings_below_cost" nolabel="1"/></span>

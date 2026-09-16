@@ -75,9 +75,35 @@ def check_manifest(addon: Path, errors: list[str]) -> None:
 def check_xml(errors: list[str]) -> None:
     for xml_file in sorted(ADDONS_DIR.rglob("*.xml")):
         try:
-            ElementTree.parse(xml_file)
+            tree = ElementTree.parse(xml_file)
         except ElementTree.ParseError as exc:
             errors.append(f"{xml_file}: malformed XML ({exc})")
+            continue
+        check_percentage_widget(xml_file, tree, errors)
+
+
+def check_percentage_widget(xml_file: Path, tree: ElementTree.ElementTree, errors: list[str]) -> None:
+    """Ban widget="percentage", which silently multiplies by 100 again.
+
+    Every percentage in this repo is computed and stored on a 0-100 scale
+    (`occupied / total * 100`), which is what `widget="progressbar"` expects.
+    `widget="percentage"` expects a 0-1 fraction and multiplies by 100 itself,
+    so the same field rendered both ways shows "8200%" above a bar reading 82%
+    - which is exactly what production showed on 2026-09-16.
+
+    No test catches this: the stored value is correct and every assertion on it
+    passes. Only the rendering is wrong. Render these with `digits="[16,1]"`
+    and let the field label or literal `%` carry the sign; rescaling the fields
+    to 0-1 instead would need a migration, since several are stored.
+    """
+    for field in tree.iter("field"):
+        if field.get("widget") == "percentage":
+            name = field.get("name", "?")
+            errors.append(
+                f'{xml_file}: field "{name}" uses widget="percentage", but this repo '
+                f"stores percentages on a 0-100 scale, so it would render 100x too "
+                f'large. Use digits="[16,1]" and carry the % in the label or markup.'
+            )
 
 
 def main() -> int:
