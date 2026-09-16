@@ -12,7 +12,7 @@
                 <field name="unit_count"/>
                 <field name="occupied_count"/>
                 <field name="vacant_count" decoration-warning="vacant_count &gt; 0"/>
-                <field name="occupancy_rate" widget="percentage" optional="show"/>
+                <field name="occupancy_rate" digits="[16,1]" optional="show"/>
                 <field name="contracted_rent" sum="Contracted rent"/>
                 <field name="head_lease_cost" optional="show"/>
                 <field name="gross_margin" optional="show"/>
@@ -39,7 +39,7 @@
                         <div class="mt-2">
                             Landlord: <field name="owner_id"/><br/>
                             <field name="occupied_count"/> of <field name="unit_count"/> units occupied
-                            (<field name="occupancy_rate" widget="percentage"/>)
+                            (<field name="occupancy_rate" digits="[16,1]"/>%)
                         </div>
                     </t>
                 </templates>
@@ -73,7 +73,7 @@
                             <field name="potential_rent"/>
                             <field name="gross_margin"/>
                             <field name="coverage_ratio" digits="[16,2]"/>
-                            <field name="breakeven_occupancy" widget="percentage"/>
+                            <field name="breakeven_occupancy" digits="[16,1]"/>
                             <field name="analytic_account_id"/>
                         </group>
                         <group>
@@ -81,7 +81,7 @@
                             <field name="community"/>
                             <field name="city"/>
                             <field name="company_id" groups="base.group_multi_company"/>
-                            <field name="occupancy_rate" widget="percentage"/>
+                            <field name="occupancy_rate" digits="[16,1]"/>
                             <field name="contracted_rent"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
