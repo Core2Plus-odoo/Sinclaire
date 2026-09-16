@@ -67,6 +67,19 @@ search domain or filter at all; give it `store=True` or a `search=` method.
 the middle one for new behaviour, and add a migration script when the change
 needs one.
 
+This is not bookkeeping. **Odoo.sh upgrades a module on a deploy only when its
+manifest version is higher than the one recorded in the database.** Ship
+changed code under an unchanged version and the build restarts with the new
+Python loaded and the schema untouched — fields exist in the registry with no
+column behind them, and the first read of the model raises `UndefinedColumn` in
+production. That is exactly what happened on 2026-09-16: the underwriting
+change added `account.move.c2p_building_id` under an unchanged `19.0.1.0.0`,
+and every screen touching an invoice broke about an hour after the merge.
+
+`tools/check_version_bumps.py` now fails CI when a module's files change
+without a version bump. Bump it for data-file and security changes too — they
+are applied by the same upgrade.
+
 ## Things static analysis will not catch
 
 `ruff check` and `tools/validate_manifests.py` passed in **every one** of the
