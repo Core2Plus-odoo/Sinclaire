@@ -191,3 +191,40 @@ class TestLease(TransactionCase):
         self.assertEqual(order.subscription_state, "3_progress")
         self.assertEqual(order.c2p_lease_id, lease)
         self.assertEqual(order.order_line.price_unit, lease.instalment_amount)
+
+
+@tagged("post_install", "-at_install")
+class TestChequeSchedules(TransactionCase):
+    """Every offered cheque count must have a schedule behind it.
+
+    `_find_subscription_plan` indexes CHEQUE_PLAN by the selected cheque
+    count, so a value offered in the dropdown but missing from the map raises
+    KeyError when the lease is confirmed - which is how the 3-cheque option
+    was unusable on the tenant lease while the head lease accepted it.
+    """
+
+    def test_tenant_lease_offers_the_six_uae_schedules(self):
+        selection = {int(v) for v, _ in self.env["c2p.lease"]._fields["cheque_count"].selection}
+        self.assertEqual(selection, {1, 2, 3, 4, 6, 12})
+
+    def test_head_lease_offers_the_six_uae_schedules(self):
+        selection = {int(v) for v, _ in self.env["c2p.head.lease"]._fields["cheque_count"].selection}
+        self.assertEqual(selection, {1, 2, 3, 4, 6, 12})
+
+    def test_tenant_lease_schedule_map_covers_every_offered_count(self):
+        from odoo.addons.c2p_property_lease.models.lease import CHEQUE_PLAN
+
+        selection = {int(v) for v, _ in self.env["c2p.lease"]._fields["cheque_count"].selection}
+        self.assertEqual(selection, set(CHEQUE_PLAN), "dropdown and CHEQUE_PLAN have drifted apart")
+
+    def test_head_lease_schedule_map_covers_every_offered_count(self):
+        from odoo.addons.c2p_property_lease.models.head_lease import CHEQUE_PLAN
+
+        selection = {int(v) for v, _ in self.env["c2p.head.lease"]._fields["cheque_count"].selection}
+        self.assertEqual(selection, set(CHEQUE_PLAN), "dropdown and CHEQUE_PLAN have drifted apart")
+
+    def test_every_schedule_divides_the_year(self):
+        from odoo.addons.c2p_property_lease.models.lease import CHEQUE_PLAN
+
+        for cheques, months in CHEQUE_PLAN.items():
+            self.assertEqual(cheques * months, 12, f"{cheques} cheques x {months} months != 12")

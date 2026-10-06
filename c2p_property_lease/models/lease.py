@@ -6,7 +6,7 @@ from odoo import models
 from odoo.exceptions import UserError
 from odoo.exceptions import ValidationError
 
-CHEQUE_PLAN = {1: 12, 2: 6, 4: 3, 6: 2, 12: 1}  # cheques -> months per instalment
+CHEQUE_PLAN = {1: 12, 2: 6, 3: 4, 4: 3, 6: 2, 12: 1}  # cheques -> months per instalment
 
 
 class C2pLease(models.Model):
@@ -31,6 +31,7 @@ class C2pLease(models.Model):
         [
             ("1", "1 Cheque (Annual)"),
             ("2", "2 Cheques"),
+            ("3", "3 Cheques"),
             ("4", "4 Cheques (Quarterly)"),
             ("6", "6 Cheques"),
             ("12", "12 Cheques (Monthly)"),
