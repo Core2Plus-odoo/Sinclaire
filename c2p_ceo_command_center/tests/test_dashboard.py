@@ -40,7 +40,10 @@ class TestCeoDashboard(TransactionCase):
                 "cheque_count": "4",
             }
         )
-        cls.lease.action_activate()
+        # The load path, not the leasing process: these tests are about what
+        # the dashboard reports over tenancies that are already running, and
+        # BR-075 refuses a cheque-less activation through action_activate.
+        cls.lease._activate_as_loaded()
 
     def _dashboard(self):
         return self.env["c2p.ceo.dashboard"].create({})
@@ -104,7 +107,7 @@ class TestCeoDashboard(TransactionCase):
                 "cheque_count": "1",
             }
         )
-        near.action_activate()
+        near._activate_as_loaded()
 
         far_unit = self.env["c2p.unit"].create(
             {
@@ -122,7 +125,7 @@ class TestCeoDashboard(TransactionCase):
                 "cheque_count": "1",
             }
         )
-        far.action_activate()
+        far._activate_as_loaded()
 
         after = self._dashboard()
         self.assertEqual(after.expiring_lease_count, base_count + 1)

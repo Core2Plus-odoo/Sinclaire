@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_lease_cheque_exception_list" model="ir.ui.view">
+        <field name="name">c2p.lease.cheque.exception.list</field>
+        <field name="model">c2p.lease.cheque.exception</field>
+        <field name="arch" type="xml">
+            <list string="Cheque Exceptions" decoration-danger="is_overdue">
+                <field name="lease_id"/>
+                <field name="unit_id" optional="show"/>
+                <field name="tenant_id" optional="show"/>
+                <field name="missing_cheque_count" string="Short by"/>
+                <field name="missing_amount" sum="Uncovered rent"/>
+                <field name="deadline"/>
+                <field name="responsible_user_id"/>
+                <field name="requested_by_id" optional="hide"/>
+                <field name="approved_by_id" optional="show"/>
+                <field name="outstanding_cheque_count" string="Still outstanding"/>
+                <field name="is_overdue" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'fulfilled'"
+                       decoration-warning="state == 'approved'"
+                       decoration-danger="state == 'breached'"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_lease_cheque_exception_form" model="ir.ui.view">
+        <field name="name">c2p.lease.cheque.exception.form</field>
+        <field name="model">c2p.lease.cheque.exception</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_approve" type="object" string="Approve"
+                            class="btn-primary" invisible="state != 'draft'"
+                            groups="c2p_property_lease.group_property_manager"/>
+                    <button name="action_reject" type="object" string="Reject"
+                            invisible="state != 'draft'"
+                            groups="c2p_property_lease.group_property_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,approved,fulfilled"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="lease_id" options="{'no_create': True}"/>
+                        </h1>
+                    </div>
+                    <div class="alert alert-warning" role="alert" invisible="not is_overdue">
+                        The deadline has passed with cheques still outstanding. Escalate to the approver.
+                    </div>
+                    <group>
+                        <group string="Shortfall when requested">
+                            <field name="expected_cheque_count"/>
+                            <field name="received_cheque_count"/>
+                            <field name="missing_cheque_count"/>
+                            <field name="missing_amount"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Outstanding now">
+                            <field name="outstanding_cheque_count"/>
+                            <field name="outstanding_amount"/>
+                            <field name="deadline"/>
+                            <field name="responsible_user_id"/>
+                            <field name="is_overdue" invisible="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Request">
+                            <field name="requested_by_id"/>
+                            <field name="unit_id"/>
+                            <field name="tenant_id"/>
+                        </group>
+                        <group string="Decision">
+                            <field name="approved_by_id"/>
+                            <field name="approval_date"/>
+                            <field name="activation_date"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Reason" name="reason">
+                            <field name="reason" placeholder="Why this tenancy cannot wait for the outstanding cheques."/>
+                        </page>
+                        <page string="Conditions" name="conditions">
+                            <field name="conditions" placeholder="Conditions attached to the approval."/>
+                        </page>
+                        <page string="Decision note" name="decision_note">
+                            <field name="decision_note"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_lease_cheque_exception_search" model="ir.ui.view">
+        <field name="name">c2p.lease.cheque.exception.search</field>
+        <field name="model">c2p.lease.cheque.exception</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="lease_id"/>
+                <field name="unit_id"/>
+                <field name="tenant_id"/>
+                <field name="responsible_user_id"/>
+                <filter name="awaiting_decision" string="Awaiting decision" domain="[('state','=','draft')]"/>
+                <filter name="approved" string="Approved" domain="[('state','=','approved')]"/>
+                <filter name="breached" string="Deadline missed" domain="[('state','=','breached')]"/>
+                <separator/>
+                <filter name="mine" string="My follow-ups" domain="[('responsible_user_id','=',uid)]"/>
+                <group>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_responsible" string="Responsible" context="{'group_by': 'responsible_user_id'}"/>
+                    <filter name="group_deadline" string="Deadline" context="{'group_by': 'deadline'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_lease_cheque_exception" model="ir.actions.act_window">
+        <field name="name">Cheque Exceptions</field>
+        <field name="res_model">c2p.lease.cheque.exception</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_awaiting_decision': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No cheque exceptions</p>
+            <p>
+                BRD §5.1 allows a tenancy to be activated with cheques still outstanding
+                only under an exception approved by the Leasing Manager or CEO. Requests
+                are raised from the lease that needs one.
+            </p>
+        </field>
+    </record>
+</odoo>

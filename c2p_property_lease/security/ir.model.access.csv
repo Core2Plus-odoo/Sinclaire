@@ -15,3 +15,5 @@ access_head_lease_manager,head lease manager,model_c2p_head_lease,group_property
 access_bank_facility_manager,bank facility manager,model_c2p_bank_facility,group_property_manager,1,1,1,1
 access_landlord_cheque_wiz,landlord cheque wizard,model_c2p_landlord_cheque_register,group_property_manager,1,1,1,1
 access_landlord_cheque_line,landlord cheque line,model_c2p_landlord_cheque_line,group_property_manager,1,1,1,1
+access_cheque_exception_user,cheque exception user,model_c2p_lease_cheque_exception,group_property_user,1,1,1,0
+access_cheque_exception_manager,cheque exception manager,model_c2p_lease_cheque_exception,group_property_manager,1,1,1,1

@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from psycopg2 import IntegrityError
 
+from odoo import fields
 from odoo.exceptions import UserError
 from odoo.exceptions import ValidationError
 from odoo.tests import tagged
@@ -42,6 +45,27 @@ class TestLease(TransactionCase):
         vals.update(kw)
         return self.env["c2p.lease"].create(vals)
 
+    def _activate(self, lease):
+        """Activate a lease that has no cheques.
+
+        BR-075 refuses that outright, so these tests - which are about other
+        things - grant the approved exception BRD §5.1 requires and then use
+        the ordinary action, so the state guards under test still run. The
+        approval's own rules are tested in test_cheque_exception.py, which is
+        why the state is set directly here rather than through action_approve.
+        """
+        self.env["c2p.lease.cheque.exception"].create(
+            {
+                "lease_id": lease.id,
+                "reason": "Test fixture",
+                "conditions": "Cheques to follow",
+                "deadline": fields.Date.context_today(self.env.user) + timedelta(days=7),
+                "responsible_user_id": self.env.uid,
+            }
+        ).write({"state": "approved", "approved_by_id": self.env.uid})
+        lease.action_activate()
+        return lease
+
     def test_unit_number_is_unique_per_building(self):
         """Regression: _sql_constraints is ignored on 19.0, so this must be a
         models.Constraint or duplicates reach the database silently."""
@@ -76,43 +100,45 @@ class TestLease(TransactionCase):
             self._lease(date_start="2026-12-31", date_end="2026-01-01")
 
     def test_activating_marks_the_unit_occupied(self):
-        lease = self._lease()
-        lease.action_activate()
+        lease = self._activate(self._lease())
         self.assertEqual(lease.state, "active")
         self.assertEqual(self.unit.state, "occupied")
         self.assertEqual(self.unit.current_lease_id, lease)
 
     def test_second_lease_cannot_occupy_the_same_unit(self):
-        self._lease().action_activate()
+        self._activate(self._lease())
         other = self._lease(tenant_id=self.landlord.id)
-        with self.assertRaises(UserError):
-            other.action_activate()
+        # The message matters: with BR-075 in place an activation can be
+        # refused for a missing cheque instead, and a test that only asserted
+        # "it raised" would pass on the wrong refusal.
+        with self.assertRaises(UserError) as caught:
+            self._activate(other)
+        self.assertIn("already taken", str(caught.exception))
 
     def test_second_lease_blocked_while_the_first_is_under_notice(self):
         """BR-001. A unit under notice is still occupied - the sitting tenant
         has not left. Before the ten-state model the guard only looked for
         "occupied", so notice was a hole in it."""
-        first = self._lease()
-        first.action_activate()
+        first = self._activate(self._lease())
         first.action_give_notice()
         self.assertEqual(self.unit.state, "notice")
         other = self._lease(tenant_id=self.landlord.id)
-        with self.assertRaises(UserError):
-            other.action_activate()
+        with self.assertRaises(UserError) as caught:
+            self._activate(other)
+        self.assertIn("already taken", str(caught.exception))
 
     def test_second_lease_blocked_while_the_unit_is_contracted(self):
         """Contracted means signed but not yet moved in. The unit is spoken
         for, so a second activation must still be refused."""
-        first = self._lease()
-        first.action_activate()
+        self._activate(self._lease())
         self.unit.state = "contracted"
         other = self._lease(tenant_id=self.landlord.id)
-        with self.assertRaises(UserError):
-            other.action_activate()
+        with self.assertRaises(UserError) as caught:
+            self._activate(other)
+        self.assertIn("already taken", str(caught.exception))
 
     def test_expiring_releases_the_unit(self):
-        lease = self._lease(date_start="2020-01-01", date_end="2020-12-31")
-        lease.action_activate()
+        lease = self._activate(self._lease(date_start="2020-01-01", date_end="2020-12-31"))
         self.env["c2p.lease"]._cron_expire_leases()
         self.assertEqual(lease.state, "expired")
         self.assertEqual(self.unit.state, "vacant")
@@ -171,8 +197,7 @@ class TestLease(TransactionCase):
         )
 
     def test_terminating_is_safe_without_subscriptions(self):
-        lease = self._lease()
-        lease.action_activate()
+        lease = self._activate(self._lease())
         wizard = self.env["c2p.lease.terminate"].create(
             {
                 "lease_id": lease.id,
@@ -205,7 +230,7 @@ class TestLease(TransactionCase):
         lease = self._lease(cheque_count="4")
         if not lease._subscriptions_installed():
             self.skipTest("Subscriptions is not installed on this database")
-        lease.action_activate()
+        self._activate(lease)
         lease.action_create_subscription()
         order = lease.subscription_id
         self.assertTrue(order)
@@ -392,6 +417,22 @@ class TestLeaseStates(TransactionCase):
             }
         )
 
+    def _activate(self, lease):
+        """See TestLease._activate: BR-075 refuses a cheque-less activation, so
+        the exception BRD §5.1 requires is granted first and the ordinary action
+        is used, keeping the state guards under test in play."""
+        self.env["c2p.lease.cheque.exception"].create(
+            {
+                "lease_id": lease.id,
+                "reason": "Test fixture",
+                "conditions": "Cheques to follow",
+                "deadline": fields.Date.context_today(self.env.user) + timedelta(days=7),
+                "responsible_user_id": self.env.uid,
+            }
+        ).write({"state": "approved", "approved_by_id": self.env.uid})
+        lease.action_activate()
+        return lease
+
     def test_all_twelve_brd_states_exist(self):
         from odoo.addons.c2p_property_lease.models.lease import LEASE_STATES
 
@@ -441,16 +482,26 @@ class TestLeaseStates(TransactionCase):
         self.assertEqual(lease.state, "signed")
         lease.action_submit_registration()
         self.assertEqual(lease.state, "registration_pending")
-        lease.action_activate()
+        self._activate(lease)
         self.assertEqual(lease.state, "active")
 
-    def test_a_draft_lease_can_still_be_activated_directly(self):
-        """The approval, signature and Ejari gates are BR-036, BR-072 and
-        BR-075 and are not built. Until they are, the short path stays open -
-        refusing it would block work that is legitimate today."""
+    def test_a_draft_lease_with_its_cheques_in_can_be_activated_directly(self):
+        """The approval and signature gates are BR-036 and BR-072 and are not
+        built - both wait on OD-06 - so the short path through the state model
+        stays open. BR-075 is built, so the one thing the short path cannot skip
+        is the cheques: this lease gets there on an approved exception."""
         lease = self._lease("P2")
-        lease.action_activate()
+        self._activate(lease)
         self.assertEqual(lease.state, "active")
+
+    def test_the_short_path_still_cannot_skip_the_cheques(self):
+        """The other half of the test above, and the one that would catch the
+        gate being lost: no exception, no activation, however short the path."""
+        lease = self._lease("P2b")
+        with self.assertRaises(UserError) as caught:
+            lease.action_activate()
+        self.assertIn("cheque", str(caught.exception).lower())
+        self.assertEqual(lease.state, "draft")
 
     def test_a_signed_lease_cannot_go_back(self):
         """BRD §5.1.2: the signed document is immutable. Correction is an
@@ -465,8 +516,7 @@ class TestLeaseStates(TransactionCase):
             lease.action_cancel()
 
     def test_an_active_lease_cannot_be_cancelled(self):
-        lease = self._lease("P4")
-        lease.action_activate()
+        lease = self._activate(self._lease("P4"))
         with self.assertRaises(UserError):
             lease.action_cancel()
 
@@ -474,14 +524,14 @@ class TestLeaseStates(TransactionCase):
         lease = self._lease("P5")
         with self.assertRaises(UserError):
             lease.action_give_notice()
-        lease.action_activate()
+        self._activate(lease)
         lease.action_give_notice()
         self.assertEqual(lease.state, "notice")
 
     def test_a_closed_lease_cannot_be_reactivated(self):
-        lease = self._lease("P6")
-        lease.action_activate()
+        lease = self._activate(self._lease("P6"))
         lease.action_give_notice()
         lease.state = "expired"
-        with self.assertRaises(UserError):
+        with self.assertRaises(UserError) as caught:
             lease.action_activate()
+        self.assertIn("cannot be activated", str(caught.exception))

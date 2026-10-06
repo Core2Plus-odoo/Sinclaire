@@ -12,6 +12,9 @@
               action="action_head_lease" sequence="5"
               groups="group_property_manager"/>
 
+    <menuitem id="menu_cheque_exception" name="Cheque Exceptions" parent="menu_property_operations"
+              action="action_lease_cheque_exception" sequence="40"/>
+
     <menuitem id="menu_property_finance" name="Finance" parent="menu_property_root" sequence="20"/>
     <menuitem id="menu_pdc" name="Tenant Cheques" parent="menu_property_finance"
               action="action_pdc_register" sequence="10"/>

@@ -302,7 +302,10 @@ class SamplePortfolio(models.AbstractModel):
                 "ejari_date": start + relativedelta(days=3),
             }
         )
-        lease.action_activate()
+        # Load path, not the leasing process: these are tenancies already
+        # running, and their cheques are created further down - exactly the
+        # order the migration plan loads them in. See _activate_as_loaded.
+        lease._activate_as_loaded()
         created["leases"] += 1
         return lease
 

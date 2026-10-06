@@ -72,8 +72,27 @@ class LeaseRenew(models.TransientModel):
                 "renewed_from_id": old.id,
             }
         )
+        # A renewal is a new tenancy, so BR-075 applies to it: it cannot start
+        # with its cheques missing unless an exception is approved. The renewal
+        # cheques cannot exist yet - they are written against the new term - so
+        # the wizard drafts the successor and leaves activating it to the normal
+        # gated path.
+        #
         # BRD §3.2 keeps Renewed distinct from Expired: one ended because a
-        # successor took over, the other because nobody renewed it.
-        old.state = "renewed"
-        new.action_activate()
+        # successor took over, the other because nobody renewed it. A successor
+        # that has not started has not taken over, so the outgoing tenancy stays
+        # running until it does - closing it on the strength of a draft renewal
+        # would leave the unit occupied by a tenancy the system calls finished.
+        if new.cheques_complete:
+            new.action_activate()
+            old.state = "renewed"
+        else:
+            new.message_post(
+                body=self.env._(
+                    "Renewal drafted from %(old)s. Register the renewal cheques and activate it, "
+                    "or request a cheque exception (BRD §5.1). %(old)s stays running until this "
+                    "tenancy starts.",
+                    old=old.name,
+                )
+            )
         return {"type": "ir.actions.act_window", "res_model": "c2p.lease", "res_id": new.id, "view_mode": "form"}

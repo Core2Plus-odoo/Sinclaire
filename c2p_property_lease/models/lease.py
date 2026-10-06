@@ -36,6 +36,11 @@ LEASE_STATES = [
 #   "notice") pair that was written out by hand in five places before.
 # PRE_ACTIVE: agreed or being agreed, not yet running.
 # CLOSED: finished, by any route.
+# A cheque counts as received once it is physically in hand, and still counts
+# once banked or cleared. A bounced cheque does not: the instrument exists but
+# the money never arrived, which is precisely the situation BR-075 is about.
+RECEIVED_CHEQUE_STATES = ("held", "deposited", "cleared")
+
 LIVE_STATES = ("active", "notice")
 PRE_ACTIVE_STATES = (
     "draft",
@@ -95,10 +100,38 @@ class C2pLease(models.Model):
     dewa_no = fields.Char(string="DEWA Premise No.")
 
     subscription_id = fields.Many2one("sale.order", string="Rent Subscription", copy=False, readonly=True)
-    payment_ids = fields.One2many("account.payment", "lease_id", string="Cheques")
+    # copy=False, which is NOT the One2many default. Without it `copy()` - which
+    # is how a renewal is created - duplicates the tenant's cheque register onto
+    # the successor lease: fabricated payment records against cheques that were
+    # never written, and, since BR-075 reads this register, a renewal that walks
+    # through the cheque gate on phantom cover.
+    payment_ids = fields.One2many("account.payment", "lease_id", string="Cheques", copy=False)
     subscriptions_available = fields.Boolean(compute="_compute_subscriptions_available")
     pdc_count = fields.Integer(compute="_compute_pdc")
     pdc_pending = fields.Monetary(compute="_compute_pdc", string="Cheques Outstanding")
+
+    # --- BR-075: is the cheque set complete? Stored so it can be searched and
+    # reported on; a non-stored compute cannot appear in a domain at all.
+    cheques_expected = fields.Integer(compute="_compute_cheque_cover", store=True)
+    cheques_received = fields.Integer(compute="_compute_cheque_cover", store=True)
+    cheque_cover = fields.Monetary(
+        compute="_compute_cheque_cover",
+        store=True,
+        string="Rent Covered by Cheques",
+    )
+    cheque_shortfall = fields.Monetary(compute="_compute_cheque_cover", store=True)
+    cheques_complete = fields.Boolean(compute="_compute_cheque_cover", store=True)
+    # copy=False for the same reason as payment_ids, and with sharper teeth: a
+    # renewal is made with copy(), and an *approved* exception copied onto the
+    # successor would carry the approval for one tenancy over to another.
+    cheque_exception_ids = fields.One2many(
+        "c2p.lease.cheque.exception",
+        "lease_id",
+        string="Cheque Exceptions",
+        copy=False,
+    )
+    cheque_exception_count = fields.Integer(compute="_compute_cheque_exceptions")
+    has_open_cheque_exception = fields.Boolean(compute="_compute_cheque_exceptions")
 
     state = fields.Selection(
         LEASE_STATES,
@@ -135,6 +168,40 @@ class C2pLease(models.Model):
                 rec.payment_ids.filtered(lambda p: p.state in ("draft", "in_process")).mapped("amount")
             )
 
+    @api.depends(
+        "cheque_count",
+        "annual_rent",
+        "currency_id",
+        "payment_ids.pdc_state",
+        "payment_ids.amount",
+    )
+    def _compute_cheque_cover(self):
+        """Both halves of "all cheques received" (BR-075).
+
+        The count alone is not enough: four cheques covering half the rent is a
+        complete-looking set and an incomplete one. The count alone is not
+        redundant either - twelve cheques' worth of value in one instrument is
+        not the agreed schedule. So completeness needs both, and the shortfall
+        reported to the approver is the money, because that is the exposure.
+        """
+        for rec in self:
+            received = rec.payment_ids.filtered(lambda p: p.pdc_state in RECEIVED_CHEQUE_STATES)
+            cover = sum(received.mapped("amount"))
+            rec.cheques_expected = int(rec.cheque_count or 0)
+            rec.cheques_received = len(received)
+            rec.cheque_cover = cover
+            shortfall = (rec.annual_rent or 0.0) - cover
+            currency = rec.currency_id
+            rec.cheque_shortfall = max(currency.round(shortfall) if currency else shortfall, 0.0)
+            covered = currency.compare_amounts(cover, rec.annual_rent) >= 0 if currency else cover >= rec.annual_rent
+            rec.cheques_complete = bool(rec.cheques_received >= rec.cheques_expected and covered)
+
+    @api.depends("cheque_exception_ids.state")
+    def _compute_cheque_exceptions(self):
+        for rec in self:
+            rec.cheque_exception_count = len(rec.cheque_exception_ids)
+            rec.has_open_cheque_exception = any(e.state in ("draft", "approved") for e in rec.cheque_exception_ids)
+
     def _compute_days_to_expiry(self):
         today = fields.Date.context_today(self)
         for rec in self:
@@ -162,8 +229,49 @@ class C2pLease(models.Model):
                 vals["name"] = self.env["ir.sequence"].next_by_code("c2p.lease") or "New"
         return super().create(vals_list)
 
+    # The context key `_activate_as_loaded` sets. Writing it by hand is
+    # possible, which is the point of naming it after what it means: a caller
+    # that sets this is asserting the tenancy is being loaded, not transacted.
+    LOADED_CONTEXT_KEY = "c2p_lease_loaded"
+
+    def write(self, vals):
+        """Refuse a move into Active that BR-075 would not allow.
+
+        `action_activate` is where the gate belongs, but it is not the only way
+        to reach Active: `state` is a writable field, and the form's statusbar
+        lets a user click straight to it. Without this, the control would guard
+        the button and not the transition.
+
+        Deliberately *not* extended to `create`. The migration plan loads
+        running tenancies as records (object 14) before their cheques (object
+        16), so creating an already-active lease is the import path and has to
+        stay open; this is the boundary between loading a tenancy and starting
+        one. Which means the gate is a workflow control, not a permission
+        boundary - anyone who may create a lease may create an active one.
+        """
+        if vals.get("state") == "active":
+            for rec in self:
+                if rec.state == "active" or self.env.context.get(self.LOADED_CONTEXT_KEY):
+                    continue
+                if not (rec.cheques_complete or rec._approved_cheque_exception()):
+                    raise UserError(
+                        self.env._(
+                            "%(lease)s cannot be made Active with %(count)s cheque(s) "
+                            "outstanding. BRD §5.1 requires an exception approved by the "
+                            "Leasing Manager or CEO.",
+                            lease=rec.display_name,
+                            count=max(rec.cheques_expected - rec.cheques_received, 0),
+                        )
+                    )
+        return super().write(vals)
+
     # ------------------------------------------------------------------ actions
     def action_activate(self):
+        """The leasing process's activation, and the gated one.
+
+        A tenancy loaded from a legacy system is already running and is not
+        passing through this gate - see `_activate_as_loaded`.
+        """
         for rec in self:
             if rec.state not in PRE_ACTIVE_STATES:
                 raise UserError(
@@ -182,8 +290,80 @@ class C2pLease(models.Model):
                         tenant=rec.unit_id.current_lease_id.tenant_id.name or "another lease",
                     )
                 )
+            exception = rec._approved_cheque_exception()
+            if not rec.cheques_complete and not exception:
+                raise UserError(
+                    self.env._(
+                        "%(lease)s is %(count)s cheque(s) short, leaving %(amount)s of the "
+                        "annual rent uncovered. BRD §5.1 allows activation anyway only under "
+                        "an exception approved by the Leasing Manager or CEO. Register the "
+                        "missing cheques, or request an exception from this lease.",
+                        lease=rec.display_name,
+                        count=max(rec.cheques_expected - rec.cheques_received, 0),
+                        amount=f"{rec.cheque_shortfall:,.2f}",
+                    )
+                )
             rec.state = "active"
             rec.unit_id.write({"state": "occupied", "current_lease_id": rec.id})
+            if exception and not rec.cheques_complete:
+                exception.activation_date = fields.Datetime.now()
+                rec.message_post(
+                    body=self.env._(
+                        "Activated with %(count)s cheque(s) outstanding under the exception "
+                        "approved by %(approver)s, due %(deadline)s.",
+                        count=exception.missing_cheque_count,
+                        approver=exception.approved_by_id.name,
+                        deadline=exception.deadline,
+                    )
+                )
+
+    def _approved_cheque_exception(self):
+        """The approved exception standing behind a short activation, if any."""
+        self.ensure_one()
+        return self.cheque_exception_ids.filtered(lambda e: e.state == "approved")[:1]
+
+    def _activate_as_loaded(self):
+        """Mark an already-running tenancy active without the BR-075 gate.
+
+        This is the data-load path, not the leasing process. The migration plan
+        loads active tenancies (object 14) before their cheques (object 16),
+        because that is the order the dependencies allow - so a migrated
+        tenancy is legitimately short of cheques at the moment it is created,
+        and refusing it would make the opening load impossible.
+
+        It is deliberately not a parameter on `action_activate`: a flag that
+        skips a control tends to spread to the callers that find the control
+        inconvenient. Only the sample loader and the import tooling use this,
+        and a test asserts that the user-facing path still refuses.
+        """
+        for rec in self:
+            rec.with_context(**{self.LOADED_CONTEXT_KEY: True}).state = "active"
+            rec.unit_id.write({"state": "occupied", "current_lease_id": rec.id})
+
+    def action_request_cheque_exception(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": self.env._("Request Cheque Exception"),
+            "res_model": "c2p.lease.cheque.exception",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_lease_id": self.id,
+                "default_responsible_user_id": self.env.uid,
+            },
+        }
+
+    def action_view_cheque_exceptions(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": self.env._("Cheque Exceptions"),
+            "res_model": "c2p.lease.cheque.exception",
+            "view_mode": "list,form",
+            "domain": [("lease_id", "=", self.id)],
+            "context": {"default_lease_id": self.id},
+        }
 
     def action_give_notice(self):
         for rec in self:
@@ -198,12 +378,12 @@ class C2pLease(models.Model):
 
     # --- the pre-active path, BRD §3.2 -------------------------------------
     # Transitions are methods so each is a place to hang the gate the BRD asks
-    # for. The gates themselves are separate requirements and are NOT enforced
-    # yet: BR-036 (approval before an off-pricing offer is sent), BR-072 (the
-    # leasing approval rule), BR-075 (activation without all cheques).
-    # Building the states first is what makes those gates implementable; a
-    # state that refuses everything before its gate exists would only block
-    # work that is legitimate today.
+    # for. BR-075 now hangs on activation, above. The two that remain are
+    # BR-036 (approval before an off-pricing offer is sent) and BR-072 (the
+    # leasing approval rule), and both are blocked on OD-06: the BRD gives the
+    # principles but not the approvers or the limits, and inventing either
+    # would bake a guess into a control. So `action_approve` below records that
+    # an approval happened without yet asserting who was entitled to give it.
 
     def _advance(self, target, allowed_from):
         for rec in self:
