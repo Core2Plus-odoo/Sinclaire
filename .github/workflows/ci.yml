@@ -48,3 +48,6 @@ jobs:
 
       - name: Requirement matrix ids and counts
         run: python tools/check_requirement_matrix.py
+
+      - name: Data dictionary matches the source
+        run: python tools/gen_data_dictionary.py --check
