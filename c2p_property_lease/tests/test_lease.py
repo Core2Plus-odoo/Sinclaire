@@ -7,6 +7,7 @@ from odoo.exceptions import UserError
 from odoo.exceptions import ValidationError
 from odoo.tests import tagged
 from odoo.tests.common import TransactionCase
+from odoo.tests.common import new_test_user
 from odoo.tools import mute_logger
 
 
@@ -32,6 +33,12 @@ class TestLease(TransactionCase):
                 "unit_type": "1br",
             }
         )
+        cls.approver = new_test_user(
+            cls.env,
+            login="c2p_tl_approver",
+            groups="c2p_property_lease.group_property_manager",
+            name="Lease Test Approver",
+        )
 
     def _lease(self, **kw):
         vals = {
@@ -54,20 +61,20 @@ class TestLease(TransactionCase):
         approval's own rules are tested in test_cheque_exception.py, which is
         why the state is set directly here rather than through action_approve.
         """
-        self.env["c2p.lease.cheque.exception"].create(
+        exception = self.env["c2p.lease.cheque.exception"].create(
             {
                 "lease_id": lease.id,
                 "reason": "Test fixture",
                 "conditions": "Cheques to follow",
                 "deadline": fields.Date.context_today(self.env.user) + timedelta(days=7),
                 "responsible_user_id": self.env.uid,
-                # Requested by somebody else: the approval rules now hold on
-                # every write path, self-approval included, so a fixture that
-                # requested and approved as the same user would be refused -
-                # which is the point.
-                "requested_by_id": self.env.ref("base.user_admin").id,
             }
-        ).write({"state": "approved", "approved_by_id": self.env.uid})
+        )
+        # Through the real action, as a real manager. The approval rules hold on
+        # every write path now, so a fixture cannot stamp the state itself - and
+        # the test user these run as is not in the manager group, because
+        # has_group is a genuine membership check even for the superuser.
+        exception.with_user(self.approver).action_approve()
         lease.action_activate()
         return lease
 
@@ -409,6 +416,12 @@ class TestLeaseStates(TransactionCase):
         cls.landlord = cls.env["res.partner"].create({"name": "LS Landlord"})
         cls.tenant = cls.env["res.partner"].create({"name": "LS Tenant"})
         cls.building = cls.env["c2p.building"].create({"name": "LS Tower", "code": "LST", "owner_id": cls.landlord.id})
+        cls.approver = new_test_user(
+            cls.env,
+            login="c2p_ls_approver",
+            groups="c2p_property_lease.group_property_manager",
+            name="Lease State Approver",
+        )
 
     def _lease(self, unit_name):
         unit = self.env["c2p.unit"].create({"name": unit_name, "building_id": self.building.id})
@@ -426,20 +439,20 @@ class TestLeaseStates(TransactionCase):
         """See TestLease._activate: BR-075 refuses a cheque-less activation, so
         the exception BRD §5.1 requires is granted first and the ordinary action
         is used, keeping the state guards under test in play."""
-        self.env["c2p.lease.cheque.exception"].create(
+        exception = self.env["c2p.lease.cheque.exception"].create(
             {
                 "lease_id": lease.id,
                 "reason": "Test fixture",
                 "conditions": "Cheques to follow",
                 "deadline": fields.Date.context_today(self.env.user) + timedelta(days=7),
                 "responsible_user_id": self.env.uid,
-                # Requested by somebody else: the approval rules now hold on
-                # every write path, self-approval included, so a fixture that
-                # requested and approved as the same user would be refused -
-                # which is the point.
-                "requested_by_id": self.env.ref("base.user_admin").id,
             }
-        ).write({"state": "approved", "approved_by_id": self.env.uid})
+        )
+        # Through the real action, as a real manager. The approval rules hold on
+        # every write path now, so a fixture cannot stamp the state itself - and
+        # the test user these run as is not in the manager group, because
+        # has_group is a genuine membership check even for the superuser.
+        exception.with_user(self.approver).action_approve()
         lease.action_activate()
         return lease
 
