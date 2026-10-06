@@ -3,6 +3,8 @@ from dateutil.relativedelta import relativedelta
 from odoo import api
 from odoo import fields
 from odoo import models
+from odoo.addons.c2p_property_lease.models.lease import LIVE_STATES
+from odoo.addons.c2p_property_lease.models.unit import EMPTY_STATES
 
 # A lease inside this window is close enough to expiry to need a decision.
 RENEWAL_HORIZON_DAYS = 90
@@ -147,7 +149,7 @@ class CeoDashboard(models.TransientModel):
             by_state = dict(Unit._read_group(domain, ["state"], ["__count"]))
             rec.unit_count = sum(by_state.values())
             rec.occupied_count = by_state.get("occupied", 0)
-            rec.vacant_count = by_state.get("vacant", 0)
+            rec.vacant_count = sum(by_state.get(st, 0) for st in EMPTY_STATES)
             rec.occupancy_rate = rec.occupied_count / rec.unit_count * 100.0 if rec.unit_count else 0.0
 
             active = [*domain, ("state", "=", "active")]
@@ -159,7 +161,7 @@ class CeoDashboard(models.TransientModel):
 
             # What the empty units would earn at market rate.
             rec.vacant_market_rent = rec.currency_id.round(
-                rec._sum(Unit._read_group([*domain, ("state", "=", "vacant")], [], ["market_rent:sum"]))
+                rec._sum(Unit._read_group([*domain, ("state", "in", EMPTY_STATES)], [], ["market_rent:sum"]))
             )
 
             leased_area = rec._sum(Unit._read_group([*domain, ("state", "=", "occupied")], [], ["area_sqft:sum"]))
@@ -177,7 +179,7 @@ class CeoDashboard(models.TransientModel):
                 return Lease._read_group(
                     [
                         *_dom,
-                        ("state", "in", ("active", "notice")),
+                        ("state", "in", LIVE_STATES),
                         ("date_end", ">=", _today + relativedelta(days=start_day)),
                         ("date_end", "<=", _today + relativedelta(days=end_day)),
                     ],
@@ -365,7 +367,7 @@ class CeoDashboard(models.TransientModel):
         return self._drill(
             self.env._("Vacant Units"),
             "c2p.unit",
-            [*self._company_domain(), ("state", "=", "vacant")],
+            [*self._company_domain(), ("state", "in", EMPTY_STATES)],
             view_mode="kanban,list,form",
         )
 
@@ -376,7 +378,7 @@ class CeoDashboard(models.TransientModel):
             "c2p.lease",
             [
                 *self._company_domain(),
-                ("state", "in", ("active", "notice")),
+                ("state", "in", LIVE_STATES),
                 ("date_end", ">=", today),
                 ("date_end", "<=", today + relativedelta(days=RENEWAL_HORIZON_DAYS)),
             ],
@@ -412,7 +414,7 @@ class CeoDashboard(models.TransientModel):
         return self._drill(
             self.env._("Lease Expiry Profile"),
             "c2p.lease",
-            [*self._company_domain(), ("state", "in", ("active", "notice"))],
+            [*self._company_domain(), ("state", "in", LIVE_STATES)],
             view_mode="graph,pivot,list,form",
         )
 

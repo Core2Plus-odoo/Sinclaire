@@ -5,7 +5,7 @@
         <field name="model">c2p.lease</field>
         <field name="arch" type="xml">
             <list string="Leases" decoration-warning="days_to_expiry &lt; 60 and state == 'active'"
-                  decoration-muted="state in ('expired','terminated')">
+                  decoration-muted="state in ('renewed','expired','terminated','cancelled')">
                 <field name="name"/>
                 <field name="tenant_id"/>
                 <field name="unit_id"/>
@@ -31,7 +31,20 @@
             <form>
                 <header>
                     <button name="action_activate" type="object" string="Activate"
-                            class="btn-primary" invisible="state != 'draft'"/>
+                            class="btn-primary"
+                            invisible="state in ('active','notice','renewed','expired','terminated','cancelled')"/>
+                    <button name="action_submit_for_approval" type="object" string="Submit for Approval"
+                            invisible="state != 'draft'"/>
+                    <button name="action_approve" type="object" string="Approve"
+                            invisible="state not in ('draft','pending_approval')"/>
+                    <button name="action_send_for_signature" type="object" string="Send for Signature"
+                            invisible="state != 'offered'"/>
+                    <button name="action_mark_signed" type="object" string="Mark Signed"
+                            invisible="state != 'awaiting_signature'"/>
+                    <button name="action_submit_registration" type="object" string="Submit Ejari"
+                            invisible="state != 'signed'"/>
+                    <button name="action_cancel" type="object" string="Cancel"
+                            invisible="state not in ('draft','pending_approval','offered','awaiting_signature')"/>
                     <button name="action_create_subscription" type="object" string="Create Rent Subscription"
                             class="btn-primary" invisible="state != 'active' or subscription_id or not subscriptions_available"/>
                     <button name="action_register_pdcs" type="object" string="Register PDCs"
@@ -44,7 +57,7 @@
                             invisible="state not in ('active','notice')"
                             groups="c2p_property_lease.group_property_manager"/>
                     <field name="state" widget="statusbar"
-                           statusbar_visible="draft,active,expired"/>
+                           statusbar_visible="draft,offered,awaiting_signature,signed,registration_pending,active"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
@@ -122,6 +135,10 @@
                 <field name="unit_id"/>
                 <field name="building_id"/>
                 <filter name="f_active" string="Active" domain="[('state','=','active')]"/>
+                <filter name="f_pipeline" string="In Progress"
+                        domain="[('state','in',('draft','pending_approval','offered','awaiting_signature','signed','registration_pending'))]"/>
+                <filter name="f_awaiting_sig" string="Awaiting Signature" domain="[('state','=','awaiting_signature')]"/>
+                <filter name="f_registration" string="Registration Pending" domain="[('state','=','registration_pending')]"/>
                 <filter name="f_notice" string="Under Notice" domain="[('state','=','notice')]"/>
                 <separator/>
                 <filter name="f_30" string="Expiring in 30 days" domain="[('days_to_expiry','&lt;=',30),('state','=','active')]"/>

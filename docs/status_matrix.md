@@ -53,11 +53,17 @@ Contracted → Occupied → Under Notice → Vacant → Under Maintenance/Blocke
   Vacant so the move-out record exists.
 - Activation is blocked where mandatory compliance cover has lapsed.
 
-**Current implementation:** `c2p.unit` has four states — Vacant, Occupied, Under
-Notice, Blocked. **Six are missing**: Draft, Available, Under Marketing,
-Viewing/On Hold, Reserved, Contracted. Note that the BRD separates *Vacant*
-(just handed back, not yet re-lettable) from *Available* (re-lettable); the
-current model has only the one. Vacancy-loss reporting depends on that split.
+**Current implementation: all ten states built** (`19.0.1.3.0`). Transitions are
+guarded methods on `c2p.unit`, not a writable field, so a move not listed above
+raises rather than silently succeeding.
+
+The BRD's split of *Vacant* (just handed back) from *Available* (re-lettable) is
+in place, and a migration moved existing rows to Available — see
+`migrations/19.0.1.3.0/`. `EARNING_STATES` and `EMPTY_STATES` in
+`models/unit.py` are the single definition of "is this unit earning?", shared by
+the building stats and the dashboard so the two cannot disagree. Draft and
+Blocked are in neither group, which is what the old four-state model did too, so
+no reported number moved.
 
 ---
 
@@ -94,11 +100,21 @@ Registration Pending → Active → Under Notice → Renewed/Expired/Terminated/
 - Any price override outside approved pricing without approval (BRD §9.2).
 - Signed → anything backwards. Signed documents are immutable.
 
-**Current implementation:** five states — Draft, Active, Notice Given, Expired,
-Terminated. **Seven are missing**: Pending Approval, Offered, Awaiting Signature,
-Signed, Registration Pending, Renewed, Cancelled. The approval gate, the
-signature gate and the Ejari registration gate all live in the missing states, so
-none of the §9.2 blocking scenarios can currently be demonstrated.
+**Current implementation: all twelve states built** (`19.0.1.4.0`), with guarded
+transition methods. `LIVE_STATES`, `PRE_ACTIVE_STATES` and `CLOSED_STATES` in
+`models/lease.py` partition the twelve and are shared with the crons and the
+dashboard, replacing the `("active", "notice")` pair that was written out by hand
+in five places. A test asserts the partition is exact, so a state added to the
+selection but to no group fails rather than quietly disappearing from every
+search.
+
+Signed has no transition out of it, per §5.1.2.
+
+**The gates are not enforced yet.** BR-036 (approval before an off-pricing offer
+is sent), BR-072 (the leasing approval rule) and BR-075 (activation without all
+cheques) are separate requirements. The states are what make them
+implementable; a Draft lease can still be activated directly until they land,
+because refusing it beforehand would block work that is legitimate today.
 
 ---
 
@@ -219,8 +235,8 @@ history.
 
 | Model | BRD states | Built | Missing |
 | --- | --- | --- | --- |
-| Unit | 10 | 4 | 6 |
-| Lease | 12 | 5 | 7 |
+| Unit | 10 | **10** | — |
+| Lease | 12 | **12** | — |
 | Payment instrument | 7 | 4 | 3 |
 | Property listing | 8 | 0 | 8 — model not created |
 | Buyer/tenant requirement | 7 | 0 | 7 — model not created |

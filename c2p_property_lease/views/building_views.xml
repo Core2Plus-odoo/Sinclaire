@@ -96,9 +96,9 @@
                                     <field name="area_sqft"/>
                                     <field name="market_rent"/>
                                     <field name="state" widget="badge"
-                                           decoration-success="state == 'occupied'"
-                                           decoration-warning="state == 'notice'"
-                                           decoration-danger="state == 'vacant'"/>
+                                           decoration-success="state in ('contracted','occupied')"
+                                           decoration-warning="state in ('notice','reserved','viewing_hold')"
+                                           decoration-danger="state in ('available','under_marketing','vacant')"/>
                                     <field name="tenant_id" readonly="1"/>
                                     <field name="lease_end" readonly="1"/>
                                     <field name="currency_id" column_invisible="1"/>

@@ -6,7 +6,46 @@ from odoo import models
 from odoo.exceptions import UserError
 from odoo.exceptions import ValidationError
 
+from .unit import EARNING_STATES
+
 CHEQUE_PLAN = {1: 12, 2: 6, 3: 4, 4: 3, 6: 2, 12: 1}  # cheques -> months per instalment
+
+# BRD §3.2: Draft → Pending Approval → Offered → Awaiting Signature → Signed →
+# Registration Pending → Active → Under Notice → Renewed/Expired/Terminated/
+# Cancelled. Allowed transitions and roles are in docs/status_matrix.md.
+LEASE_STATES = [
+    ("draft", "Draft"),
+    ("pending_approval", "Pending Approval"),
+    ("offered", "Offered"),
+    ("awaiting_signature", "Awaiting Signature"),
+    ("signed", "Signed"),
+    ("registration_pending", "Registration Pending"),
+    ("active", "Active"),
+    ("notice", "Under Notice"),
+    ("renewed", "Renewed"),
+    ("expired", "Expired"),
+    ("terminated", "Terminated"),
+    ("cancelled", "Cancelled"),
+]
+
+# Shared groups, for the same reason the unit has them: every report and cron
+# needs one answer to "is this tenancy running?", and two places disagreeing is
+# invisible until two screens differ.
+#
+# LIVE: the tenancy is running and charging rent. Exactly the ("active",
+#   "notice") pair that was written out by hand in five places before.
+# PRE_ACTIVE: agreed or being agreed, not yet running.
+# CLOSED: finished, by any route.
+LIVE_STATES = ("active", "notice")
+PRE_ACTIVE_STATES = (
+    "draft",
+    "pending_approval",
+    "offered",
+    "awaiting_signature",
+    "signed",
+    "registration_pending",
+)
+CLOSED_STATES = ("renewed", "expired", "terminated", "cancelled")
 
 
 class C2pLease(models.Model):
@@ -62,13 +101,7 @@ class C2pLease(models.Model):
     pdc_pending = fields.Monetary(compute="_compute_pdc", string="Cheques Outstanding")
 
     state = fields.Selection(
-        [
-            ("draft", "Draft"),
-            ("active", "Active"),
-            ("notice", "Notice Given"),
-            ("expired", "Expired"),
-            ("terminated", "Terminated"),
-        ],
+        LEASE_STATES,
         default="draft",
         required=True,
         tracking=True,
@@ -132,12 +165,21 @@ class C2pLease(models.Model):
     # ------------------------------------------------------------------ actions
     def action_activate(self):
         for rec in self:
-            if rec.unit_id.state == "occupied" and rec.unit_id.current_lease_id != rec:
+            if rec.state not in PRE_ACTIVE_STATES:
                 raise UserError(
                     self.env._(
-                        "Unit %(unit)s is already occupied by %(tenant)s.",
+                        "%(lease)s is %(state)s and cannot be activated.",
+                        lease=rec.display_name,
+                        state=dict(self._fields["state"].selection)[rec.state],
+                    )
+                )
+            if rec.unit_id.state in EARNING_STATES and rec.unit_id.current_lease_id != rec:
+                raise UserError(
+                    self.env._(
+                        "Unit %(unit)s is already taken (%(state)s) by %(tenant)s.",
                         unit=rec.unit_id.display_name,
-                        tenant=rec.unit_id.current_lease_id.tenant_id.name,
+                        state=dict(rec.unit_id._fields["state"].selection)[rec.unit_id.state],
+                        tenant=rec.unit_id.current_lease_id.tenant_id.name or "another lease",
                     )
                 )
             rec.state = "active"
@@ -145,8 +187,57 @@ class C2pLease(models.Model):
 
     def action_give_notice(self):
         for rec in self:
+            if rec.state not in LIVE_STATES:
+                raise UserError(
+                    self.env._(
+                        "Notice can only be served on a running tenancy, not one that is %(state)s.", state=rec.state
+                    )
+                )
             rec.state = "notice"
             rec.unit_id.state = "notice"
+
+    # --- the pre-active path, BRD §3.2 -------------------------------------
+    # Transitions are methods so each is a place to hang the gate the BRD asks
+    # for. The gates themselves are separate requirements and are NOT enforced
+    # yet: BR-036 (approval before an off-pricing offer is sent), BR-072 (the
+    # leasing approval rule), BR-075 (activation without all cheques).
+    # Building the states first is what makes those gates implementable; a
+    # state that refuses everything before its gate exists would only block
+    # work that is legitimate today.
+
+    def _advance(self, target, allowed_from):
+        for rec in self:
+            if rec.state not in allowed_from:
+                raise UserError(
+                    self.env._(
+                        "%(lease)s cannot move from %(current)s to %(target)s.",
+                        lease=rec.display_name,
+                        current=dict(self._fields["state"].selection)[rec.state],
+                        target=dict(self._fields["state"].selection)[target],
+                    )
+                )
+        self.state = target
+
+    def action_submit_for_approval(self):
+        self._advance("pending_approval", ("draft",))
+
+    def action_approve(self):
+        """Leasing Director or Manager approves off-standard terms (BR-072)."""
+        self._advance("offered", ("draft", "pending_approval"))
+
+    def action_send_for_signature(self):
+        self._advance("awaiting_signature", ("offered",))
+
+    def action_mark_signed(self):
+        """Signed is the point of no return: BRD §5.1.2 makes the signed
+        document immutable, so there is no transition back out of here."""
+        self._advance("signed", ("awaiting_signature",))
+
+    def action_submit_registration(self):
+        self._advance("registration_pending", ("signed",))
+
+    def action_cancel(self):
+        self._advance("cancelled", ("draft", "pending_approval", "offered", "awaiting_signature"))
 
     def _rent_product(self):
         """Resolve the rent product by XML ID - `name` is translatable."""
@@ -298,7 +389,7 @@ class C2pLease(models.Model):
         today = fields.Date.context_today(self)
         for days in (90, 60, 30):
             target = today + relativedelta(days=days)
-            leases = self.search([("state", "in", ("active", "notice")), ("date_end", "=", target)])
+            leases = self.search([("state", "in", LIVE_STATES), ("date_end", "=", target)])
             if not leases:
                 continue
             summary = f"Lease expires in {days} days"
@@ -329,7 +420,7 @@ class C2pLease(models.Model):
     @api.model
     def _cron_expire_leases(self):
         today = fields.Date.context_today(self)
-        expired = self.search([("state", "in", ("active", "notice")), ("date_end", "<", today)])
+        expired = self.search([("state", "in", LIVE_STATES), ("date_end", "<", today)])
         expired.write({"state": "expired"})
         for lease in expired:
             if lease.unit_id.current_lease_id == lease:

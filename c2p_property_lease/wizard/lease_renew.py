@@ -72,6 +72,8 @@ class LeaseRenew(models.TransientModel):
                 "renewed_from_id": old.id,
             }
         )
-        old.state = "expired"
+        # BRD §3.2 keeps Renewed distinct from Expired: one ended because a
+        # successor took over, the other because nobody renewed it.
+        old.state = "renewed"
         new.action_activate()
         return {"type": "ir.actions.act_window", "res_model": "c2p.lease", "res_id": new.id, "view_mode": "form"}

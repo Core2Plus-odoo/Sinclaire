@@ -1,3 +1,4 @@
+from odoo.addons.c2p_property_lease.models.unit import EMPTY_STATES
 from odoo.tests import tagged
 from odoo.tests.common import TransactionCase
 
@@ -170,12 +171,28 @@ class TestCeoDashboard(TransactionCase):
         expected = dash.expiring_lease_count / dash.active_lease_count * 100.0 if dash.active_lease_count else 0.0
         self.assertAlmostEqual(dash.lease_at_risk_rate, expected, places=6)
 
-    def test_revenue_foregone_is_the_market_rent_of_vacant_units(self):
+    def test_revenue_foregone_is_the_market_rent_of_every_empty_unit(self):
+        """Not just the units literally in state "vacant".
+
+        BRD §3.2 splits the old single "vacant" into Available (re-lettable),
+        Under Marketing, Viewing/On Hold, Reserved and Vacant (just handed
+        back). None of them earns, so all of them are revenue foregone -
+        EMPTY_STATES is that set. Asserting against one literal state was what
+        the model looked like before, and it under-reported by every unit being
+        marketed, held or reserved.
+        """
         dash = self._dashboard()
-        expected = sum(
-            self.env["c2p.unit"].search([*dash._company_domain(), ("state", "=", "vacant")]).mapped("market_rent")
-        )
-        self.assertAlmostEqual(dash.vacant_market_rent, expected, places=2)
+        empty = self.env["c2p.unit"].search([*dash._company_domain(), ("state", "in", EMPTY_STATES)])
+        self.assertAlmostEqual(dash.vacant_market_rent, sum(empty.mapped("market_rent")), places=2)
+
+    def test_a_unit_being_marketed_still_counts_as_revenue_foregone(self):
+        """The regression the test above could not catch: moving a unit along
+        the pre-let path must not quietly remove it from vacancy loss."""
+        dash = self._dashboard()
+        before = dash.vacant_market_rent
+        self.vacant_unit.action_market()
+        dash.invalidate_recordset()
+        self.assertAlmostEqual(dash.vacant_market_rent, before, places=2)
 
     def test_average_rent_is_contracted_rent_over_active_leases(self):
         dash = self._dashboard()

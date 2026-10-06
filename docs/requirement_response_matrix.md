@@ -61,7 +61,7 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 | BR-015 | 4.1 | Generate landlord payment schedule and outbound PDC schedule | Must | Cus | `c2p.head.lease`, `account.payment` | Wizard exists | S2 | Built |
 | BR-016 | 4.1 | Units created individually or by controlled import; duplicate codes blocked; **totals reconciled to the building's declared counts** | Must | Cus | `c2p.unit`, `c2p.building` | Import + control totals | S2 | Partial |
 | BR-017 | 4.1 | Market rent and floor/minimum rent by yearly, monthly and daily term | Must | Cus | `c2p.unit` | Three rate sets; floor rent drives the override block | S2 | Partial |
-| BR-018 | 4.1 | Units released for marketing only after mandatory data and approval checks | Must | Cus | `c2p.unit` | Draft → Available gate | S2 | — |
+| BR-018 | 4.1 | Units released for marketing only after mandatory data and approval checks | Must | Cus | `c2p.unit` | Draft state and `action_release` built; the mandatory-data check is still to come, and the default moves to Draft with it | S2 | Partial |
 | BR-019 | 4.1.1 | **Three operating models** — Head Lease, Owner Management, Brokerage — selecting accounting, payee, client-money, cheque, contract, approval, statement, commission and profitability behaviour | Must | Cus | `c2p.building`, contracts | Operating model drives downstream logic | S2 | Partial |
 | BR-020 | 4.1.1 | Contract versions (offer/LOI, draft, approved, signed, amended, renewed, expired, terminated, archived) retained without overwriting | Must | Cus | `c2p.head.lease` | Version chain | S2 | — |
 | BR-021 | 4.1.1 | Plot and municipality references, residential/commercial unit counts, amenities, handover condition, commencement trigger, free/grace period | Must | Cus | `c2p.building` | Field extension | S2 | — |
@@ -108,7 +108,7 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 
 | ID | § | Requirement | Pri | Class | Module / model | Approach | Phase | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **BR-001** | 11.1, 4.3 | **Prevent overlapping active occupancy for a unit** *(BRD's own ID)* | Must | Cus | `c2p.unit`, `c2p.lease` | Overlap constraint across reservations, leases, maintenance and turnaround blocks | S2 | Partial |
+| **BR-001** | 11.1, 4.3 | **Prevent overlapping active occupancy for a unit** *(BRD's own ID)* | Must | Cus | `c2p.unit`, `c2p.lease` | Activation now refused for any unit in an earning state, closing the notice and contracted holes; reservation and turnaround blocks still to come | S2 | Partial |
 | BR-051 | 4.3 | Reservation holds a unit for a defined start and expiry date/time with a responsible agent | Must | Cus | new reservation model | Reserved state | S2 | — |
 | BR-052 | 4.3 | Reservation fee, refundability, expiry, cancellation reason and conversion to lease recorded | Must | Cus | reservation | Fields + conversion | S2 | — |
 | BR-053 | 4.3 | Expired unpaid reservations auto-release after a configurable grace period, with notification and audit | Must | Cus | reservation | Cron + activity | S2 | — |
@@ -283,8 +283,8 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 | Status | Count |
 | --- | --- |
 | Built | 7 |
-| Partial | 33 |
-| Not started | 146 |
+| Partial | 34 |
+| Not started | 145 |
 
 186 requirements, BR-001 to BR-186 with no gaps or duplicates, of which **3
 carry the BRD's own IDs** (BR-001 to BR-003). Counts are generated from the
