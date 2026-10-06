@@ -187,10 +187,10 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 | BR-111 | 6.1 | Company, building, unit, lease, tenant, analytic, tax treatment and source stamped on every entry | Must | Cus | `account.move.line` | Analytic distribution | S2 | Partial |
 | BR-112 | 6.1 | **Duplicate invoice generation prevented**; schedule line linked to invoice and payment | Must | Cus | `account.move` | Idempotency | S2 | — |
 | BR-113 | 6.2 | Cheque schedules from lease or head lease with controlled manual change before confirmation | Must | Cus | `account.payment` | Wizard | S2 | Built |
-| BR-114 | 6.2 | Daily views for instruments due, overdue, deposited, uncleared, bounced, replaced or missing | Must | Rep | `account.payment` | Filtered views; Replaced and Expected states missing | S2 | Partial |
+| BR-114 | 6.2 | Daily views for instruments due, overdue, deposited, uncleared, bounced, replaced or missing | Must | Rep | `account.payment` | All seven states; daily filters for expected, due, overdue-not-received, deposited, bounced, ever-bounced, awaiting replacement and replaced | S2 | Built |
 | BR-115 | 6.2 | Physical custody and handover recorded with user, date/time and acknowledgement | Must | Cus | `account.payment` | Custody history | S2 | — |
 | BR-116 | 6.2, 6.3.1 | **Landlord-name cheques**: collected and held by New Sinclair, deposited to the landlord's bank account on the rent due date, with payee, tenant obligation, due date, custody, deposit date, deposit evidence and cleared/bounced status — **never company rent revenue or company cash** | Must | Cus | `account.payment`, custody account | Custody control account (C1, OD-02) | S2 | — |
-| BR-117 | 6.2 | On bounce: reopen the receivable, record bank charges, create follow-up, notify, link the replacement instrument | Must | Cus | `account.payment` | Bounce handler exists; Replaced state missing | S2 | Partial |
+| BR-117 | 6.2 | On bounce: reopen the receivable, record bank charges, create follow-up, notify, link the replacement instrument | Must | Cus | `account.payment` | Bounce reopens the receivable, raises follow-up and flags the history; replacement linked both ways. Bank charges still manual | S2 | Partial |
 | BR-118 | 6.2 | Bank-statement import and reconciliation for company accounts; for landlord accounts, deposit evidence and an approved clearance/bounce confirmation process. **No cheque treated as cleared before bank or landlord confirmation** | Must | Cfg | `account.bank.statement` | Import + manual confirmation path | S2 | — |
 | BR-119 | 6.2.1 | Host-to-host: transmit approved payroll/WPS files, receive technical and business acknowledgements and status, retrieve statements, feed reconciliation, with encryption, authentication, SoD, maker-checker release, identifiers, duplicate prevention, cut-off, retry, rejection/resubmission, response retention and audit | Must | Int | banking | Odoo side built; **bank certification is outside our control** (D1) | S4 | — |
 | BR-120 | 6.2.2 | DEWA and Ejari connectivity assessed; approved authority interfaces or authorised providers only; requests mapped to company, building, unit, party, lease, document, payment and user; duplicates prevented; acknowledgements, status, rejection reasons and references captured | Must | Int | DEWA/Ejari | **No open DEWA third-party interface exists** (D2) | S4 | — |
@@ -282,8 +282,8 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 
 | Status | Count |
 | --- | --- |
-| Built | 8 |
-| Partial | 34 |
+| Built | 9 |
+| Partial | 33 |
 | Not started | 144 |
 
 186 requirements, BR-001 to BR-186 with no gaps or duplicates, of which **3

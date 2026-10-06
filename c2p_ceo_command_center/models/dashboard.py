@@ -60,6 +60,13 @@ class CeoDashboard(models.TransientModel):
     )
 
     # ---------------------------------------------------------------- cheques
+    pdc_expected_amount = fields.Monetary(
+        compute="_compute_cheques",
+        string="Cheques Expected",
+        help="Instruments the agreed schedule says are coming but which have not "
+        "been received. Never counted as cash or as cover.",
+    )
+    pdc_expected_count = fields.Integer(compute="_compute_cheques")
     pdc_held_amount = fields.Monetary(compute="_compute_cheques", string="Cheques in Hand")
     pdc_held_count = fields.Integer(compute="_compute_cheques")
     pdc_bounced_amount = fields.Monetary(compute="_compute_cheques", string="Bounced")
@@ -68,11 +75,18 @@ class CeoDashboard(models.TransientModel):
     pdc_deposited_count = fields.Integer(compute="_compute_cheques")
     pdc_cleared_amount = fields.Monetary(compute="_compute_cheques", string="Cleared")
     pdc_cleared_count = fields.Integer(compute="_compute_cheques")
+    pdc_ever_bounced_count = fields.Integer(
+        compute="_compute_cheques",
+        string="Ever Bounced",
+        help="Instruments returned unpaid at least once, including those since replaced.",
+    )
     bounce_rate = fields.Float(
         compute="_compute_cheques",
         string="Bounce Rate %",
-        help="Bounced cheques as a share of those that reached a conclusion "
-        "(cleared or bounced). Cheques still in hand are not counted.",
+        help="Instruments that were returned unpaid at least once, as a share of "
+        "those that reached a conclusion. Cheques still in hand or merely "
+        "expected are not counted, and replacing a bounced cheque does not "
+        "remove it from the numerator.",
     )
 
     # ---------------------------------------------------------------- income
@@ -217,6 +231,7 @@ class CeoDashboard(models.TransientModel):
                 return _by.get(state, (0, 0.0))
 
             for state, amount_field, count_field in (
+                ("expected", "pdc_expected_amount", "pdc_expected_count"),
                 ("held", "pdc_held_amount", "pdc_held_count"),
                 ("deposited", "pdc_deposited_amount", "pdc_deposited_count"),
                 ("cleared", "pdc_cleared_amount", "pdc_cleared_count"),
@@ -226,10 +241,17 @@ class CeoDashboard(models.TransientModel):
                 rec[count_field] = count
                 rec[amount_field] = rec.currency_id.round(amount)
 
-            # Only cheques that reached a conclusion belong in the ratio;
-            # counting those still in hand would flatter it.
-            concluded = rec.pdc_cleared_count + rec.pdc_bounced_count
-            rec.bounce_rate = rec.pdc_bounced_count / concluded * 100.0 if concluded else 0.0
+            # Only instruments that reached a conclusion belong in the ratio;
+            # counting those still in hand, or merely expected, would flatter it.
+            #
+            # The numerator is "ever bounced", not "currently Bounced". A
+            # replacement is a recovery, not a retraction: if replacing a
+            # returned cheque moved it out of the numerator, working through the
+            # bounces would walk this figure down to zero while the tenant's
+            # payment behaviour stayed exactly as bad.
+            rec.pdc_ever_bounced_count = Payment.search_count([*base, ("has_bounced", "=", True)])
+            concluded = rec.pdc_cleared_count + rec.pdc_ever_bounced_count
+            rec.bounce_rate = rec.pdc_ever_bounced_count / concluded * 100.0 if concluded else 0.0
 
     @api.depends("company_id", "date_from", "date_to")
     def _compute_income(self):

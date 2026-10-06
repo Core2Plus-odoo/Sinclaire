@@ -203,12 +203,72 @@ class TestCeoDashboard(TransactionCase):
         self.assertAlmostEqual(dash.avg_rent_per_unit, expected, places=0)
 
     def test_bounce_rate_excludes_cheques_still_in_hand(self):
-        """A cheque in hand has not failed; counting it would flatter the rate."""
+        """A cheque in hand has not failed; counting it would flatter the rate.
+        Nor has one that is merely expected."""
         dash = self._dashboard()
-        concluded = dash.pdc_cleared_count + dash.pdc_bounced_count
-        expected = dash.pdc_bounced_count / concluded * 100.0 if concluded else 0.0
+        concluded = dash.pdc_cleared_count + dash.pdc_ever_bounced_count
+        expected = dash.pdc_ever_bounced_count / concluded * 100.0 if concluded else 0.0
         self.assertAlmostEqual(dash.bounce_rate, expected, places=6)
         self.assertLessEqual(dash.bounce_rate, 100.0)
+
+    def test_replacing_a_bounced_cheque_does_not_lower_the_bounce_rate(self):
+        """The reason the numerator is "ever bounced" rather than "currently
+        Bounced". If a replacement retracted the bounce, clearing the backlog of
+        returned cheques would walk this figure to zero while the tenants'
+        payment behaviour stayed exactly as bad."""
+        journal = self.env["account.journal"].search(
+            [("type", "=", "bank"), ("company_id", "=", self.env.company.id)], limit=1
+        )
+        if not journal or not journal.inbound_payment_method_line_ids:
+            self.skipTest("no bank journal with an inbound payment method")
+        cheque = self.env["account.payment"].create(
+            {
+                "payment_type": "inbound",
+                "partner_type": "customer",
+                "partner_id": self.tenant.id,
+                "amount": 10000.0,
+                "journal_id": journal.id,
+                "payment_method_line_id": journal.inbound_payment_method_line_ids[0].id,
+                "company_id": self.env.company.id,
+                "lease_id": self.lease.id,
+                "cheque_no": "990001",
+                "cheque_bank": "CC Bank",
+                "maturity_date": self.lease.date_start,
+                "pdc_state": "deposited",
+            }
+        )
+        cheque.action_pdc_bounce()
+        before = self._dashboard().bounce_rate
+        self.assertGreater(before, 0.0)
+
+        wizard = self.env["c2p.pdc.replace"].create(
+            {
+                "payment_id": cheque.id,
+                "cheque_no": "990002",
+                "cheque_bank": "CC Bank",
+                "maturity_date": self.lease.date_start,
+                "amount": cheque.amount,
+            }
+        )
+        wizard.action_confirm()
+        self.assertEqual(cheque.pdc_state, "replaced")
+        self.assertAlmostEqual(self._dashboard().bounce_rate, before, places=6)
+
+    def test_expected_cheques_are_reported_but_never_as_cash(self):
+        dash = self._dashboard()
+        self.assertGreaterEqual(dash.pdc_expected_count, 0)
+        self.assertGreaterEqual(dash.pdc_expected_amount, 0.0)
+        # An expected instrument is not in hand, not deposited and not cleared.
+        self.assertEqual(
+            self.env["account.payment"].search_count(
+                [
+                    ("company_id", "=", dash.company_id.id),
+                    ("pdc_state", "=", "expected"),
+                    ("is_pdc", "=", True),
+                ]
+            ),
+            dash.pdc_expected_count,
+        )
 
     def test_analysis_actions_open_graph_and_pivot(self):
         dash = self._dashboard()

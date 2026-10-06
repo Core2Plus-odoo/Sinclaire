@@ -261,6 +261,10 @@ for t in tenants:
         cheque = (re.search(r"PDC (\d+)", memo) or [None, f"{random.randint(300000, 799999)}"])[1]
         bank = next((b for b in BANKS if b in memo), random.choice(BANKS))
         state = "bounced" if "RETURN" in memo.upper() else "cleared" if p["state"] == "paid" else "held"
+        # pdc_state cannot be written directly any more - each move is its own
+        # action with its own reason. This is a load of historical instruments
+        # whose outcome is already known, not a sequence of moves anyone made
+        # here, so it sets the same context key the model's own actions set.
         ex(
             "account.payment",
             "write",
@@ -271,7 +275,9 @@ for t in tenants:
                 "cheque_bank": bank,
                 "maturity_date": p["date"],
                 "pdc_state": state,
+                "has_bounced": state == "bounced",
             },
+            context={**CTX, "c2p_pdc_move_recorded": True},
         )
 
     # This is a load, not a tenancy being started: these leases are already

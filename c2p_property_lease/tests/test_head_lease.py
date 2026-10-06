@@ -136,6 +136,9 @@ class TestHeadLease(TransactionCase):
         self.assertTrue(payment.is_pdc)
         head.invalidate_recordset()
         self.assertEqual(head.outstanding_amount, head.instalment_amount)
+        # §3 clears only from Deposited now: a cheque cannot clear without
+        # having been presented.
+        payment.action_pdc_deposit()
         payment.action_pdc_clear()
         head.invalidate_recordset()
         self.assertEqual(head.paid_amount, head.instalment_amount)

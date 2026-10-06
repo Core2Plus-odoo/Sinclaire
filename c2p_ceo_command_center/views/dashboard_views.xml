@@ -147,6 +147,8 @@
                         <div class="col-12 col-lg-4">
                             <div class="o_c2p_card">
                                 <div class="o_c2p_label"><i class="fa fa-money"/>Cheque Position</div>
+                                <div class="o_c2p_row"><span>Expected, not received</span>
+                                    <span class="o_c2p_row_value"><field name="pdc_expected_amount" nolabel="1"/></span></div>
                                 <div class="o_c2p_row"><span>In hand</span>
                                     <span class="o_c2p_row_value"><field name="pdc_held_amount" nolabel="1"/></span></div>
                                 <div class="o_c2p_row"><span>Deposited</span>

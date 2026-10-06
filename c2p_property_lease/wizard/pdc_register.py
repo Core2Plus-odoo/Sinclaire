@@ -1,11 +1,7 @@
-from dateutil.relativedelta import relativedelta
-
 from odoo import api
 from odoo import fields
 from odoo import models
 from odoo.exceptions import UserError
-
-MONTHS = {1: 12, 2: 6, 4: 3, 6: 2, 12: 1}
 
 
 class PdcRegister(models.TransientModel):
@@ -32,25 +28,26 @@ class PdcRegister(models.TransientModel):
     def _onchange_generate(self):
         if not (self.lease_id and self.first_maturity and self.first_cheque_no):
             return
-        step = MONTHS[int(self.lease_id.cheque_count)]
         try:
             base = int("".join(c for c in self.first_cheque_no if c.isdigit()))
         except ValueError:
             base = 0
-        lines = []
-        for i in range(int(self.lease_id.cheque_count)):
-            lines.append(
-                (
-                    0,
-                    0,
-                    {
-                        "maturity_date": self.first_maturity + relativedelta(months=step * i),
-                        "amount": self.lease_id.instalment_amount,
-                        "cheque_no": str(base + i) if base else self.first_cheque_no,
-                        "bank_name": self.bank_name,
-                    },
-                )
+        # The schedule comes from the lease. This wizard used to carry its own
+        # months-per-instalment map, which never gained the 3-cheque schedule
+        # Stage 2 added - so a 3-cheque lease raised KeyError here.
+        lines = [
+            (
+                0,
+                0,
+                {
+                    "maturity_date": maturity,
+                    "amount": amount,
+                    "cheque_no": str(base + i) if base else self.first_cheque_no,
+                    "bank_name": self.bank_name,
+                },
             )
+            for i, (maturity, amount) in enumerate(self.lease_id._cheque_schedule(self.first_maturity))
+        ]
         self.line_ids = [(5, 0, 0), *lines]
 
     def action_confirm(self):

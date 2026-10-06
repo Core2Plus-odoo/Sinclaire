@@ -13,15 +13,30 @@
                 <field name="cheque_bank"/>
                 <field name="maturity_date"/>
                 <field name="amount" sum="Total"/>
-                <field name="pdc_state" widget="badge"/>
+                <field name="pdc_state" widget="badge"
+                       decoration-info="pdc_state == 'expected'"
+                       decoration-muted="pdc_state in ('replaced','cancelled')"/>
+                <field name="has_bounced" string="Ever bounced" optional="show"/>
+                <field name="replacement_payment_id" optional="hide"/>
+                <field name="replaces_payment_id" optional="hide"/>
                 <field name="state"/>
                 <field name="currency_id" column_invisible="1"/>
+                <button name="action_pdc_receive" type="object" string="Received"
+                        icon="fa-inbox" invisible="pdc_state != 'expected'"/>
                 <button name="action_pdc_deposit" type="object" string="Deposit"
                         icon="fa-university" invisible="pdc_state != 'held'"/>
                 <button name="action_pdc_clear" type="object" string="Cleared"
-                        icon="fa-check" invisible="pdc_state not in ('held','deposited')"/>
+                        icon="fa-check" invisible="pdc_state != 'deposited'"/>
                 <button name="action_pdc_bounce" type="object" string="Bounced"
-                        icon="fa-times" invisible="pdc_state == 'bounced'"/>
+                        icon="fa-times" invisible="pdc_state != 'deposited'"/>
+                <button name="action_pdc_replace" type="object" string="Replace"
+                        icon="fa-refresh" invisible="pdc_state != 'bounced'"/>
+                <button name="action_pdc_recall" type="object" string="Recall"
+                        icon="fa-undo" invisible="pdc_state != 'deposited'"/>
+                <button name="action_pdc_unreceive" type="object" string="Not received"
+                        icon="fa-undo" invisible="pdc_state != 'held'"/>
+                <button name="action_pdc_cancel" type="object" string="Cancel"
+                        icon="fa-ban" invisible="pdc_state not in ('expected','held')"/>
             </list>
         </field>
     </record>
@@ -34,10 +49,19 @@
                 <field name="cheque_no"/>
                 <field name="partner_id"/>
                 <field name="building_id"/>
+                <filter name="f_expected" string="Expected" domain="[('pdc_state','=','expected')]"/>
                 <filter name="f_held" string="In Hand" domain="[('pdc_state','=','held')]"/>
+                <filter name="f_deposited" string="Deposited" domain="[('pdc_state','=','deposited')]"/>
                 <filter name="f_due" string="Due Now"
-                        domain="[('maturity_date','&lt;=',context_today().strftime('%Y-%m-%d')),('pdc_state','=','held')]"/>
+                        domain="[('maturity_date','&lt;=',context_today().strftime('%Y-%m-%d')),('pdc_state','in',('expected','held'))]"/>
+                <filter name="f_overdue" string="Overdue, Not Received"
+                        domain="[('maturity_date','&lt;',context_today().strftime('%Y-%m-%d')),('pdc_state','=','expected')]"/>
+                <separator/>
                 <filter name="f_bounced" string="Bounced" domain="[('pdc_state','=','bounced')]"/>
+                <filter name="f_ever_bounced" string="Ever Bounced" domain="[('has_bounced','=',True)]"/>
+                <filter name="f_awaiting_replacement" string="Awaiting Replacement"
+                        domain="[('pdc_state','=','bounced'),('replacement_payment_id','=',False)]"/>
+                <filter name="f_replaced" string="Replaced" domain="[('pdc_state','=','replaced')]"/>
                 <group>
                     <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
                     <filter name="g_state" string="Cheque Status" context="{'group_by':'pdc_state'}"/>
@@ -51,7 +75,10 @@
         <field name="name">Cheque Register</field>
         <field name="res_model">account.payment</field>
         <field name="view_mode">list,form</field>
-        <field name="domain">[('cheque_no','!=',False)]</field>
+        <!-- is_pdc, not cheque_no: an Expected instrument has no number until
+             the cheque arrives, and leaving it out of the register is what
+             would make the forward view useless. -->
+        <field name="domain">[('is_pdc','=',True)]</field>
         <field name="context">{'search_default_f_held': 1}</field>
     </record>
 
