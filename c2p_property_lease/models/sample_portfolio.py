@@ -453,6 +453,13 @@ class SamplePortfolio(models.AbstractModel):
                         "cheque_bank": rng.choice(BANKS),
                         "maturity_date": maturity,
                         "pdc_state": state,
+                        # The flag the bounce action would have set. Without it
+                        # a loaded bounced cheque would read as never having
+                        # bounced, and the dashboard's bounce rate - which
+                        # counts "ever bounced" so a replacement cannot erase
+                        # it - would report zero over sample data.
+                        "has_bounced": state == "bounced",
+                        "bounced_date": maturity if state == "bounced" else False,
                     }
                 )
                 created["cheques"] += 1

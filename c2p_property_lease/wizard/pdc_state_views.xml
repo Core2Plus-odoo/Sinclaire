@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pdc_reason_form" model="ir.ui.view">
+        <field name="name">c2p.pdc.reason.form</field>
+        <field name="model">c2p.pdc.reason</field>
+        <field name="arch" type="xml">
+            <form string="Change Cheque Status">
+                <group>
+                    <field name="payment_id" invisible="1"/>
+                    <field name="cheque_no"/>
+                    <field name="current_state"/>
+                    <field name="move"/>
+                </group>
+                <group>
+                    <field name="reason" placeholder="BRD §3.2 requires a reason for this move."/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirm" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_pdc_replace_form" model="ir.ui.view">
+        <field name="name">c2p.pdc.replace.form</field>
+        <field name="model">c2p.pdc.replace</field>
+        <field name="arch" type="xml">
+            <form string="Replace Returned Cheque">
+                <group>
+                    <group string="Returned">
+                        <field name="payment_id" invisible="1"/>
+                        <field name="returned_cheque_no"/>
+                        <field name="returned_amount"/>
+                        <field name="currency_id" invisible="1"/>
+                    </group>
+                    <group string="Replacement">
+                        <field name="cheque_no"/>
+                        <field name="cheque_bank"/>
+                        <field name="maturity_date"/>
+                        <field name="amount"/>
+                    </group>
+                </group>
+                <group>
+                    <field name="reason" placeholder="Optional note about the replacement."/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Record Replacement" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

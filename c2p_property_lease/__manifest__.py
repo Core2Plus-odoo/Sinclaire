@@ -1,6 +1,6 @@
 {
     "name": "C2P Property & Lease Management",
-    "version": "19.0.1.6.0",
+    "version": "19.0.1.7.0",
     "category": "Services/Real Estate",
     "summary": "Underwritten buildings, tenancy leases, tenant and landlord "
     "cheque registers, and deal margin for UAE property management",
@@ -35,6 +35,7 @@
         "views/lease_cheque_exception_views.xml",
         "views/account_payment_views.xml",
         "wizard/pdc_register_views.xml",
+        "wizard/pdc_state_views.xml",
         "wizard/lease_renew_views.xml",
         "wizard/lease_terminate_views.xml",
         "wizard/sample_loader_views.xml",

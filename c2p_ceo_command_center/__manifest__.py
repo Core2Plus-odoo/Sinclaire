@@ -1,6 +1,6 @@
 {
     "name": "C2P CEO Command Center",
-    "version": "19.0.1.2.2",
+    "version": "19.0.1.3.0",
     "category": "Services/Real Estate",
     "summary": "One screen of portfolio, cash and risk KPIs for the leadership team",
     "description": """

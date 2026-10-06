@@ -515,6 +515,87 @@ class C2pLease(models.Model):
         self.subscription_id = order.id
         return self._open_record("sale.order", order.id)
 
+    def _cheque_schedule(self, first_maturity=None):
+        """The agreed instalment dates and amount, derived from CHEQUE_PLAN.
+
+        One place, because there were two: the PDC register wizard carried its
+        own months-per-instalment map, and that copy never gained the 3-cheque
+        schedule when Stage 2 added it - so registering cheques on a 3-cheque
+        lease raised KeyError. Same shape as four earlier defects here: two
+        lists that must agree, with nothing asserting it.
+        """
+        self.ensure_one()
+        count = int(self.cheque_count)
+        step = CHEQUE_PLAN[count]
+        start = first_maturity or self.date_start
+        return [(start + relativedelta(months=step * i), self.instalment_amount) for i in range(count)]
+
+    def _cheque_journal(self):
+        """The journal cheques are registered against: the dedicated PDC journal
+        when the database has one, otherwise any bank journal."""
+        self.ensure_one()
+        Journal = self.env["account.journal"]
+        company = [("company_id", "=", self.company_id.id)]
+        return Journal.search([*company, ("code", "=", "PDCR")], limit=1) or Journal.search(
+            [*company, ("type", "=", "bank")], limit=1
+        )
+
+    def action_generate_expected_cheques(self):
+        """Create the Expected instruments the agreed schedule implies.
+
+        BRD §3.2 starts the instrument at Expected - the slot the schedule says
+        is coming, before anyone has handed a cheque over. Without these records
+        a cheque slot and a cheque in the drawer are the same thing, and there
+        is no forward cash forecast (BR-114).
+
+        They are deliberately NOT received cheques: BR-075 counts only
+        instruments in hand, so generating a schedule does not move a lease any
+        closer to being activatable. A test asserts exactly that, because it is
+        the mistake this action makes easy.
+        """
+        self.ensure_one()
+        if self.payment_ids:
+            raise UserError(
+                self.env._(
+                    "This lease already has instruments registered. Add or receive them "
+                    "individually rather than regenerating the schedule."
+                )
+            )
+        journal = self._cheque_journal()
+        method_line = journal.inbound_payment_method_line_ids[:1] if journal else None
+        if not journal or not method_line:
+            raise UserError(
+                self.env._(
+                    "No bank or PDC journal with an inbound payment method is configured "
+                    "for this company, so instruments cannot be created."
+                )
+            )
+        Payment = self.env["account.payment"]
+        for maturity, amount in self._cheque_schedule():
+            Payment.create(
+                {
+                    "payment_type": "inbound",
+                    "partner_type": "customer",
+                    "partner_id": self.tenant_id.id,
+                    "amount": amount,
+                    "date": maturity,
+                    "journal_id": journal.id,
+                    "payment_method_line_id": method_line.id,
+                    "company_id": self.company_id.id,
+                    "lease_id": self.id,
+                    "maturity_date": maturity,
+                    "pdc_state": "expected",
+                }
+            )
+        self.message_post(
+            body=self.env._(
+                "Expected cheque schedule generated: %(count)s instrument(s) of %(amount)s.",
+                count=self.cheques_expected,
+                amount=f"{self.instalment_amount:,.2f}",
+            )
+        )
+        return self.action_view_pdcs()
+
     def action_register_pdcs(self):
         self.ensure_one()
         return {
