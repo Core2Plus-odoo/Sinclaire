@@ -76,6 +76,12 @@ class C2pUnit(models.Model):
         required=True,
         tracking=True,
     )
+    state_before_block = fields.Selection(
+        UNIT_STATES,
+        copy=False,
+        readonly=True,
+        help="Where the unit was when it was blocked, so unblocking returns it there.",
+    )
     current_lease_id = fields.Many2one("c2p.lease", string="Current Lease", copy=False)
     lease_ids = fields.One2many("c2p.lease", "unit_id", string="Lease History")
     tenant_id = fields.Many2one(related="current_lease_id.tenant_id", string="Tenant", store=True)
@@ -132,7 +138,19 @@ class C2pUnit(models.Model):
         self._move_to("available", ("vacant",))
 
     def action_block(self):
+        """Remember where the unit was: a blocked unit returns to the state it
+        left, not to Available. Returning an occupied unit to Available would
+        leave a tenant in place on a unit the system believes is lettable, and
+        the activation guard reads that state - so a second lease could be
+        activated over the sitting tenant (BR-001)."""
+        for rec in self:
+            if rec.state != "blocked":
+                rec.state_before_block = rec.state
         self._move_to("blocked", tuple(s for s, _ in UNIT_STATES if s != "blocked"))
 
     def action_unblock(self):
-        self._move_to("available", ("blocked",))
+        for rec in self:
+            if rec.state != "blocked":
+                raise UserError(self.env._("%(unit)s is not blocked.", unit=rec.display_name))
+            rec.state = rec.state_before_block or "available"
+            rec.state_before_block = False

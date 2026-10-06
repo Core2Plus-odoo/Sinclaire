@@ -344,12 +344,29 @@ class TestUnitStates(TransactionCase):
         unit.action_turnaround_complete()
         self.assertEqual(unit.state, "available")
 
-    def test_blocking_is_reachable_from_anywhere_and_returns_to_available(self):
+    def test_unblocking_returns_the_unit_to_the_state_it_left(self):
+        """Not to Available. An occupied unit blocked for maintenance is still
+        occupied when the work finishes."""
         unit = self._unit("S4", "occupied")
         unit.action_block()
         self.assertEqual(unit.state, "blocked")
         unit.action_unblock()
+        self.assertEqual(unit.state, "occupied")
+
+    def test_unblocking_an_available_unit_stays_available(self):
+        unit = self._unit("S5", "available")
+        unit.action_block()
+        unit.action_unblock()
         self.assertEqual(unit.state, "available")
+
+    def test_a_blocked_occupied_unit_cannot_be_double_let_after_unblocking(self):
+        """The defect this guards: if unblocking returned the unit to
+        Available, the activation guard - which reads unit state - would let a
+        second tenancy start over the sitting tenant. BR-001."""
+        unit = self._unit("S6", "occupied")
+        unit.action_block()
+        unit.action_unblock()
+        self.assertIn(unit.state, ("contracted", "occupied", "notice"))
 
 
 @tagged("post_install", "-at_install")

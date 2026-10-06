@@ -17,9 +17,14 @@ so the counts and vacancy loss on the dashboard do not move.
 """
 
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
+
 def migrate(cr, version):
     if not version:
         return
     cr.execute("UPDATE c2p_unit SET state = 'available' WHERE state = 'vacant'")
     if cr.rowcount:
-        print(f"c2p_property_lease: moved {cr.rowcount} unit(s) from Vacant to Available")
+        _logger.info("c2p_property_lease: moved %s unit(s) from Vacant to Available", cr.rowcount)
