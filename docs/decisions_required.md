@@ -11,50 +11,43 @@ built**.
 
 ## B. Blocking the Stage 1 blueprint
 
-### B1. The BRD itself is not in this repository — Open
+### B1. The BRD — Answered (received 6 October 2026)
 
-The build brief names the client's BRD as the contract and refers to §2.3, §3.1,
-§3.2, §4.1, §4.1.2, §4.2, §4.2.4, §4.3.1, §4.4, §5.1.3, §5.1.4, §6.2, §6.2.1,
-§6.2.2, §6.3, §6.3.2, §6.4.1, §6.5, §7.1, §8.3.4, §8.4, §8.6, §9.1, §9.2 and
-§11. No copy of that document has been supplied, and none exists in the repo or
-in any file shared with this session.
+`NSPM_requirements.docx`, "Business Requirements Document and User Guide —
+Odoo Property Leasing, Management and Brokerage System". 12,700 words, 28
+tables, sections 1–11. Stage 1 is unblocked and underway.
 
-Five of the seven Stage 1 deliverables are derivations of it and cannot be
-written without it:
+Two things it settles that the build brief had differently, and the BRD wins:
 
-| Deliverable | What it needs from the BRD |
-| --- | --- |
-| `requirement_response_matrix.md` | every requirement and its ID (§9.1) |
-| `data_dictionary.md` | the approved field list (§8.3.4) |
-| `status_matrix.md` | the status models in §3.2 |
-| `approval_matrix.md`, `role_access_matrix.md` | the twenty roles in §2.3, SoD rules in §8.4 |
-| `report_catalogue.md` | the report list in §8 |
+- The permitted cheque schedules are **1, 2, 3, 4, 6 and 12** (§9.2), and a
+  non-standard schedule is blocked "until approved by the Leasing Director or
+  Leasing Manager" — **both** roles, not one. See O2.
+- The second entity is **Sinclair Real Estate Brokers LLC** (§11 OD-01). See N1.
 
-Writing these from inference would invent requirement IDs for a contractually
-required traceability matrix. **Needed: the BRD, with its section numbering
-intact.**
+### B2. Which document is the contract baseline — Answered
 
-### B2. Which document is the contract baseline — Open
-
-If more than one BRD version exists, name the one that governs, with its version
-and date. The requirement IDs in the response matrix must cite it.
-
----
+`NSPM_requirements.docx` as received 6 October 2026, sections 1–11. Requirement
+IDs follow the §11.1 template: **BR-NNN**, seeded there with BR-001..BR-003.
 
 ## C. Client-money and regulatory treatment
 
-### C1. Owner-management client money — Open
+### C1. Owner-management client money — Partly answered (OD-02)
 
-Landlord-name cheques held in custody must never touch company revenue or
-company cash. Needed before build:
+**Confirmed by the BRD:** both head-lease and management-only arrangements
+exist. Where tenant cheques are in the landlord's name, New Sinclair collects
+them and deposits each into **the landlord's bank account on the applicable
+rental due date**. The system records landlord/payee, linked tenant obligation,
+due date, custody, deposit date, deposit evidence, and cleared or bounced
+status. These cheques and their proceeds are owner funds and are **never** New
+Sinclair rental revenue or company cash. Owner statements are issued half-yearly
+or yearly per the approved landlord agreement.
 
-- the control account to use, and whether a separate bank account is held per
-  landlord or one pooled account with per-landlord sub-ledger
-- who is authorised to receive, deposit, refund and disburse
-- the evidence required at deposit, and the retention period
-- whether RERA or any other regulator imposes a prescribed account structure
+**Still open, per OD-02:** the landlord bank-account record, deposit
+authorisation, and exception handling for held or replaced cheques. Also still
+needed and not in the BRD: the control account to use, and whether RERA imposes
+a prescribed account structure.
 
-**Owner:** Finance / client's auditor. Do not assume.
+**Owner:** Finance / client's auditor.
 
 ### C2. Brokerage client funds — Open
 
@@ -129,16 +122,24 @@ It is not a configuration value and will not be decided here.
 Major to landlord, minor and routine to Sinclair is the stated rule. The routing
 for unclear cases needs a named approver and an escalation path.
 
-### O2. Non-standard cheque schedules — Open
+### O2. Non-standard cheque schedules — Answered (§9.2)
 
-1, 2, 3, 4, 6 and 12 cheques are supported. A schedule outside that set is to be
-blocked pending Leasing Director or Manager approval — confirm which role, and
-whether the approval is per lease or a standing exception.
+1, 2, 3, 4, 6 and 12 are permitted. A non-standard schedule is blocked "until
+approved by the **Leasing Director or Leasing Manager**" — either role may
+approve. Built as of PR #10 for the schedule values themselves; the approval
+gate needs the Pending Approval lease state, which does not yet exist.
 
-### O3. Mandate stage gate for brokerage — Open
+Still open: whether the approval is per lease or a standing exception.
 
-Which stage a signed mandate is mandatory by, and who may authorise a documented
-exception.
+### O3. Mandate stage gate for brokerage — Open (§3.2)
+
+The BRD confirms this is a **configurable stage gate, not one rule**: the stage
+by which a completed mandate is required varies by transaction type, represented
+party and deal circumstances, and progression past it is blocked unless an
+authorised documented exception is approved.
+
+Needed: the actual configuration — which stage per transaction type and
+represented party — and who may authorise the exception.
 
 ### O4. Ejari submission — Open
 
@@ -183,15 +184,17 @@ dependency logged; the integration is not simulated.
 
 ## N. Naming and data
 
-### N1. Second company's legal name — Open
+### N1. Second company's legal name — Answered (OD-01)
 
-The build brief gives **Sinclair Real Estate Brokers LLC**. The user guide
-produced in September gives **Sinclair Real Estate**. The repository names
-neither — only New Sinclair Property Management LLC appears in code.
+**Sinclair Real Estate Brokers LLC.** The build brief was right and the
+September user guide ("Sinclair Real Estate") is wrong; the guide needs
+correcting before it circulates.
 
-Needed: the exact registered legal name, for the company record, tax
-registration and every document template. Confirm against the trade licence
-rather than against either document.
+Still open, per OD-01: legal registration and tax details for each entity,
+intercompany agreements and pricing/allocation rules, opening due-to/due-from
+balances, settlement/netting process, consolidation and elimination
+requirement, and whether and when Seventh Heaven is activated. Seventh Heaven
+stays **inactive** unless separately approved.
 
 ### N2. Sample data must not reach production templates
 
@@ -202,3 +205,91 @@ is for demonstration databases only.
 **Note:** as of 16 September the production database was displaying sample
 portfolio figures (6 buildings, 100 units, AED 7,622,400 contracted rent).
 Confirm whether that was deliberate and whether it has been cleared.
+
+---
+
+## OD. BRD §11 items not covered above
+
+The BRD's own open-decision table. OD-01 is answered at N1, OD-02 at C1, OD-03
+partly at O2. The rest are carried here so §11 maps cleanly onto this register.
+
+### OD-03. Product eligibility and commercial rules — Open
+
+Precise yearly, monthly and daily eligibility, approval limits, pricing, deposit,
+refund, cancellation and notice rules. Daily rentals are **exceptional** and need
+explicit approval within expressly authorised properties (§1.1, §2.1).
+
+Blocks: product configuration, the daily-rental exception workflow, and
+acceptance scenario §9.2 "create a daily stay only through exception approval".
+
+### OD-04. Portfolio counts and emirate priority — Partly answered
+
+**Confirmed:** residential is primary; commercial and mixed-use are included;
+Dubai is the current geography with later UAE expansion. **Still needed:**
+current counts by property and use type, furnished inventory, and which emirates
+follow Dubai.
+
+### OD-05. Payment methods and custody controls — Open
+
+Confirm PDC, bank transfer, card, cash, online payment and direct debit, and the
+custody controls for each. §1.3 says all methods in the document apply at go-live
+"subject to the applicable transaction, user access and approval controls" — the
+controls themselves are not specified.
+
+Blocks: journal design, reconciliation and audit requirements.
+
+### OD-06. Approval matrix and segregation-of-duties rules — Open, and blocking
+
+**This blocks two Stage 1 deliverables**: `approval_matrix.md` and
+`role_access_matrix.md` cannot be completed without it. BRD §8.4 gives
+principles only — least privilege, no self-approval of lease changes, supplier
+changes, bank details, refunds, write-offs or payments above limit, restricted
+identity and bank documents, full action logging. It does not give the limits,
+the approvers, or the role-to-permission mapping.
+
+The twenty roles are fixed by §2.3. What is missing is who approves what, and at
+what value.
+
+Every *(proposed)* role in `status_matrix.md` is waiting on this.
+
+### OD-07. Required integrations and source systems — Open
+
+§8.5 lists *possible* integrations: property portals, website forms, WhatsApp,
+email, e-signature, payment gateway, UAE tenancy registration, bank statements,
+Excel reporting, existing accounting or document systems. "The business must
+confirm which integrations are required." For each approved one: owner, data
+mapping, security, error handling, retry, monitoring, reconciliation.
+
+Note §2.2 holds government portal submission, biometric devices and external
+listing portals **out of scope** until feasibility and commercial terms are
+agreed.
+
+### OD-08. Templates, numbering, notification wording, retention — Open
+
+Needed for contracting, communication and compliance. §8.3 catalogues the
+templates required; the content, numbering rules and retention periods are the
+client's.
+
+### OD-09. Opening data volumes, quality, cutover date, retention — Open
+
+Blocks `migration_plan.md` beyond its structure. §8.6 fixes the method —
+extract, clean, de-duplicate, map, test load, reconcile, approve, final load,
+archive, with no record or amount omitted without a documented reason — but not
+the volumes or the date.
+
+### OD-10. Service levels, support hours, backup/recovery, environments — Open
+
+For the implementation and support agreement.
+
+---
+
+## Commercial columns are not a developer's to fill
+
+BRD §9.1 requires the requirement-response matrix to carry **estimate, one-time
+cost, recurring cost and optional cost** per requirement, so that the client can
+evaluate like-for-like on functional alignment, completeness, risk, timeline,
+support and total cost of ownership.
+
+Those columns will be left empty in `requirement_response_matrix.md` with the
+functional classification complete. Effort and price are C2P commercial
+decisions, not inferences from a specification.
