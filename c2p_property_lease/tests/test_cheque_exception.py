@@ -208,6 +208,47 @@ class TestChequeException(TransactionCase):
         self.assertIn("self-approval", str(caught.exception).lower())
         self.assertEqual(exception.state, "draft")
 
+    def test_the_requester_cannot_self_approve_by_writing_the_field(self):
+        """The hole the approval rules had while they lived only in the action.
+
+        `state` is an ordinary Selection, group_property_user has write access
+        to this model, and the form put the field in a clickable status bar - so
+        the requester could approve their own exception in one click and then
+        activate the lease. Enforcing it on write closes every path at once.
+        """
+        lease = self._lease("EXC-130")
+        exception = self._request(lease, requested_by=self.agent)
+        with self.assertRaises(UserError):
+            exception.with_user(self.agent).write({"state": "approved"})
+        self.assertEqual(exception.state, "draft")
+        with self.assertRaises(UserError):
+            lease.action_activate()
+
+    def test_a_non_manager_cannot_approve_by_writing_the_field(self):
+        lease = self._lease("EXC-131")
+        exception = self._request(lease, requested_by=self.manager)
+        with self.assertRaises(UserError):
+            exception.with_user(self.agent).write({"state": "approved"})
+        self.assertEqual(exception.state, "draft")
+
+    def test_the_context_key_does_not_buy_an_approval(self):
+        """The audit-only moves carry a context key. Reaching Approved is the
+        privileged act, so the approver check ignores that key - otherwise the
+        bypass would just have moved one layer down."""
+        lease = self._lease("EXC-132")
+        exception = self._request(lease, requested_by=self.agent)
+        with self.assertRaises(UserError):
+            exception.with_user(self.agent).with_context(c2p_exception_state_recorded=True).write({"state": "approved"})
+        self.assertEqual(exception.state, "draft")
+
+    def test_the_outcome_states_cannot_be_hand_written(self):
+        lease = self._lease("EXC-133")
+        exception = self._request(lease, requested_by=self.agent)
+        exception.with_user(self.manager).action_approve()
+        with self.assertRaises(UserError):
+            exception.write({"state": "fulfilled"})
+        self.assertEqual(exception.state, "approved")
+
     def test_approval_records_who_and_when(self):
         lease = self._lease("EXC-111")
         exception = self._request(lease, requested_by=self.agent)

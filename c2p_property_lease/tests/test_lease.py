@@ -61,6 +61,11 @@ class TestLease(TransactionCase):
                 "conditions": "Cheques to follow",
                 "deadline": fields.Date.context_today(self.env.user) + timedelta(days=7),
                 "responsible_user_id": self.env.uid,
+                # Requested by somebody else: the approval rules now hold on
+                # every write path, self-approval included, so a fixture that
+                # requested and approved as the same user would be refused -
+                # which is the point.
+                "requested_by_id": self.env.ref("base.user_admin").id,
             }
         ).write({"state": "approved", "approved_by_id": self.env.uid})
         lease.action_activate()
@@ -428,6 +433,11 @@ class TestLeaseStates(TransactionCase):
                 "conditions": "Cheques to follow",
                 "deadline": fields.Date.context_today(self.env.user) + timedelta(days=7),
                 "responsible_user_id": self.env.uid,
+                # Requested by somebody else: the approval rules now hold on
+                # every write path, self-approval included, so a fixture that
+                # requested and approved as the same user would be refused -
+                # which is the point.
+                "requested_by_id": self.env.ref("base.user_admin").id,
             }
         ).write({"state": "approved", "approved_by_id": self.env.uid})
         lease.action_activate()

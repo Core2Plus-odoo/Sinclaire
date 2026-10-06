@@ -37,7 +37,12 @@
                     <button name="action_reject" type="object" string="Reject"
                             invisible="state != 'draft'"
                             groups="c2p_property_lease.group_property_manager"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,approved,fulfilled"/>
+                    <!-- readonly: a clickable status bar let the requester
+                         approve their own exception in one click. The rules are
+                         now enforced on write as well, so this is defence in
+                         depth rather than the control itself. -->
+                    <field name="state" widget="statusbar" readonly="1"
+                           statusbar_visible="draft,approved,fulfilled"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
