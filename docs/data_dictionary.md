@@ -476,7 +476,7 @@ custom model — `c2p_property_lease`
 | `pdc_pending` | Cheques Outstanding | Monetary |  |  |  | _compute_pdc (not stored) |  |
 | `renewed_from_id` |  | Many2one |  |  | c2p.lease |  |  |
 | `security_deposit` |  | Monetary |  |  |  |  |  |
-| `state` |  | Selection | yes | draft | draft, active, notice, expired, terminated |  | yes |
+| `state` |  | Selection | yes | draft | dynamic |  | yes |
 | `subscription_id` | Rent Subscription | Many2one |  |  | sale.order |  |  |
 | `subscriptions_available` |  | Boolean |  |  |  | _compute_subscriptions_available (not stored) |  |
 | `tenant_id` | Tenant | Many2one | yes |  | res.partner |  | yes |

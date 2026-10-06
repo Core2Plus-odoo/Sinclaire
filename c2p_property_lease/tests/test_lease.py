@@ -350,3 +350,121 @@ class TestUnitStates(TransactionCase):
         self.assertEqual(unit.state, "blocked")
         unit.action_unblock()
         self.assertEqual(unit.state, "available")
+
+
+@tagged("post_install", "-at_install")
+class TestLeaseStates(TransactionCase):
+    """BRD §3.2's twelve-state lease model."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.landlord = cls.env["res.partner"].create({"name": "LS Landlord"})
+        cls.tenant = cls.env["res.partner"].create({"name": "LS Tenant"})
+        cls.building = cls.env["c2p.building"].create({"name": "LS Tower", "code": "LST", "owner_id": cls.landlord.id})
+
+    def _lease(self, unit_name):
+        unit = self.env["c2p.unit"].create({"name": unit_name, "building_id": self.building.id})
+        return self.env["c2p.lease"].create(
+            {
+                "unit_id": unit.id,
+                "tenant_id": self.tenant.id,
+                "date_start": "2026-01-01",
+                "date_end": "2026-12-31",
+                "annual_rent": 100000.0,
+            }
+        )
+
+    def test_all_twelve_brd_states_exist(self):
+        from odoo.addons.c2p_property_lease.models.lease import LEASE_STATES
+
+        self.assertEqual(
+            [s for s, _ in LEASE_STATES],
+            [
+                "draft",
+                "pending_approval",
+                "offered",
+                "awaiting_signature",
+                "signed",
+                "registration_pending",
+                "active",
+                "notice",
+                "renewed",
+                "expired",
+                "terminated",
+                "cancelled",
+            ],
+        )
+
+    def test_the_three_groups_partition_every_state(self):
+        """Every state belongs to exactly one group. A state added to the
+        selection but to no group would silently vanish from the crons and the
+        dashboard, which both search by group."""
+        from odoo.addons.c2p_property_lease.models.lease import CLOSED_STATES
+        from odoo.addons.c2p_property_lease.models.lease import LEASE_STATES
+        from odoo.addons.c2p_property_lease.models.lease import LIVE_STATES
+        from odoo.addons.c2p_property_lease.models.lease import PRE_ACTIVE_STATES
+
+        groups = [set(LIVE_STATES), set(PRE_ACTIVE_STATES), set(CLOSED_STATES)]
+        union = set().union(*groups)
+        self.assertEqual(union, {s for s, _ in LEASE_STATES})
+        for i, a in enumerate(groups):
+            for b in groups[i + 1 :]:
+                self.assertFalse(a & b, f"{a & b} is in two groups")
+
+    def test_the_full_pre_active_path(self):
+        lease = self._lease("P1")
+        lease.action_submit_for_approval()
+        self.assertEqual(lease.state, "pending_approval")
+        lease.action_approve()
+        self.assertEqual(lease.state, "offered")
+        lease.action_send_for_signature()
+        self.assertEqual(lease.state, "awaiting_signature")
+        lease.action_mark_signed()
+        self.assertEqual(lease.state, "signed")
+        lease.action_submit_registration()
+        self.assertEqual(lease.state, "registration_pending")
+        lease.action_activate()
+        self.assertEqual(lease.state, "active")
+
+    def test_a_draft_lease_can_still_be_activated_directly(self):
+        """The approval, signature and Ejari gates are BR-036, BR-072 and
+        BR-075 and are not built. Until they are, the short path stays open -
+        refusing it would block work that is legitimate today."""
+        lease = self._lease("P2")
+        lease.action_activate()
+        self.assertEqual(lease.state, "active")
+
+    def test_a_signed_lease_cannot_go_back(self):
+        """BRD §5.1.2: the signed document is immutable. Correction is an
+        amendment version, not a reversal."""
+        lease = self._lease("P3")
+        lease.action_approve()
+        lease.action_send_for_signature()
+        lease.action_mark_signed()
+        with self.assertRaises(UserError):
+            lease.action_send_for_signature()
+        with self.assertRaises(UserError):
+            lease.action_cancel()
+
+    def test_an_active_lease_cannot_be_cancelled(self):
+        lease = self._lease("P4")
+        lease.action_activate()
+        with self.assertRaises(UserError):
+            lease.action_cancel()
+
+    def test_notice_needs_a_running_tenancy(self):
+        lease = self._lease("P5")
+        with self.assertRaises(UserError):
+            lease.action_give_notice()
+        lease.action_activate()
+        lease.action_give_notice()
+        self.assertEqual(lease.state, "notice")
+
+    def test_a_closed_lease_cannot_be_reactivated(self):
+        lease = self._lease("P6")
+        lease.action_activate()
+        lease.action_give_notice()
+        lease.state = "expired"
+        with self.assertRaises(UserError):
+            lease.action_activate()

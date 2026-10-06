@@ -3,6 +3,7 @@ from dateutil.relativedelta import relativedelta
 from odoo import api
 from odoo import fields
 from odoo import models
+from odoo.addons.c2p_property_lease.models.lease import LIVE_STATES
 from odoo.addons.c2p_property_lease.models.unit import EMPTY_STATES
 
 # A lease inside this window is close enough to expiry to need a decision.
@@ -178,7 +179,7 @@ class CeoDashboard(models.TransientModel):
                 return Lease._read_group(
                     [
                         *_dom,
-                        ("state", "in", ("active", "notice")),
+                        ("state", "in", LIVE_STATES),
                         ("date_end", ">=", _today + relativedelta(days=start_day)),
                         ("date_end", "<=", _today + relativedelta(days=end_day)),
                     ],
@@ -377,7 +378,7 @@ class CeoDashboard(models.TransientModel):
             "c2p.lease",
             [
                 *self._company_domain(),
-                ("state", "in", ("active", "notice")),
+                ("state", "in", LIVE_STATES),
                 ("date_end", ">=", today),
                 ("date_end", "<=", today + relativedelta(days=RENEWAL_HORIZON_DAYS)),
             ],
@@ -413,7 +414,7 @@ class CeoDashboard(models.TransientModel):
         return self._drill(
             self.env._("Lease Expiry Profile"),
             "c2p.lease",
-            [*self._company_domain(), ("state", "in", ("active", "notice"))],
+            [*self._company_domain(), ("state", "in", LIVE_STATES)],
             view_mode="graph,pivot,list,form",
         )
 

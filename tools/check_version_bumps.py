@@ -118,6 +118,19 @@ def main(argv=None):
     merge_base = git("merge-base", "HEAD", base, check=False) or base
     changed = git("diff", "--name-only", f"{merge_base}...HEAD").splitlines()
 
+    # Uncommitted addon changes are invisible to a commit-range diff, so a run
+    # before `git commit` reports a clean pass on work that has not been
+    # checked at all. That false pass is how an unbumped module reached a
+    # pushed commit here. Fold the working tree in and say so.
+    pending = [
+        f
+        for f in set(git("diff", "--name-only").splitlines() + git("diff", "--name-only", "--cached").splitlines())
+        if f
+    ]
+    if pending:
+        print(f"! {len(pending)} uncommitted change(s) included - this is a working-tree check, not a commit check.")
+        changed = list(set(changed) | set(pending))
+
     problems = []
     checked = []
     for addon in addons():

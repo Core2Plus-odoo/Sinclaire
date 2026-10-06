@@ -100,11 +100,21 @@ Registration Pending → Active → Under Notice → Renewed/Expired/Terminated/
 - Any price override outside approved pricing without approval (BRD §9.2).
 - Signed → anything backwards. Signed documents are immutable.
 
-**Current implementation:** five states — Draft, Active, Notice Given, Expired,
-Terminated. **Seven are missing**: Pending Approval, Offered, Awaiting Signature,
-Signed, Registration Pending, Renewed, Cancelled. The approval gate, the
-signature gate and the Ejari registration gate all live in the missing states, so
-none of the §9.2 blocking scenarios can currently be demonstrated.
+**Current implementation: all twelve states built** (`19.0.1.4.0`), with guarded
+transition methods. `LIVE_STATES`, `PRE_ACTIVE_STATES` and `CLOSED_STATES` in
+`models/lease.py` partition the twelve and are shared with the crons and the
+dashboard, replacing the `("active", "notice")` pair that was written out by hand
+in five places. A test asserts the partition is exact, so a state added to the
+selection but to no group fails rather than quietly disappearing from every
+search.
+
+Signed has no transition out of it, per §5.1.2.
+
+**The gates are not enforced yet.** BR-036 (approval before an off-pricing offer
+is sent), BR-072 (the leasing approval rule) and BR-075 (activation without all
+cheques) are separate requirements. The states are what make them
+implementable; a Draft lease can still be activated directly until they land,
+because refusing it beforehand would block work that is legitimate today.
 
 ---
 
@@ -226,7 +236,7 @@ history.
 | Model | BRD states | Built | Missing |
 | --- | --- | --- | --- |
 | Unit | 10 | **10** | — |
-| Lease | 12 | 5 | 7 |
+| Lease | 12 | **12** | — |
 | Payment instrument | 7 | 4 | 3 |
 | Property listing | 8 | 0 | 8 — model not created |
 | Buyer/tenant requirement | 7 | 0 | 7 — model not created |
