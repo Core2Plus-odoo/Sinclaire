@@ -28,84 +28,123 @@ import pathlib
 import re
 import sys
 
-MATRIX = pathlib.Path(__file__).resolve().parents[1] / "docs" / "requirement_response_matrix.md"
+DOCS = pathlib.Path(__file__).resolve().parents[1] / "docs"
 
-ROW = re.compile(r"^\|\s*\**(BR-\d{3})\**\s*\|")
 SUMMARY_ROW = re.compile(r"^\|\s*(Built|Partial|Not started)\s*\|\s*(\d+)\s*\|")
 
 CLASSES = {"Std", "Cfg", "Cus", "Int", "Rep", "Mig", "OoS", "—"}
 STATUSES = {"Built", "Partial", "—"}
-# The BRD seeds these in its own §11.1 traceability template.
-BRD_OWN = {"BR-001", "BR-002", "BR-003"}
 # Status label in the rows vs. the label used in the summary table.
 SUMMARY_LABEL = {"Built": "Built", "Partial": "Partial", "—": "Not started"}
 
+# Both catalogues are contract documents with the same failure mode: an id that
+# duplicates, a gap in the sequence, or a summary that has drifted from the
+# rows. One spec drives both so a third document costs a line, not a fork.
+SPECS = (
+    {
+        "file": "requirement_response_matrix.md",
+        "prefix": "BR",
+        "min_columns": 9,
+        "class_column": 4,
+        # The BRD seeds these in its own §11.1 traceability template.
+        "reserved": {"BR-001", "BR-002", "BR-003"},
+        "reserved_note": "§11.1 supplies these; they may not be renumbered",
+    },
+    {
+        "file": "report_catalogue.md",
+        "prefix": "RPT",
+        "min_columns": 4,
+        "class_column": None,
+        "reserved": set(),
+        "reserved_note": "",
+    },
+)
 
-def main():
-    if not MATRIX.is_file():
-        print(f"{MATRIX} not found - nothing to check.")
-        return 0
 
-    text = MATRIX.read_text(encoding="utf-8")
-    errors = []
-    ids = []
+def check_one(spec):
+    """Return (errors, summary line) for one catalogue."""
+    path = DOCS / spec["file"]
+    if not path.is_file():
+        return [], f"{spec['file']}: not present, skipped"
+
+    text = path.read_text(encoding="utf-8")
+    row_re = re.compile(rf"^\|\s*\**({spec['prefix']}-\d{{3}})\**\s*\|")
+    errors, ids = [], []
     status_counts = collections.Counter()
 
     for lineno, line in enumerate(text.splitlines(), 1):
-        match = ROW.match(line)
+        match = row_re.match(line)
         if not match:
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) < 9:
-            errors.append(f"line {lineno}: {match.group(1)} has {len(cells)} columns, expected 9")
+        rid = match.group(1)
+        if len(cells) < spec["min_columns"]:
+            errors.append(
+                f"{spec['file']} line {lineno}: {rid} has {len(cells)} columns, expected at least {spec['min_columns']}"
+            )
             continue
 
-        rid = match.group(1)
         ids.append(rid)
-        cls, status = cells[4], cells[-1]
-        if cls not in CLASSES:
-            errors.append(f"{rid}: class {cls!r} is not one of {sorted(CLASSES)}")
+        if spec["class_column"] is not None:
+            cls = cells[spec["class_column"]]
+            if cls not in CLASSES:
+                errors.append(f"{spec['file']}: {rid} class {cls!r} is not one of {sorted(CLASSES)}")
+
+        status = cells[-1]
         if status not in STATUSES:
-            errors.append(f"{rid}: status {status!r} is not one of {sorted(STATUSES)}")
+            errors.append(f"{spec['file']}: {rid} status {status!r} is not one of {sorted(STATUSES)}")
         else:
             status_counts[SUMMARY_LABEL[status]] += 1
 
     if not ids:
-        errors.append("no BR-NNN requirement rows found at all")
-        print_errors(errors)
-        return 1
+        return [f"{spec['file']}: no {spec['prefix']}-NNN rows found at all"], ""
 
     for rid, count in collections.Counter(ids).items():
         if count > 1:
-            errors.append(f"{rid} appears {count} times; ids must be unique")
+            errors.append(f"{spec['file']}: {rid} appears {count} times; ids must be unique")
 
     numbers = sorted(int(r.split("-")[1]) for r in set(ids))
     gaps = [n for n in range(1, numbers[-1] + 1) if n not in set(numbers)]
     if gaps:
-        errors.append("gaps in the sequence: " + ", ".join(f"BR-{n:03d}" for n in gaps))
+        errors.append(f"{spec['file']}: gaps in the sequence: " + ", ".join(f"{spec['prefix']}-{n:03d}" for n in gaps))
 
-    missing_brd = BRD_OWN - set(ids)
-    if missing_brd:
+    missing = spec["reserved"] - set(ids)
+    if missing:
         errors.append(
-            "the BRD's own ids are missing: "
-            + ", ".join(sorted(missing_brd))
-            + " (§11.1 supplies these; they may not be renumbered)"
+            f"{spec['file']}: reserved ids are missing: "
+            + ", ".join(sorted(missing))
+            + (f" ({spec['reserved_note']})" if spec["reserved_note"] else "")
         )
 
     declared = {m.group(1): int(m.group(2)) for line in text.splitlines() if (m := SUMMARY_ROW.match(line))}
     for label, actual in status_counts.items():
         if label not in declared:
-            errors.append(f"summary table has no row for {label!r}")
+            errors.append(f"{spec['file']}: summary table has no row for {label!r}")
         elif declared[label] != actual:
-            errors.append(f"summary says {label} = {declared[label]}, rows say {actual}")
-
-    if errors:
-        print_errors(errors)
-        return 1
+            errors.append(f"{spec['file']}: summary says {label} = {declared[label]}, rows say {actual}")
 
     total = sum(status_counts.values())
-    print(f"requirement matrix: {total} requirements, BR-001..BR-{numbers[-1]:03d}, no gaps or duplicates")
-    print("  " + ", ".join(f"{k} {v}" for k, v in sorted(status_counts.items())))
+    summary = (
+        f"{spec['file']}: {total} entries, {spec['prefix']}-001..{spec['prefix']}-{numbers[-1]:03d}, "
+        "no gaps or duplicates\n    " + ", ".join(f"{k} {v}" for k, v in sorted(status_counts.items()))
+    )
+    return errors, summary
+
+
+def main():
+    all_errors, summaries = [], []
+    for spec in SPECS:
+        errors, summary = check_one(spec)
+        all_errors.extend(errors)
+        if summary:
+            summaries.append(summary)
+
+    if all_errors:
+        print_errors(all_errors)
+        return 1
+
+    for line in summaries:
+        print(f"  {line}")
     return 0
 
 
