@@ -48,7 +48,11 @@
                     <button name="action_create_subscription" type="object" string="Create Rent Subscription"
                             class="btn-primary" invisible="state != 'active' or subscription_id or not subscriptions_available"/>
                     <button name="action_register_pdcs" type="object" string="Register PDCs"
-                            invisible="state not in ('active','notice')"/>
+                            invisible="state in ('renewed','expired','terminated','cancelled')"/>
+                    <button name="action_request_cheque_exception" type="object"
+                            string="Request Cheque Exception"
+                            invisible="cheques_complete or has_open_cheque_exception
+                                       or state not in ('draft','pending_approval','offered','awaiting_signature','signed','registration_pending')"/>
                     <button name="action_renew" type="object" string="Renew"
                             invisible="state not in ('active','notice','expired')"/>
                     <button name="action_give_notice" type="object" string="Give Notice"
@@ -63,6 +67,11 @@
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_pdcs" type="object" class="oe_stat_button" icon="fa-money">
                             <field name="pdc_count" widget="statinfo" string="Cheques"/>
+                        </button>
+                        <button name="action_view_cheque_exceptions" type="object"
+                                class="oe_stat_button" icon="fa-exclamation-triangle"
+                                invisible="not cheque_exception_count">
+                            <field name="cheque_exception_count" widget="statinfo" string="Exceptions"/>
                         </button>
                     </div>
                     <div class="oe_title">
@@ -86,6 +95,13 @@
                             <field name="commission"/>
                             <field name="is_commercial"/>
                             <field name="pdc_pending"/>
+                            <field name="cheques_received"/>
+                            <field name="cheque_cover"/>
+                            <field name="cheque_shortfall" invisible="cheques_complete"/>
+                            <field name="cheques_expected" invisible="1"/>
+                            <field name="cheques_complete" invisible="1"/>
+                            <field name="has_open_cheque_exception" invisible="1"/>
+                            <field name="cheque_exception_count" invisible="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
                     </group>

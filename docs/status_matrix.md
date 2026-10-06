@@ -110,11 +110,25 @@ search.
 
 Signed has no transition out of it, per §5.1.2.
 
-**The gates are not enforced yet.** BR-036 (approval before an off-pricing offer
-is sent), BR-072 (the leasing approval rule) and BR-075 (activation without all
-cheques) are separate requirements. The states are what make them
-implementable; a Draft lease can still be activated directly until they land,
-because refusing it beforehand would block work that is legitimate today.
+**BR-075 is enforced.** A tenancy cannot move into Active while its cheques are
+short — neither through `action_activate` nor by writing `state`, which is what
+the form's statusbar does — unless an approved `c2p.lease.cheque.exception`
+stands behind it. "Short" means fewer cheques than the agreed schedule *or* less
+rent covered than the annual rent; a bounced cheque does not count as received.
+
+The line the gate does not cross is `create`. The migration plan loads running
+tenancies (object 14) before their cheques (object 16), so creating a lease
+already in Active stays open, and `_activate_as_loaded` exists for the loaders
+that move an existing record. BR-075 is therefore a workflow control, not a
+permission boundary: whoever may create a lease may create an active one.
+
+**BR-036 and BR-072 are not enforced.** Both are approval gates and both wait on
+OD-06, which owes the approver roles and the limits. The states are what make
+them implementable; until they land a Draft lease can still be approved and
+activated by whoever may edit it, with BR-075 the one thing that short path
+cannot skip. BR-075 does not wait on OD-06 only because §8.4's no-self-approval
+principle and the existing manager group are enough to hold it — see
+`_check_approver`, which says what is provisional about that.
 
 ---
 

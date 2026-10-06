@@ -80,6 +80,36 @@ and every screen touching an invoice broke about an hour after the merge.
 without a version bump. Bump it for data-file and security changes too — they
 are applied by the same upgrade.
 
+**Migration scripts must record how to undo themselves.** Odoo keeps no undo
+for a migration script, and a `-u` deploy is not transactional from the
+business's point of view — by the time anyone notices the edit was wrong, the
+old values are gone. A script that overwrites rows in place must capture which
+rows it changed and log them:
+
+```python
+cr.execute("UPDATE c2p_unit SET state = 'available' WHERE state = 'vacant' RETURNING id")
+ids = sorted(row[0] for row in cr.fetchall())
+_logger.info("... to reverse, run - UPDATE c2p_unit SET state = 'vacant' WHERE id IN (%s);",
+             ", ".join(str(i) for i in ids))
+```
+
+Use `RETURNING` rather than a `SELECT` beforehand, so the logged ids are
+exactly the rows the `UPDATE` changed. Log the whole list, however long: a
+truncated one reads as complete and is not. Log primary keys, not names or
+tenant data — an id is enough to reverse the edit and carries nothing that
+BRD §5.1.3 restricts. Use `_logger`, never `print()`; Odoo.sh captures the
+logger.
+
+`tools/tests/test_migration_reversibility.py` enforces this over every script
+under `*/migrations/`, including ones not written yet. A script that genuinely
+needs no reversal — pure DDL, or a column being dropped outright — opts out
+with `# migration-reversal: not-applicable <reason>`.
+
+This rule is newer than the one migration we have shipped. The 19.0.1.3.0
+`vacant → available` split ran against production on 2026-10-06 and moved 23
+units; the count is in the log and the identities are not, so that one edit
+cannot be reversed from the data. That is the gap the rule closes.
+
 ## Things static analysis will not catch
 
 `ruff check` and `tools/validate_manifests.py` passed in **every one** of the

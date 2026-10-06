@@ -239,10 +239,12 @@ for t in tenants:
             "company_id": COMPANY_ID,
         },
     )
-    ex("c2p.lease", "action_activate", [lease_id])
     created_leases += 1
 
-    # Attach the existing PDC payments for this tenant to the lease.
+    # Attach the existing PDC payments for this tenant to the lease BEFORE
+    # marking it running. The cheques are historical, so some are bounced and
+    # the set rarely covers the full annual rent - which is exactly what BR-075
+    # refuses on the leasing path.
     pays = (
         ex(
             "account.payment",
@@ -271,6 +273,20 @@ for t in tenants:
                 "pdc_state": state,
             },
         )
+
+    # This is a load, not a tenancy being started: these leases are already
+    # running, and BR-075 gates the leasing path, not the import. The model's
+    # own loader is c2p.lease._activate_as_loaded(); private methods are not
+    # callable over RPC, so this sets the same context key its write guard
+    # looks for and makes the same two writes.
+    ex(
+        "c2p.lease",
+        "write",
+        [lease_id],
+        {"state": "active"},
+        context={**CTX, "c2p_lease_loaded": True},
+    )
+    ex("c2p.unit", "write", [uid_], {"state": "occupied", "current_lease_id": lease_id})
 
 # ---------------------------------------------------------------- reconciliation
 # Control totals, not "looks right": every tenant is either converted into a

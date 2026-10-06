@@ -179,3 +179,39 @@ load.
 
 The method does not change when these arrive. The schedule does not exist until
 they do.
+
+---
+
+## 8. Reversing a migration script
+
+Distinct from §3, which covers reversing an *import batch*. A staged import
+keeps a reversal reference, so a bad batch can be undone. A **migration
+script** — the `migrations/<version>/pre-migrate.py` kind that Odoo runs on a
+`-u` upgrade — has nothing of the sort. It overwrites columns in place, Odoo
+records no undo, and the version is marked applied the moment it finishes.
+
+So the obligation is on the script. `CONTRIBUTING.md` carries the rule, and
+`tools/tests/test_migration_reversibility.py` enforces it over every script in
+the repository: a script that changes rows captures them with `RETURNING` and
+logs the exact statement that would put them back. The log is the only durable
+record of which rows an in-place edit touched, which makes it an audit artefact
+rather than diagnostic noise — it belongs in the cutover file alongside the
+reconciliation statements §5.10 archives.
+
+That log is not a rollback plan on its own. A plan also needs the pre-upgrade
+backup (Odoo.sh takes one, but confirm it rather than assume it), a decision on
+whether reversing the schema is wanted at all, and someone named to make the
+call.
+
+### Scripts applied to production
+
+| Version | What it did | Run | Reversible from the log |
+| --- | --- | --- | --- |
+| 19.0.1.3.0 | split the single `vacant` state into Available and Vacant; moved every existing `vacant` unit to `available` | 2026-10-06, production, **23 units** | **no** — the count was logged, the identities were not |
+
+The 19.0.1.3.0 entry is why the rule exists. The script has since been changed
+to log its identities, but that change cannot reach a database that has already
+recorded the version as applied, so the gap for those 23 units is permanent.
+Reversing it now would mean deciding, per unit, which of the two states it
+should be in — a business judgement, from the turnaround status, not a data
+operation.

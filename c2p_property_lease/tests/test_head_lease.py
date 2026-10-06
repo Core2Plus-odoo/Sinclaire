@@ -59,7 +59,11 @@ class TestHeadLease(TransactionCase):
                 "cheque_count": "4",
             }
         )
-        lease.action_activate()
+        # These tests are about what a let unit does to the building's coverage
+        # and margin, so what they need is a running tenancy. The load path
+        # gives them one; BR-075 refuses the leasing path without cheques, and
+        # registering four of them here would test nothing extra.
+        lease._activate_as_loaded()
         return lease
 
     def test_instalment_splits_the_annual_amount(self):

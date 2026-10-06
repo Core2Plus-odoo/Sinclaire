@@ -141,7 +141,7 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 | BR-072 | 5 | **Leasing approval rule**: Leasing Director or Leasing Manager approves any change from standard terms — payment count, rent, term, deposit, commission, free period, fees, notice terms, payment timing — before offer, reservation, contract or renewal is issued or activated | Must | Cus | `c2p.lease` | Approval gate (OD-06) | S2 | — |
 | BR-073 | 5.1 | Lease inherits building, meter, analytic and approved pricing from the unit | Must | Cus | `c2p.lease` | Related fields | S2 | Partial |
 | BR-074 | 5.1 | System calculates duration, rent, prorating, instalments, deposit, commission, taxes and other charges | Must | Cus | `c2p.lease` | Computes | S2 | Partial |
-| BR-075 | 5.1 | **Activation without all cheques received** permitted only by case-by-case exception approved by Leasing Manager or CEO, recording missing items, reason, approval, conditions, deadline, responsible user and follow-up | Must | Cus | `c2p.lease` | Exception model | S2 | — |
+| BR-075 | 5.1 | **Activation without all cheques received** permitted only by case-by-case exception approved by Leasing Manager or CEO, recording missing items, reason, approval, conditions, deadline, responsible user and follow-up | Must | Cus | `c2p.lease` | `c2p.lease.cheque.exception`; gate on activation and on writing `state`; approver role provisional pending OD-06 | S2 | Built |
 | BR-076 | 5.1 | On activation set the unit Occupied and create invoice/subscription and payment schedules | Must | Cus | `c2p.lease` | Existing activation | S2 | Built |
 | BR-077 | 5.1.1 | Stage-gated tenant file checklist across five stages — Sales and application, Accounts and payments, Contract and registration, Move-in, Review and approval — with applicability by tenant type, use, building, furnishing, payment method, third-party payer and stage | Must | Cus | checklist model | Configurable checklist | S2 | — |
 | BR-078 | 5.1.1 | Checklist amounts reconcile to the approved quotation and lease schedule; no item complete without evidence or approved non-cash treatment | Must | Cus | checklist | Reconciliation | S2 | — |
@@ -282,9 +282,9 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 
 | Status | Count |
 | --- | --- |
-| Built | 7 |
+| Built | 8 |
 | Partial | 34 |
-| Not started | 145 |
+| Not started | 144 |
 
 186 requirements, BR-001 to BR-186 with no gaps or duplicates, of which **3
 carry the BRD's own IDs** (BR-001 to BR-003). Counts are generated from the
