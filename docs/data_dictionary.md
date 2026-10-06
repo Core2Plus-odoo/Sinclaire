@@ -567,7 +567,7 @@ custom model — `c2p_property_lease`
 | `name` | Unit No. | Char | yes |  |  |  |  |
 | `rera_index_high` | RERA Index High | Monetary |  |  |  |  |  |
 | `rera_index_low` | RERA Index Low | Monetary |  |  |  |  |  |
-| `state` |  | Selection | yes | vacant | vacant, occupied, notice, blocked |  | yes |
+| `state` |  | Selection | yes | available | dynamic |  | yes |
 | `tenant_id` | Tenant | Many2one |  |  | related: current_lease_id.tenant_id |  |  |
 | `unit_type` |  | Selection | yes | 1br | dynamic |  |  |
 

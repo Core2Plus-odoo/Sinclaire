@@ -53,11 +53,17 @@ Contracted → Occupied → Under Notice → Vacant → Under Maintenance/Blocke
   Vacant so the move-out record exists.
 - Activation is blocked where mandatory compliance cover has lapsed.
 
-**Current implementation:** `c2p.unit` has four states — Vacant, Occupied, Under
-Notice, Blocked. **Six are missing**: Draft, Available, Under Marketing,
-Viewing/On Hold, Reserved, Contracted. Note that the BRD separates *Vacant*
-(just handed back, not yet re-lettable) from *Available* (re-lettable); the
-current model has only the one. Vacancy-loss reporting depends on that split.
+**Current implementation: all ten states built** (`19.0.1.3.0`). Transitions are
+guarded methods on `c2p.unit`, not a writable field, so a move not listed above
+raises rather than silently succeeding.
+
+The BRD's split of *Vacant* (just handed back) from *Available* (re-lettable) is
+in place, and a migration moved existing rows to Available — see
+`migrations/19.0.1.3.0/`. `EARNING_STATES` and `EMPTY_STATES` in
+`models/unit.py` are the single definition of "is this unit earning?", shared by
+the building stats and the dashboard so the two cannot disagree. Draft and
+Blocked are in neither group, which is what the old four-state model did too, so
+no reported number moved.
 
 ---
 
@@ -219,7 +225,7 @@ history.
 
 | Model | BRD states | Built | Missing |
 | --- | --- | --- | --- |
-| Unit | 10 | 4 | 6 |
+| Unit | 10 | **10** | — |
 | Lease | 12 | 5 | 7 |
 | Payment instrument | 7 | 4 | 3 |
 | Property listing | 8 | 0 | 8 — model not created |

@@ -14,9 +14,9 @@
                 <field name="tenant_id"/>
                 <field name="lease_end"/>
                 <field name="state" widget="badge"
-                       decoration-success="state == 'occupied'"
-                       decoration-warning="state == 'notice'"
-                       decoration-danger="state == 'vacant'"/>
+                       decoration-success="state in ('contracted','occupied')"
+                       decoration-warning="state in ('notice','reserved','viewing_hold')"
+                       decoration-danger="state in ('available','under_marketing','vacant')"/>
                 <field name="currency_id" column_invisible="1"/>
             </list>
         </field>
@@ -108,9 +108,14 @@
                 <field name="name"/>
                 <field name="building_id"/>
                 <field name="tenant_id"/>
-                <filter name="f_vacant" string="Vacant" domain="[('state','=','vacant')]"/>
-                <filter name="f_occupied" string="Occupied" domain="[('state','=','occupied')]"/>
+                <filter name="f_available" string="Available"
+                        domain="[('state','in',('available','under_marketing','viewing_hold'))]"/>
+                <filter name="f_reserved" string="Reserved" domain="[('state','=','reserved')]"/>
+                <filter name="f_occupied" string="Occupied"
+                        domain="[('state','in',('contracted','occupied'))]"/>
                 <filter name="f_notice" string="Under Notice" domain="[('state','=','notice')]"/>
+                <filter name="f_vacant" string="Vacant (handed back)" domain="[('state','=','vacant')]"/>
+                <filter name="f_blocked" string="Blocked" domain="[('state','=','blocked')]"/>
                 <group>
                     <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
                     <filter name="g_state" string="Status" context="{'group_by':'state'}"/>

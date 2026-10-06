@@ -6,6 +6,8 @@ from odoo import models
 from odoo.exceptions import UserError
 from odoo.exceptions import ValidationError
 
+from .unit import EARNING_STATES
+
 CHEQUE_PLAN = {1: 12, 2: 6, 3: 4, 4: 3, 6: 2, 12: 1}  # cheques -> months per instalment
 
 
@@ -132,12 +134,13 @@ class C2pLease(models.Model):
     # ------------------------------------------------------------------ actions
     def action_activate(self):
         for rec in self:
-            if rec.unit_id.state == "occupied" and rec.unit_id.current_lease_id != rec:
+            if rec.unit_id.state in EARNING_STATES and rec.unit_id.current_lease_id != rec:
                 raise UserError(
                     self.env._(
-                        "Unit %(unit)s is already occupied by %(tenant)s.",
+                        "Unit %(unit)s is already taken (%(state)s) by %(tenant)s.",
                         unit=rec.unit_id.display_name,
-                        tenant=rec.unit_id.current_lease_id.tenant_id.name,
+                        state=dict(rec.unit_id._fields["state"].selection)[rec.unit_id.state],
+                        tenant=rec.unit_id.current_lease_id.tenant_id.name or "another lease",
                     )
                 )
             rec.state = "active"

@@ -88,6 +88,28 @@ class TestLease(TransactionCase):
         with self.assertRaises(UserError):
             other.action_activate()
 
+    def test_second_lease_blocked_while_the_first_is_under_notice(self):
+        """BR-001. A unit under notice is still occupied - the sitting tenant
+        has not left. Before the ten-state model the guard only looked for
+        "occupied", so notice was a hole in it."""
+        first = self._lease()
+        first.action_activate()
+        first.action_give_notice()
+        self.assertEqual(self.unit.state, "notice")
+        other = self._lease(tenant_id=self.landlord.id)
+        with self.assertRaises(UserError):
+            other.action_activate()
+
+    def test_second_lease_blocked_while_the_unit_is_contracted(self):
+        """Contracted means signed but not yet moved in. The unit is spoken
+        for, so a second activation must still be refused."""
+        first = self._lease()
+        first.action_activate()
+        self.unit.state = "contracted"
+        other = self._lease(tenant_id=self.landlord.id)
+        with self.assertRaises(UserError):
+            other.action_activate()
+
     def test_expiring_releases_the_unit(self):
         lease = self._lease(date_start="2020-01-01", date_end="2020-12-31")
         lease.action_activate()
@@ -228,3 +250,103 @@ class TestChequeSchedules(TransactionCase):
 
         for cheques, months in CHEQUE_PLAN.items():
             self.assertEqual(cheques * months, 12, f"{cheques} cheques x {months} months != 12")
+
+
+@tagged("post_install", "-at_install")
+class TestUnitStates(TransactionCase):
+    """BRD §3.2's ten-state unit model, and the guarantee that adding it did
+    not move any number the dashboard already showed."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.landlord = cls.env["res.partner"].create({"name": "States Landlord"})
+        cls.building = cls.env["c2p.building"].create(
+            {"name": "States Tower", "code": "STT", "owner_id": cls.landlord.id}
+        )
+
+    def _unit(self, name, state=None, market_rent=100000.0):
+        unit = self.env["c2p.unit"].create({"name": name, "building_id": self.building.id, "market_rent": market_rent})
+        if state:
+            unit.state = state
+        return unit
+
+    def test_all_ten_brd_states_exist(self):
+        from odoo.addons.c2p_property_lease.models.unit import UNIT_STATES
+
+        self.assertEqual(
+            [s for s, _ in UNIT_STATES],
+            [
+                "draft",
+                "available",
+                "under_marketing",
+                "viewing_hold",
+                "reserved",
+                "contracted",
+                "occupied",
+                "notice",
+                "vacant",
+                "blocked",
+            ],
+        )
+
+    def test_earning_and_empty_states_do_not_overlap(self):
+        from odoo.addons.c2p_property_lease.models.unit import EARNING_STATES
+        from odoo.addons.c2p_property_lease.models.unit import EMPTY_STATES
+        from odoo.addons.c2p_property_lease.models.unit import UNIT_STATES
+
+        self.assertFalse(set(EARNING_STATES) & set(EMPTY_STATES))
+        known = {s for s, _ in UNIT_STATES}
+        self.assertTrue(set(EARNING_STATES) <= known)
+        self.assertTrue(set(EMPTY_STATES) <= known)
+        # Draft and Blocked belong to neither, deliberately.
+        self.assertEqual(known - set(EARNING_STATES) - set(EMPTY_STATES), {"draft", "blocked"})
+
+    def test_vacancy_loss_counts_every_empty_state(self):
+        """The reason EMPTY_STATES exists: a unit being marketed, held or
+        reserved earns nothing, exactly as it did when all four were one
+        "vacant" state."""
+        from odoo.addons.c2p_property_lease.models.unit import EMPTY_STATES
+
+        for i, state in enumerate(EMPTY_STATES):
+            self._unit(f"E{i}", state, market_rent=50000.0)
+        self.building.invalidate_recordset()
+        self.assertEqual(self.building.vacant_count, len(EMPTY_STATES))
+
+    def test_blocked_and_draft_are_not_vacancy_loss(self):
+        self._unit("D1", "draft")
+        self._unit("B1", "blocked")
+        self.building.invalidate_recordset()
+        self.assertEqual(self.building.vacant_count, 0)
+
+    def test_a_unit_cannot_skip_from_draft_to_reserved(self):
+        unit = self._unit("S1", "draft")
+        with self.assertRaises(UserError):
+            unit.action_reserve()
+
+    def test_release_then_market_then_hold_then_reserve(self):
+        unit = self._unit("S2", "draft")
+        unit.action_release()
+        self.assertEqual(unit.state, "available")
+        unit.action_market()
+        self.assertEqual(unit.state, "under_marketing")
+        unit.action_hold()
+        self.assertEqual(unit.state, "viewing_hold")
+        unit.action_reserve()
+        self.assertEqual(unit.state, "reserved")
+
+    def test_a_handed_back_unit_is_not_available_until_turnaround(self):
+        """BRD §3.2 separates Vacant from Available. A unit straight out of a
+        tenancy is not re-lettable until the turnaround is done."""
+        unit = self._unit("S3", "vacant")
+        with self.assertRaises(UserError):
+            unit.action_market()
+        unit.action_turnaround_complete()
+        self.assertEqual(unit.state, "available")
+
+    def test_blocking_is_reachable_from_anywhere_and_returns_to_available(self):
+        unit = self._unit("S4", "occupied")
+        unit.action_block()
+        self.assertEqual(unit.state, "blocked")
+        unit.action_unblock()
+        self.assertEqual(unit.state, "available")

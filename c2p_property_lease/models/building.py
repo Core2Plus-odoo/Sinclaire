@@ -2,6 +2,8 @@ from odoo import api
 from odoo import fields
 from odoo import models
 
+from .unit import EMPTY_STATES
+
 
 class C2pBuilding(models.Model):
     _name = "c2p.building"
@@ -87,7 +89,7 @@ class C2pBuilding(models.Model):
             units = rec.unit_ids
             rec.unit_count = len(units)
             rec.occupied_count = len(units.filtered(lambda u: u.state == "occupied"))
-            rec.vacant_count = len(units.filtered(lambda u: u.state == "vacant"))
+            rec.vacant_count = len(units.filtered(lambda u: u.state in EMPTY_STATES))
             rec.occupancy_rate = (rec.occupied_count / rec.unit_count * 100.0) if rec.unit_count else 0.0
             rec.contracted_rent = sum(units.mapped("current_lease_id.annual_rent"))
             rec.potential_rent = sum(units.mapped("market_rent"))
