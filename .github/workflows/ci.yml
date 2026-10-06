@@ -45,3 +45,6 @@ jobs:
 
       - name: Module versions bumped where source changed
         run: python tools/check_version_bumps.py
+
+      - name: Requirement matrix ids and counts
+        run: python tools/check_requirement_matrix.py
