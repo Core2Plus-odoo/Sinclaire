@@ -342,3 +342,33 @@ class TestThe360ViewsLoad(PortfolioCase):
         arch = self.env.ref("sinclaire_workspace.view_unit_form_360").arch
         self.assertIn("release_checklist", arch)
         self.assertIn("role='alert'", arch.replace('"', "'"))
+
+
+class TestPortfolioToneSearch(PortfolioCase):
+    """The filter behind the Portfolio's "Needs attention" button.
+
+    It shipped in #21 with the same defect the collections filter had: the
+    search accepted a list or tuple and wrapped anything else, while Odoo
+    hands it an OrderedSet. Clicking the button raised. The unit tests passed
+    because they all called search() with a hand-written tuple.
+    """
+
+    def test_an_ordered_set_value_is_accepted(self):
+        from odoo.tools import OrderedSet
+
+        b = self._building("PTO", "head_lease")
+        self._let(self._unit(b, "PTO-101"), rent=80000.0)
+        self._head_lease(b, 100000.0)
+        b.invalidate_recordset()
+        self.assertEqual(b.portfolio_tone, "critical")
+        found = self.env["c2p.building"].search([("portfolio_tone", "in", OrderedSet(["warn", "critical"]))])
+        self.assertIn(b, found)
+
+    def test_a_healthy_building_is_excluded_by_that_filter(self):
+        b = self._building("PTH", "head_lease", declared_residential_units=1)
+        self._let(self._unit(b, "PTH-101"), rent=150000.0)
+        self._head_lease(b, 100000.0)
+        b.invalidate_recordset()
+        self.assertEqual(b.portfolio_tone, "ok")
+        found = self.env["c2p.building"].search([("portfolio_tone", "in", ("warn", "critical"))])
+        self.assertNotIn(b, found)
