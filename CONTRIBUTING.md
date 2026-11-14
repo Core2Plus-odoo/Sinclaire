@@ -89,8 +89,9 @@ rows it changed and log them:
 ```python
 cr.execute("UPDATE c2p_unit SET state = 'available' WHERE state = 'vacant' RETURNING id")
 ids = sorted(row[0] for row in cr.fetchall())
-_logger.info("... to reverse, run - UPDATE c2p_unit SET state = 'vacant' WHERE id IN (%s);",
-             ", ".join(str(i) for i in ids))
+_logger.info(
+    "... to reverse, run - UPDATE c2p_unit SET state = 'vacant' WHERE id IN (%s);", ", ".join(str(i) for i in ids)
+)
 ```
 
 Use `RETURNING` rather than a `SELECT` beforehand, so the logged ids are
