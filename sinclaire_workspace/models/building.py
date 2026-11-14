@@ -139,7 +139,11 @@ class C2pBuilding(models.Model):
         if operator not in ("=", "!=", "in", "not in"):
             raise ValueError(self.env._("Unsupported operator %s for portfolio_tone", operator))
 
-        wanted = set(value if isinstance(value, (list, tuple)) else [value])
+        # Odoo passes an OrderedSet for `in`/`not in`, not a list - checking
+        # for list or tuple alone wrapped it in another list and set() then
+        # raised "unhashable type". A string is the one iterable that means a
+        # single value rather than a collection of them.
+        wanted = {value} if isinstance(value, str) else set(value)
         negated = operator in ("!=", "not in")
 
         matching = (
