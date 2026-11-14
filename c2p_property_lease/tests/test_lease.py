@@ -782,3 +782,111 @@ class TestLeaseStates(TransactionCase):
         with self.assertRaises(UserError) as caught:
             lease.action_activate()
         self.assertIn("cannot be activated", str(caught.exception))
+
+
+@tagged("post_install", "-at_install")
+class TestOperatingModels(TransactionCase):
+    """BR-019 / BRD §4.1.2: the field that decides whose money the rent is.
+
+    The defect these cover is not a missing feature. Before BR-019 every
+    building was treated as a head lease, so an owner-managed building - which
+    has no head lease, and therefore no head_lease_cost - reported the
+    landlord's entire tenant rent as this company's gross margin. BRD §6.1
+    calls that money "not New Sinclair cash or rental income".
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.landlord = cls.env["res.partner"].create({"name": "OM Landlord"})
+        cls.tenant = cls.env["res.partner"].create({"name": "OM Tenant"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
+        cls.plan = plan
+
+    def _building(self, code, model):
+        return self.env["c2p.building"].create(
+            {
+                "name": f"{code} Tower",
+                "code": code,
+                "owner_id": self.landlord.id,
+                "operating_model": model,
+                "analytic_account_id": self.env["account.analytic.account"]
+                .create({"name": f"{code} Tower", "plan_id": self.plan.id})
+                .id,
+            }
+        )
+
+    def _let_unit(self, building, name, rent):
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": name,
+                "building_id": building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": rent,
+                "dewa_no": f"26{abs(hash(name)) % 100000:05d}",
+            }
+        )
+        unit.sudo().action_release()
+        lease = self.env["c2p.lease"].create(
+            {
+                "unit_id": unit.id,
+                "tenant_id": self.tenant.id,
+                "date_start": "2026-01-01",
+                "date_end": "2026-12-31",
+                "annual_rent": rent,
+                "cheque_count": "1",
+            }
+        )
+        unit.current_lease_id = lease
+        unit.state = "occupied"
+        building.invalidate_recordset()
+        return unit
+
+    def test_a_building_defaults_to_head_lease(self):
+        """Every building that existed before BR-019 was one."""
+        self.assertEqual(self._building("DFL", "head_lease").operating_model, "head_lease")
+
+    def test_owner_managed_rent_is_not_this_company_s_rent(self):
+        """The defect, stated as a test."""
+        b = self._building("OWM", "owner_management")
+        self._let_unit(b, "OWM-101", 120000.0)
+        self.assertEqual(b.contracted_rent, 0.0, "Owner-managed rent is not our contracted rent.")
+        self.assertEqual(b.managed_rent, 120000.0, "It is rent administered for the landlord.")
+
+    def test_owner_managed_buildings_report_no_margin(self):
+        """Before BR-019 this returned the whole tenant rent as margin."""
+        b = self._building("OWM2", "owner_management")
+        self._let_unit(b, "OWM2-101", 120000.0)
+        self.assertEqual(b.gross_margin, 0.0)
+        self.assertEqual(b.coverage_ratio, 0.0)
+        self.assertEqual(b.breakeven_occupancy, 0.0)
+
+    def test_head_leased_rent_is_this_company_s_rent(self):
+        """The other side of the same split: under a head lease it is ours."""
+        b = self._building("HDL", "head_lease")
+        self._let_unit(b, "HDL-101", 120000.0)
+        self.assertEqual(b.contracted_rent, 120000.0)
+        self.assertEqual(b.managed_rent, 0.0)
+
+    def test_a_head_lease_cannot_attach_to_an_owner_managed_building(self):
+        b = self._building("OWM3", "owner_management")
+        with self.assertRaises(ValidationError):
+            self.env["c2p.head.lease"].create(
+                {
+                    "building_id": b.id,
+                    "landlord_id": self.landlord.id,
+                    "date_start": "2026-01-01",
+                    "date_end": "2026-12-31",
+                    "annual_amount": 500000.0,
+                }
+            )
+
+    def test_brokerage_buildings_carry_neither(self):
+        """Brokerage earns commission on transactions, not rent on units."""
+        b = self._building("BRK", "brokerage")
+        self._let_unit(b, "BRK-101", 120000.0)
+        self.assertEqual(b.contracted_rent, 0.0)
+        self.assertEqual(b.gross_margin, 0.0)
+        self.assertEqual(b.managed_rent, 120000.0)
