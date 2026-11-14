@@ -24,6 +24,11 @@
         <field name="sequence">20</field>
         <field name="privilege_id" ref="res_groups_privilege_property"/>
         <field name="implied_ids" eval="[(4, ref('group_property_user'))]"/>
+        <!-- Without a member, nobody sees the Property menu after install - it is
+             gated on group_property_user, and no user is in either group by
+             default. The module installed and was invisible, administrator
+             included. sinclaire_base seeds its own manager group the same way. -->
+        <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
         <field name="comment">Full access including buildings, head leases, bank facilities and terminations.</field>
     </record>
 
