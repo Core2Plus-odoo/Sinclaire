@@ -422,3 +422,79 @@ class TestChequeException(TransactionCase):
         self.assertEqual(len(renewal), 1)
         self.assertEqual(renewal.state, "draft")
         self.assertEqual(lease.state, "active")
+
+
+class TestExceptionStateCannotBeSetDirectly(TestChequeException):
+    """The approval rules have to hold on every path into the state, not just
+    on the button.
+
+    test_the_requester_cannot_approve_their_own_exception above passes, and
+    proves nothing on its own: it only ever calls action_approve. The rules
+    lived solely in that method, while `state` is an ordinary Selection,
+    group_property_user has write access to this model, and the form puts the
+    field in a clickable status bar. A leasing agent could open their own
+    request, click Approved in the header, and activate the lease - defeating
+    BRD §5.1's approval requirement and §8.4's no-self-approval rule with two
+    clicks, from exactly the role those rules exist to constrain.
+    """
+
+    def test_a_leasing_agent_cannot_approve_by_writing_the_state(self):
+        """The exploit, as a test. This is the one that used to pass."""
+        lease = self._lease("EXC-200")
+        exception = self._request(lease, requested_by=self.agent)
+        with self.assertRaises(UserError):
+            exception.with_user(self.agent).write({"state": "approved"})
+        self.assertEqual(exception.state, "draft")
+
+    def test_the_requester_cannot_approve_themselves_by_writing_the_state(self):
+        """Even a manager, when they are the requester. §8.4 does not care
+        which door was used."""
+        lease = self._lease("EXC-201")
+        exception = self._request(lease, requested_by=self.manager)
+        with self.assertRaises(UserError) as caught:
+            exception.with_user(self.manager).write({"state": "approved"})
+        self.assertIn("self-approval", str(caught.exception).lower())
+        self.assertEqual(exception.state, "draft")
+
+    def test_rejection_is_privileged_too(self):
+        """Rejecting somebody's exception is a decision, not an edit."""
+        lease = self._lease("EXC-202")
+        exception = self._request(lease, requested_by=self.agent)
+        with self.assertRaises(UserError):
+            exception.with_user(self.agent).write({"state": "rejected"})
+        self.assertEqual(exception.state, "draft")
+
+    def test_an_agent_cannot_skip_straight_to_fulfilled(self):
+        """Fulfilled and Deadline Missed are the follow-up's to record. Hand
+        setting Fulfilled would close an exception whose cheques never came."""
+        lease = self._lease("EXC-203")
+        exception = self._request(lease, requested_by=self.agent)
+        with self.assertRaises(UserError):
+            exception.with_user(self.agent).write({"state": "fulfilled"})
+        self.assertEqual(exception.state, "draft")
+
+    def test_a_manager_still_approves_through_the_action(self):
+        """The guard must not break the path that is supposed to work."""
+        lease = self._lease("EXC-204")
+        exception = self._request(lease, requested_by=self.agent)
+        exception.with_user(self.manager).action_approve()
+        self.assertEqual(exception.state, "approved")
+        self.assertEqual(exception.approved_by_id, self.manager)
+
+    def test_the_follow_up_cron_still_records_its_outcomes(self):
+        """The cron is not a user and its moves are audit, not decisions."""
+        lease = self._lease("EXC-205")
+        exception = self._request(lease, requested_by=self.agent)
+        exception.with_user(self.manager).action_approve()
+        lease.action_activate()
+        self._register_cheques(lease)
+        self.env["c2p.lease.cheque.exception"]._cron_cheque_exception_followup()
+        self.assertEqual(exception.state, "fulfilled")
+
+    def test_an_unrelated_field_is_still_editable(self):
+        """The guard is on the state, not on the record. Locking the whole
+        thing would stop somebody correcting a typo in the conditions."""
+        lease = self._lease("EXC-206")
+        exception = self._request(lease, requested_by=self.agent)
+        exception.with_user(self.agent).write({"conditions": "Two cheques by Friday."})
+        self.assertEqual(exception.conditions, "Two cheques by Friday.")

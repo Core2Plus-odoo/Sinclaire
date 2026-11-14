@@ -40,6 +40,15 @@ EXCEPTION_STATES = [
 # would let each half-justify the same activation.
 OPEN_STATES = ("draft", "approved")
 
+# The two states that ARE the decision. Reaching either is the privileged act,
+# so who may do it is enforced on the write and not only inside the action -
+# see write() below.
+DECISION_STATES = ("approved", "rejected")
+
+# Set by _set_state so the follow-up cron can record its audit-only outcomes
+# while a hand-written state change still cannot.
+STATE_MOVE_CONTEXT_KEY = "c2p_exception_state_recorded"
+
 
 class C2pLeaseChequeException(models.Model):
     _name = "c2p.lease.cheque.exception"
@@ -208,6 +217,51 @@ class C2pLeaseChequeException(models.Model):
                     )
                 )
 
+    def write(self, vals):
+        """Enforce who may decide an exception on EVERY path into the state.
+
+        The rules used to live only in action_approve and action_reject, which
+        left the control bypassable end to end: `state` is an ordinary
+        Selection, group_property_user holds write access to this model, and
+        the form puts the field in a clickable status bar. A leasing agent
+        could open their own request, click Approved in the header, and
+        activate the lease - defeating BRD §5.1's approval requirement and
+        §8.4's no-self-approval rule in two clicks, from exactly the role
+        those rules exist to constrain.
+
+        The existing self-approval test passed throughout, because it only
+        ever called action_approve. A guard that is only on the button tests
+        the button, not the rule.
+
+        The approver check here deliberately IGNORES the context key: reaching
+        Approved or Rejected is the privileged act and no caller may assert
+        its way past it. The key covers only the audit-only outcomes the
+        follow-up cron records.
+        """
+        target = vals.get("state")
+        if target:
+            for rec in self:
+                if rec.state == target:
+                    continue
+                if target in DECISION_STATES:
+                    rec._check_approver()
+                    if rec.state != "draft":
+                        raise UserError(self.env._("Only a requested exception can be decided."))
+                elif not self.env.context.get(STATE_MOVE_CONTEXT_KEY):
+                    raise UserError(
+                        self.env._(
+                            "The status of a cheque exception cannot be set directly. "
+                            "Use Approve or Reject; Fulfilled and Deadline Missed are "
+                            "set by the follow-up."
+                        )
+                    )
+        return super().write(vals)
+
+    def _set_state(self, target, **extra):
+        """Record a state the approver rules do not govern - the cron's own
+        outcomes. Not a way round the gate: DECISION_STATES ignore the key."""
+        self.with_context(**{STATE_MOVE_CONTEXT_KEY: True}).write({"state": target, **extra})
+
     def action_approve(self):
         self._check_approver()
         for rec in self:
@@ -271,12 +325,12 @@ class C2pLeaseChequeException(models.Model):
         today = fields.Date.context_today(self)
         for rec in self.search([("state", "=", "approved")]):
             if rec.lease_id.cheques_complete:
-                rec.state = "fulfilled"
+                rec._set_state("fulfilled")
                 rec.lease_id.message_post(
                     body=self.env._("All cheques received; cheque exception closed as fulfilled.")
                 )
             elif rec.deadline and rec.deadline < today:
-                rec.state = "breached"
+                rec._set_state("breached")
                 rec.activity_schedule(
                     "mail.mail_activity_data_todo",
                     user_id=rec.responsible_user_id.id,
