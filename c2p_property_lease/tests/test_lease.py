@@ -18,20 +18,41 @@ class TestLease(TransactionCase):
         cls.company = cls.env.company
         cls.landlord = cls.env["res.partner"].create({"name": "Test Landlord"})
         cls.tenant = cls.env["res.partner"].create({"name": "Test Tenant"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
         cls.building = cls.env["c2p.building"].create(
             {
                 "name": "Test Tower",
                 "code": "TST",
                 "owner_id": cls.landlord.id,
+                # BR-018 refuses to release a unit whose building has no
+                # analytic account, so the fixture building carries one.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "Test Tower", "plan_id": plan.id})
+                .id,
             }
         )
-        cls.unit = cls.env["c2p.unit"].create(
-            {
-                "name": "TST-101",
-                "building_id": cls.building.id,
-                "unit_type": "1br",
-            }
-        )
+        cls.unit = cls._lettable_unit("TST-101")
+
+    @classmethod
+    def _lettable_unit(self, name, **kw):
+        """A unit created and released, which is where most of these tests start.
+
+        BR-018 holds a new unit in Draft until its mandatory data is in, so a
+        test that wants a lettable unit has to supply that data and release it.
+        """
+        vals = {
+            "name": name,
+            "building_id": self.building.id,
+            "unit_type": "1br",
+            "floor": "1",
+            "area_sqft": 900.0,
+            "market_rent": 95000.0,
+            "dewa_no": "2000001",
+        }
+        vals.update(kw)
+        unit = self.env["c2p.unit"].create(vals)
+        unit.sudo().action_release()
+        return unit
 
     def _lease(self, **kw):
         vals = {
@@ -350,8 +371,7 @@ class TestUnitStates(TransactionCase):
             unit.action_reserve()
 
     def test_release_then_market_then_hold_then_reserve(self):
-        unit = self._unit("S2", "draft")
-        unit.action_release()
+        unit = self._lettable_unit("S2")
         self.assertEqual(unit.state, "available")
         unit.action_market()
         self.assertEqual(unit.state, "under_marketing")
@@ -383,6 +403,84 @@ class TestUnitStates(TransactionCase):
         unit.action_block()
         unit.action_unblock()
         self.assertEqual(unit.state, "available")
+
+    # ------------------------------------------------------------- BR-018
+    # Units are released for letting only once the data a lease depends on is
+    # present, and only by a Leasing Manager.
+
+    def test_a_new_unit_starts_in_draft(self):
+        unit = self.env["c2p.unit"].create({"name": "R1", "building_id": self.building.id})
+        self.assertEqual(unit.state, "draft")
+
+    def test_an_incomplete_unit_cannot_be_released(self):
+        unit = self.env["c2p.unit"].create({"name": "R2", "building_id": self.building.id})
+        with self.assertRaises(UserError):
+            unit.sudo().action_release()
+        self.assertEqual(unit.state, "draft")
+
+    def test_the_refusal_names_every_missing_field_at_once(self):
+        unit = self.env["c2p.unit"].create({"name": "R3", "building_id": self.building.id})
+        with self.assertRaises(UserError) as caught:
+            unit.sudo().action_release()
+        message = str(caught.exception)
+        for label in ("Floor", "Area", "Market rent", "DEWA"):
+            self.assertIn(label, message)
+
+    def test_a_complete_unit_releases(self):
+        unit = self._lettable_unit("R4")
+        self.assertEqual(unit.state, "available")
+        self.assertFalse(unit.release_blockers)
+        self.assertTrue(unit.is_releasable)
+
+    def test_a_building_without_an_analytic_account_blocks_release(self):
+        """BR-012: rent that cannot be attributed to a building is the defect
+        this prevents."""
+        bare = self.env["c2p.building"].create({"name": "No Analytic", "code": "NAN", "owner_id": self.landlord.id})
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": "N1",
+                "building_id": bare.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 95000.0,
+                "dewa_no": "2000002",
+            }
+        )
+        self.assertIn("Analytic", unit.release_blockers)
+        with self.assertRaises(UserError):
+            unit.sudo().action_release()
+
+    def test_release_is_a_manager_action(self):
+        user = self.env["res.users"].create(
+            {
+                "name": "Leasing Clerk",
+                "login": "clerk_br018",
+                "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_user").id)],
+            }
+        )
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": "R5",
+                "building_id": self.building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 95000.0,
+                "dewa_no": "2000003",
+            }
+        )
+        with self.assertRaises(UserError):
+            unit.with_user(user).action_release()
+
+    def test_a_lease_cannot_be_activated_on_an_unreleased_unit(self):
+        """Without this the release gate is decorative: the lease would put a
+        tenant into a unit whose mandatory data was never checked."""
+        unit = self.env["c2p.unit"].create({"name": "R6", "building_id": self.building.id, "unit_type": "1br"})
+        lease = self._lease(unit_id=unit.id)
+        with self.assertRaises(UserError) as caught:
+            self._activate(lease)
+        self.assertIn("not been released", str(caught.exception))
 
     def test_a_blocked_occupied_unit_cannot_be_double_let_after_unblocking(self):
         """The defect this guards: if unblocking returned the unit to

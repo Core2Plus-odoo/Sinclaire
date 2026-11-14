@@ -55,7 +55,22 @@
         <field name="model">c2p.unit</field>
         <field name="arch" type="xml">
             <form>
+                <header>
+                    <!-- BR-018: the only way out of Draft, and it is refused
+                         while release_blockers is non-empty. -->
+                    <button name="action_release" type="object" string="Release for Letting"
+                            class="oe_highlight" invisible="state != 'draft'"
+                            groups="c2p_property_lease.group_property_manager"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,available,under_marketing,reserved,occupied"/>
+                </header>
                 <sheet>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="state != 'draft' or not release_blockers">
+                        This unit cannot be released for letting yet. Still missing:
+                        <field name="release_blockers" class="fw-bold" readonly="1" nolabel="1"/>
+                    </div>
+                    <field name="is_releasable" invisible="1"/>
                     <field name="image_1920" widget="image" class="oe_avatar"
                            options="{'preview_image': 'image_128'}"/>
                     <div class="oe_title">

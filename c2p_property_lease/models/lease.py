@@ -290,6 +290,19 @@ class C2pLease(models.Model):
                         tenant=rec.unit_id.current_lease_id.tenant_id.name or "another lease",
                     )
                 )
+            # BR-018. A unit still in Draft has never been released for
+            # letting, so its mandatory data was never checked. Without this
+            # the release gate is decorative: a lease could be written against
+            # a unit with no market rent, no DEWA number and no analytic
+            # account, and activation would put a tenant in it.
+            if rec.unit_id.state == "draft":
+                raise UserError(
+                    self.env._(
+                        "Unit %(unit)s has not been released for letting. Still missing: %(missing)s.",
+                        unit=rec.unit_id.display_name,
+                        missing=rec.unit_id.release_blockers or self.env._("manager approval"),
+                    )
+                )
             exception = rec._approved_cheque_exception()
             if not rec.cheques_complete and not exception:
                 raise UserError(
