@@ -482,6 +482,106 @@ class TestUnitStates(TransactionCase):
             self._activate(lease)
         self.assertIn("not been released", str(caught.exception))
 
+    # ------------------------------------------------------------- BR-017
+    # Floor rent is the approved minimum, and the override is a manager action.
+
+    def test_a_lease_at_or_above_the_floor_is_fine(self):
+        unit = self._lettable_unit("F1", floor_rent=90000.0)
+        lease = self._lease(unit_id=unit.id, annual_rent=90000.0)
+        self.assertEqual(lease.annual_rent, 90000.0)
+
+    def test_a_lease_below_the_floor_is_refused(self):
+        unit = self._lettable_unit("F2", floor_rent=90000.0)
+        with self.assertRaises(ValidationError) as caught:
+            self._lease(unit_id=unit.id, annual_rent=80000.0)
+        self.assertIn("floor rent", str(caught.exception))
+
+    def test_an_approved_discount_lets_it_through(self):
+        unit = self._lettable_unit("F3", floor_rent=90000.0)
+        lease = self._lease(unit_id=unit.id, annual_rent=80000.0, below_floor_approved=True)
+        self.assertTrue(lease.below_floor_approved)
+
+    def test_a_unit_with_no_floor_rent_is_unconstrained(self):
+        """How units behaved before BR-017, and how they still behave until a
+        floor is approved for them."""
+        unit = self._lettable_unit("F4")
+        lease = self._lease(unit_id=unit.id, annual_rent=1000.0)
+        self.assertEqual(lease.annual_rent, 1000.0)
+
+    def test_the_override_is_a_manager_action(self):
+        user = self.env["res.users"].create(
+            {
+                "name": "Leasing Clerk 2",
+                "login": "clerk_br017",
+                "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_user").id)],
+            }
+        )
+        unit = self._lettable_unit("F5", floor_rent=90000.0)
+        lease = self._lease(unit_id=unit.id, annual_rent=95000.0)
+        with self.assertRaises(UserError):
+            lease.with_user(user).write({"below_floor_approved": True})
+
+    def test_the_three_rate_sets_are_held_separately(self):
+        """A monthly let is not an annual rent over twelve: short lets carry a
+        premium, so the rates are stored, not derived."""
+        unit = self._lettable_unit("F6", market_rent_monthly=9000.0, market_rent_daily=450.0, floor_rent_monthly=8000.0)
+        self.assertEqual(unit.market_rent_monthly, 9000.0)
+        self.assertEqual(unit.market_rent_daily, 450.0)
+        self.assertEqual(unit.floor_rent_monthly, 8000.0)
+        self.assertNotEqual(unit.market_rent_monthly, unit.market_rent / 12.0)
+
+    # ------------------------------------------------------------- BR-016
+    # Units are reconciled against what the building declares.
+
+    def test_a_building_with_nothing_declared_does_not_reconcile(self):
+        """It has nothing to reconcile against. Reporting it as balanced would
+        hide the buildings nobody has filled in."""
+        self.assertFalse(self.building.units_reconciled)
+
+    def test_a_building_reconciles_when_the_counts_agree(self):
+        building = self.env["c2p.building"].create(
+            {
+                "name": "Reconciled Tower",
+                "code": "REC",
+                "owner_id": self.landlord.id,
+                "declared_residential_units": 2,
+                "declared_commercial_units": 0,
+            }
+        )
+        for n in ("1", "2"):
+            self.env["c2p.unit"].create({"name": f"REC-{n}", "building_id": building.id})
+        building.invalidate_recordset()
+        self.assertEqual(building.declared_unit_count, 2)
+        self.assertEqual(building.unit_variance, 0)
+        self.assertTrue(building.units_reconciled)
+
+    def test_a_short_building_reports_a_negative_variance(self):
+        """The import dropped rows. This is the number that says so."""
+        building = self.env["c2p.building"].create(
+            {
+                "name": "Short Tower",
+                "code": "SHT",
+                "owner_id": self.landlord.id,
+                "declared_residential_units": 5,
+            }
+        )
+        self.env["c2p.unit"].create({"name": "SHT-1", "building_id": building.id})
+        building.invalidate_recordset()
+        self.assertEqual(building.unit_variance, -4)
+        self.assertFalse(building.units_reconciled)
+
+    def test_declared_count_is_residential_plus_commercial(self):
+        building = self.env["c2p.building"].create(
+            {
+                "name": "Mixed Tower",
+                "code": "MIX",
+                "owner_id": self.landlord.id,
+                "declared_residential_units": 8,
+                "declared_commercial_units": 3,
+            }
+        )
+        self.assertEqual(building.declared_unit_count, 11)
+
     def test_a_blocked_occupied_unit_cannot_be_double_let_after_unblocking(self):
         """The defect this guards: if unblocking returned the unit to
         Available, the activation guard - which reads unit state - would let a

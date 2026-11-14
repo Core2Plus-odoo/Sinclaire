@@ -90,6 +90,22 @@ class C2pUnit(models.Model):
         string="Market Rent (Annual)",
         help="Reference rent used when quoting. Compare against the RERA rental index band on renewal.",
     )
+    # BR-017: three rate sets. Market rent is what the unit is quoted at; floor
+    # rent is the approved minimum below which an offer needs a manager. They
+    # are held per term rather than derived from the annual figure, because a
+    # monthly let is not an annual rent divided by twelve - short lets carry a
+    # premium, and the daily rate is an exception product under BRD 5.
+    #
+    # market_rent is the annual figure and keeps its name: the dashboard,
+    # building statistics and vacancy loss all read it.
+    market_rent_monthly = fields.Monetary(string="Market Rent (Monthly)")
+    market_rent_daily = fields.Monetary(string="Market Rent (Daily)")
+    floor_rent = fields.Monetary(
+        string="Floor Rent (Annual)",
+        help="Approved minimum annual rent. An offer below this needs Leasing Manager approval.",
+    )
+    floor_rent_monthly = fields.Monetary(string="Floor Rent (Monthly)")
+    floor_rent_daily = fields.Monetary(string="Floor Rent (Daily)")
     rera_index_low = fields.Monetary(string="RERA Index Low")
     rera_index_high = fields.Monetary(string="RERA Index High")
     state = fields.Selection(

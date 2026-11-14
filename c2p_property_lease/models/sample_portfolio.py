@@ -224,6 +224,12 @@ class SamplePortfolio(models.AbstractModel):
                     }
                 )
                 created["buildings"] += 1
+            elif not building.analytic_account_id:
+                # A building loaded before BR-012 was enforced. Without this
+                # the release gate below would refuse every one of its units.
+                building.analytic_account_id = self.env["account.analytic.account"].create(
+                    {"name": building.name, "plan_id": plan.id}
+                )
             buildings[code] = building
         return buildings
 
