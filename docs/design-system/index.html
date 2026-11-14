@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sinclaire Design System</title>
+<style>
+@charset "UTF-8";
+:root {
+  --sin-navy: #14243A;
+  --sin-navy-deep: #203654;
+  --sin-blue: #315DCE;
+  --sin-teal: #0F9D92;
+  --sin-emerald: #15966B;
+  --sin-amber: #E7A43B;
+  --sin-red: #D94D57;
+  --sin-bg: #F4F7FB;
+  --sin-surface: #FFFFFF;
+  --sin-text: #17243A;
+  --sin-text-muted: #68788F;
+  --sin-teal-text: #0C7F76;
+  --sin-emerald-text: #12815C;
+  --sin-amber-text: #9C6613;
+  --sin-red-text: #D3333E;
+  --sin-text-muted-text: #637288;
+  --sin-ok: var(--sin-emerald);
+  --sin-ok-text: var(--sin-emerald-text);
+  --sin-warn: var(--sin-amber);
+  --sin-warn-text: var(--sin-amber-text);
+  --sin-critical: var(--sin-red);
+  --sin-critical-text: var(--sin-red-text);
+  --sin-info: var(--sin-blue);
+  --sin-info-text: var(--sin-blue);
+  --sin-ok-fill: #E7F4EF;
+  --sin-warn-fill: #FCF2E1;
+  --sin-critical-fill: #FBEAEB;
+  --sin-info-fill: #E8EEFB;
+  --sin-neutral-fill: #EDF1F7;
+  --sin-border: #DCE3ED;
+  --sin-border-strong: #C2CCDA;
+  --sin-border-control: #7B91AF;
+  --sin-space-1: 4px;
+  --sin-space-2: 8px;
+  --sin-space-3: 12px;
+  --sin-space-4: 16px;
+  --sin-space-5: 24px;
+  --sin-space-6: 32px;
+  --sin-space-7: 48px;
+  --sin-radius-sm: 4px;
+  --sin-radius: 8px;
+  --sin-radius-lg: 12px;
+  --sin-shadow: 0 1px 2px rgba(20, 36, 58, 0.06), 0 1px 3px rgba(20, 36, 58, 0.08);
+  --sin-shadow-lg: 0 4px 6px rgba(20, 36, 58, 0.07), 0 10px 20px rgba(20, 36, 58, 0.10);
+  --sin-font: inherit;
+  --sin-font-numeric: "SF Mono", "Roboto Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --sin-text-xs: 11px;
+  --sin-text-sm: 12px;
+  --sin-text-base: 14px;
+  --sin-text-lg: 16px;
+  --sin-text-xl: 20px;
+  --sin-text-2xl: 28px;
+  --sin-text-3xl: 36px;
+  --sin-weight-normal: 400;
+  --sin-weight-medium: 500;
+  --sin-weight-semibold: 600;
+  --sin-transition: 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sin-transition: 0ms;
+  }
+}
+
+.sin-card {
+  background: var(--sin-surface);
+  border: 1px solid var(--sin-border);
+  border-radius: var(--sin-radius);
+  box-shadow: var(--sin-shadow);
+  padding: var(--sin-space-4);
+}
+
+.sin-card--flush {
+  padding: 0;
+}
+
+.sin-card--actionable {
+  cursor: pointer;
+  transition: box-shadow var(--sin-transition), border-color var(--sin-transition);
+}
+
+.sin-card--actionable:hover, .sin-card--actionable:focus-visible {
+  border-color: var(--sin-border-control);
+  box-shadow: var(--sin-shadow-lg);
+}
+
+.sin-card--actionable:focus-visible {
+  outline: 2px solid var(--sin-blue);
+  outline-offset: 2px;
+}
+
+.sin-section-title {
+  color: var(--sin-text);
+  font-size: var(--sin-text-lg);
+  font-weight: var(--sin-weight-semibold);
+  margin: 0 0 var(--sin-space-3);
+}
+
+.sin-label, .sin-building__stat-label, .sin-kpi__label {
+  color: var(--sin-text-muted-text);
+  font-size: var(--sin-text-xs);
+  font-weight: var(--sin-weight-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sin-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sin-space-1);
+}
+
+.sin-kpi__value {
+  color: var(--sin-text);
+  font-size: var(--sin-text-3xl);
+  font-weight: var(--sin-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.sin-kpi__value--ok {
+  color: var(--sin-emerald);
+}
+
+.sin-kpi__value--warn {
+  color: var(--sin-amber-text);
+}
+
+.sin-kpi__value--critical {
+  color: var(--sin-red);
+}
+
+.sin-kpi__meta {
+  color: var(--sin-text-muted-text);
+  font-size: var(--sin-text-sm);
+}
+
+.sin-kpi__period {
+  color: var(--sin-text-muted-text);
+  font-size: var(--sin-text-xs);
+}
+
+.sin-status {
+  align-items: center;
+  border-radius: var(--sin-radius-sm);
+  color: var(--sin-text);
+  display: inline-flex;
+  font-size: var(--sin-text-sm);
+  font-weight: var(--sin-weight-medium);
+  gap: var(--sin-space-1);
+  padding: var(--sin-space-1) var(--sin-space-2);
+  white-space: nowrap;
+}
+
+.sin-status::before {
+  font-weight: var(--sin-weight-semibold);
+}
+
+.sin-status--ok {
+  background: var(--sin-ok-fill);
+}
+
+.sin-status--ok::before {
+  content: "✓";
+}
+
+.sin-status--warn {
+  background: var(--sin-warn-fill);
+}
+
+.sin-status--warn::before {
+  content: "!";
+}
+
+.sin-status--critical {
+  background: var(--sin-critical-fill);
+}
+
+.sin-status--critical::before {
+  content: "✕";
+}
+
+.sin-status--info {
+  background: var(--sin-info-fill);
+}
+
+.sin-status--info::before {
+  content: "i";
+}
+
+.sin-status--neutral {
+  background: var(--sin-neutral-fill);
+}
+
+.sin-status--neutral::before {
+  content: "–";
+}
+
+.sin-building {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--sin-space-3);
+}
+
+.sin-building__head {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--sin-space-2);
+  justify-content: space-between;
+}
+
+.sin-building__identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.sin-building__name {
+  color: var(--sin-text);
+  font-size: var(--sin-text-lg);
+  font-weight: var(--sin-weight-semibold);
+  line-height: 1.3;
+  margin: 0;
+  min-height: calc(var(--sin-text-lg) * 1.3 * 2);
+}
+
+.sin-building__location {
+  color: var(--sin-text-muted-text);
+  font-size: var(--sin-text-sm);
+}
+
+.sin-building__model {
+  border-radius: var(--sin-radius-sm);
+  flex-shrink: 0;
+  font-size: var(--sin-text-xs);
+  font-weight: var(--sin-weight-medium);
+  letter-spacing: 0.03em;
+  padding: var(--sin-space-1) var(--sin-space-2);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sin-building__model--head-lease {
+  background: var(--sin-info-fill);
+  color: var(--sin-text);
+}
+
+.sin-building__model--owner-management {
+  background: var(--sin-warn-fill);
+  color: var(--sin-text);
+}
+
+.sin-building__model--brokerage {
+  background: var(--sin-neutral-fill);
+  color: var(--sin-text);
+}
+
+.sin-building__stats {
+  display: grid;
+  gap: var(--sin-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+}
+
+.sin-building__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sin-building__stat-value {
+  color: var(--sin-text);
+  font-size: var(--sin-text-xl);
+  font-weight: var(--sin-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.sin-building__next {
+  border-top: 1px solid var(--sin-border);
+  color: var(--sin-text-muted-text);
+  font-size: var(--sin-text-sm);
+  margin-top: auto;
+  padding-top: var(--sin-space-3);
+}
+
+.sin-meter {
+  background: var(--sin-neutral-fill);
+  border-radius: var(--sin-radius-sm);
+  height: 6px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.sin-meter__fill {
+  background: var(--sin-emerald);
+  border-radius: var(--sin-radius-sm);
+  height: 100%;
+  transition: width var(--sin-transition);
+}
+
+.sin-meter__fill--warn {
+  background: var(--sin-amber);
+}
+
+.sin-meter__fill--critical {
+  background: var(--sin-red);
+}
+
+.sin-empty {
+  align-items: center;
+  color: var(--sin-text-muted-text);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sin-space-2);
+  padding: var(--sin-space-6) var(--sin-space-4);
+  text-align: center;
+}
+
+.sin-empty__title {
+  color: var(--sin-text);
+  font-size: var(--sin-text-lg);
+  font-weight: var(--sin-weight-semibold);
+}
+
+.sin-empty__body {
+  font-size: var(--sin-text-base);
+  max-width: 46ch;
+}
+
+.sin-blocked {
+  background: var(--sin-warn-fill);
+  border-left: 3px solid var(--sin-amber);
+  border-radius: var(--sin-radius-sm);
+  color: var(--sin-text);
+  font-size: var(--sin-text-sm);
+  padding: var(--sin-space-3);
+}
+
+.sin-blocked__title {
+  font-weight: var(--sin-weight-semibold);
+  margin-bottom: var(--sin-space-1);
+}
+
+.sin-blocked__list {
+  margin: 0;
+  padding-left: var(--sin-space-4);
+}
+
+.sin-grid {
+  display: grid;
+  gap: var(--sin-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.sin-grid > .sin-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.sin-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sin-space-4);
+}
+
+.sin-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sin-space-3);
+}
+
+@media (max-width: 575px) {
+  .sin-kpi__value {
+    font-size: var(--sin-text-2xl);
+  }
+  .sin-building__head {
+    flex-direction: column;
+  }
+  .sin-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--sin-bg);
+  color: var(--sin-text);
+  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: var(--sin-text-base);
+  line-height: 1.5;
+  margin: 0;
+  padding: var(--sin-space-5);
+}
+h1 { font-size: var(--sin-text-2xl); margin: 0 0 var(--sin-space-1); }
+.lede { color: var(--sin-text-muted-text); margin: 0 0 var(--sin-space-6); max-width: 70ch; }
+section { margin-bottom: var(--sin-space-7); }
+.swatches { display: grid; gap: var(--sin-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.swatch { border: 1px solid var(--sin-border); border-radius: var(--sin-radius); overflow: hidden; }
+.swatch__chip { height: 56px; }
+.swatch__meta { background: var(--sin-surface); font-size: var(--sin-text-xs); padding: var(--sin-space-2); }
+.swatch__name { font-weight: var(--sin-weight-semibold); }
+.swatch__hex { color: var(--sin-text-muted-text); font-family: var(--sin-font-numeric); }
+.pair { display: flex; flex-wrap: wrap; gap: var(--sin-space-2); }
+input.demo { background: var(--sin-surface); border: 1px solid var(--sin-border-control);
+  border-radius: var(--sin-radius-sm); font-size: var(--sin-text-base); padding: var(--sin-space-2); }
+</style>
+</head>
+<body>
+
+<h1>Sinclaire Design System</h1>
+<p class="lede">Phase&nbsp;1. Compiled from the same SCSS the Odoo asset bundle loads, so this page
+cannot drift from the running product. Every contrast pairing shown here is enforced by
+<code>tools/check_contrast.py</code> in CI.</p>
+
+<section>
+  <h2 class="sin-section-title">Palette</h2>
+  <p class="lede">Brand colours as specified, with the derived text variants beside them. Five of the
+  brand colours cannot carry normal-size text on these backgrounds; the <code>-text</code> variants are
+  the same hue darkened until they clear 4.5:1 on the page background.</p>
+  <div class="swatches">
+    <div class="swatch"><div class="swatch__chip" style="background:#14243A"></div><div class="swatch__meta"><div class="swatch__name">--sin-navy</div><div class="swatch__hex">#14243A · text ok</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#203654"></div><div class="swatch__meta"><div class="swatch__name">--sin-navy-deep</div><div class="swatch__hex">#203654 · text ok</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#315DCE"></div><div class="swatch__meta"><div class="swatch__name">--sin-blue</div><div class="swatch__hex">#315DCE · text ok</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#17243A"></div><div class="swatch__meta"><div class="swatch__name">--sin-text</div><div class="swatch__hex">#17243A · body copy</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#68788F"></div><div class="swatch__meta"><div class="swatch__name">--sin-text-muted</div><div class="swatch__hex">#68788F · large text only</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#637288"></div><div class="swatch__meta"><div class="swatch__name">--sin-text-muted-text</div><div class="swatch__hex">#637288 · body copy</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#0F9D92"></div><div class="swatch__meta"><div class="swatch__name">--sin-teal</div><div class="swatch__hex">#0F9D92 · fills, large numerals</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#0C7F76"></div><div class="swatch__meta"><div class="swatch__name">--sin-teal-text</div><div class="swatch__hex">#0C7F76 · body copy</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#15966B"></div><div class="swatch__meta"><div class="swatch__name">--sin-emerald</div><div class="swatch__hex">#15966B · fills, large numerals</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#12815C"></div><div class="swatch__meta"><div class="swatch__name">--sin-emerald-text</div><div class="swatch__hex">#12815C · body copy</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#E7A43B"></div><div class="swatch__meta"><div class="swatch__name">--sin-amber</div><div class="swatch__hex">#E7A43B · fill only, never text</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#9C6613"></div><div class="swatch__meta"><div class="swatch__name">--sin-amber-text</div><div class="swatch__hex">#9C6613 · body copy</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#D94D57"></div><div class="swatch__meta"><div class="swatch__name">--sin-red</div><div class="swatch__hex">#D94D57 · fills, large numerals</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#D3333E"></div><div class="swatch__meta"><div class="swatch__name">--sin-red-text</div><div class="swatch__hex">#D3333E · body copy</div></div></div><div class="swatch"><div class="swatch__chip" style="background:#7B91AF"></div><div class="swatch__meta"><div class="swatch__name">--sin-border-control</div><div class="swatch__hex">#7B91AF · control outlines</div></div></div>
+  </div>
+</section>
+
+<section>
+  <h2 class="sin-section-title">Status</h2>
+  <p class="lede">Each pill carries a glyph as well as a colour, so the state survives a monochrome
+  print and a red-green colour deficiency.</p>
+  <div class="pair">
+    <span class="sin-status sin-status--ok">Cleared</span>
+    <span class="sin-status sin-status--warn">Due in 5 days</span>
+    <span class="sin-status sin-status--critical">Bounced</span>
+    <span class="sin-status sin-status--info">In hand</span>
+    <span class="sin-status sin-status--neutral">Expected</span>
+  </div>
+</section>
+
+<section>
+  <h2 class="sin-section-title">KPI cards</h2>
+  <div class="sin-grid">
+    <div class="sin-card"><div class="sin-kpi">
+      <span class="sin-kpi__label">Portfolio occupancy</span>
+      <span class="sin-kpi__value">87.4%</span>
+      <span class="sin-kpi__meta">142 of 163 units let</span>
+      <span class="sin-kpi__period">As at 14 Nov 2026</span>
+    </div></div>
+    <div class="sin-card"><div class="sin-kpi">
+      <span class="sin-kpi__label">Rent collected</span>
+      <span class="sin-kpi__value sin-kpi__value--ok">AED 2.84m</span>
+      <span class="sin-kpi__meta">of AED 3.01m invoiced</span>
+      <span class="sin-kpi__period">Year to date</span>
+    </div></div>
+    <div class="sin-card"><div class="sin-kpi">
+      <span class="sin-kpi__label">Overdue rent</span>
+      <span class="sin-kpi__value sin-kpi__value--critical">AED 171k</span>
+      <span class="sin-kpi__meta">across 9 tenancies</span>
+      <span class="sin-kpi__period">As at 14 Nov 2026</span>
+    </div></div>
+    <div class="sin-card"><div class="sin-kpi">
+      <span class="sin-kpi__label">Cheques not yet handed over</span>
+      <span class="sin-kpi__value sin-kpi__value--warn">6</span>
+      <span class="sin-kpi__meta">3 leases affected</span>
+      <span class="sin-kpi__period">As at 14 Nov 2026</span>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <h2 class="sin-section-title">Building cards</h2>
+  <p class="lede">The operating model sits on the face of the card because it decides whose money the
+  rent is. Note the third figure changes with it: a head-leased building reports gross margin, an
+  owner-managed one reports rent administered for the landlord. Showing a margin on an owner-managed
+  building would report the landlord's income as the company's.</p>
+  <div class="sin-grid">
+    
+    <div class="sin-card sin-card--actionable" tabindex="0">
+      <div class="sin-building">
+        <div class="sin-building__head">
+          <div class="sin-building__identity">
+            <h3 class="sin-building__name">Marina Heights</h3>
+            <div class="sin-building__location">Dubai Marina</div>
+          </div>
+          <span class="sin-building__model sin-building__model--head-lease">Head Lease</span>
+        </div>
+        <div class="sin-meter"><div class="sin-meter__fill sin-meter__fill--ok"
+             style="width:92%"></div></div>
+        <div class="sin-building__stats">
+          <div class="sin-building__stat">
+            <span class="sin-building__stat-value">48</span>
+            <span class="sin-building__stat-label">Units</span></div>
+          <div class="sin-building__stat">
+            <span class="sin-building__stat-value">92%</span>
+            <span class="sin-building__stat-label">Occupancy</span></div>
+          <div class="sin-building__stat">
+            <span class="sin-building__stat-value">AED 410k</span>
+            <span class="sin-building__stat-label">Gross margin</span></div>
+        </div>
+        <div class="sin-building__next">Next: 2 leases expire within 60 days</div>
+      </div>
+    </div>
+    <div class="sin-card sin-card--actionable" tabindex="0">
+      <div class="sin-building">
+        <div class="sin-building__head">
+          <div class="sin-building__identity">
+            <h3 class="sin-building__name">Jumeirah Gardens</h3>
+            <div class="sin-building__location">Al Wasl</div>
+          </div>
+          <span class="sin-building__model sin-building__model--owner-management">Owner Management</span>
+        </div>
+        <div class="sin-meter"><div class="sin-meter__fill sin-meter__fill--warn"
+             style="width:73%"></div></div>
+        <div class="sin-building__stats">
+          <div class="sin-building__stat">
+            <span class="sin-building__stat-value">26</span>
+            <span class="sin-building__stat-label">Units</span></div>
+          <div class="sin-building__stat">
+            <span class="sin-building__stat-value">73%</span>
+            <span class="sin-building__stat-label">Occupancy</span></div>
+          <div class="sin-building__stat">
+            <span class="sin-building__stat-value">AED 1.9m</span>
+            <span class="sin-building__stat-label">Managed rent</span></div>
+        </div>
+        <div class="sin-building__next">Next: Owner statement for October not yet issued</div>
+      </div>
+    </div>
+    <div class="sin-card sin-card--actionable" tabindex="0">
+      <div class="sin-building">
+        <div class="sin-building__head">
+          <div class="sin-building__identity">
+            <h3 class="sin-building__name">Barsha Point</h3>
+            <div class="sin-building__location">Al Barsha 1</div>
+          </div>
+          <span class="sin-building__model sin-building__model--head-lease">Head Lease</span>
+        </div>
+        <div class="sin-meter"><div class="sin-meter__fill sin-meter__fill--critical"
+             style="width:58%"></div></div>
+        <div class="sin-building__stats">
+          <div class="sin-building__stat">
+            <span class="sin-building__stat-value">34</span>
+            <span class="sin-building__stat-label">Units</span></div>
+          <div class="sin-building__stat">
+            <span class="sin-building__stat-value">58%</span>
+            <span class="sin-building__stat-label">Occupancy</span></div>
+          <div class="sin-building__stat">
+            <span class="sin-building__stat-value">AED −22k</span>
+            <span class="sin-building__stat-label">Gross margin</span></div>
+        </div>
+        <div class="sin-building__next">Next: Coverage below 1.0 — review the head lease</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="sin-section-title">Blocked action</h2>
+  <p class="lede">A disabled button that will not say why is the single most common complaint about
+  internal systems. The unit release rules already produce this list of reasons.</p>
+  <div class="sin-card" style="max-width:520px">
+    <div class="sin-blocked">
+      <div class="sin-blocked__title">This unit cannot be released for marketing yet</div>
+      <ul class="sin-blocked__list">
+        <li>No market rent has been set</li>
+        <li>The DEWA premises number is missing</li>
+        <li>The building has no analytic account</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="sin-section-title">Empty state</h2>
+  <div class="sin-card" style="max-width:520px">
+    <div class="sin-empty">
+      <div class="sin-empty__title">No cheques recorded against this tenancy</div>
+      <p class="sin-empty__body">The lease expects 4 cheques for the year. Register them from the
+      tenancy, or mark them expected if the tenant has not handed them over yet.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="sin-section-title">Control outline</h2>
+  <p class="lede">Interactive outlines use <code>--sin-border-control</code> at 3:1, which WCAG 1.4.11
+  requires of a control boundary. Dividers stay quieter; a hairline at 3:1 would be loud.</p>
+  <input class="demo" value="Search buildings" aria-label="Search buildings">
+</section>
+
+</body>
+</html>

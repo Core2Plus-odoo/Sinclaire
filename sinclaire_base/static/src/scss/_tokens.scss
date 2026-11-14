@@ -1,0 +1,144 @@
+// Sinclaire design tokens (Phase 1).
+//
+// The palette is the one specified in the project's design brief, kept
+// exactly as given. What this file adds is the part the brief asked for in
+// the same breath - "Accessible" - and which the raw palette does not on its
+// own satisfy.
+//
+// Measured against WCAG 2.1 AA (4.5:1 for normal text), on the two surfaces
+// this system actually uses:
+//
+//   token            hex       on #FFF   on #F4F7FB   normal-size text?
+//   Primary Navy     #14243A     15.63       14.55    yes
+//   Deep Navy        #203654     12.23       11.38    yes
+//   Royal Blue       #315DCE      5.85        5.45    yes
+//   Secondary Text   #68788F      4.50        4.18    NO on the page bg
+//   Critical Red     #D94D57      4.08        3.80    no
+//   Emerald          #15966B      3.75        3.49    no
+//   Teal             #0F9D92      3.36        3.12    no
+//   Amber            #E7A43B      2.15        2.00    no, nowhere
+//
+// Secondary Text is the one that matters most: it scrapes 4.50 on white and
+// drops to 4.18 on #F4F7FB, which is the background it will nearly always be
+// read on. As specified, the palette's own body-copy colour fails in its
+// intended use.
+//
+// So each affected colour has two tokens, and they are not interchangeable:
+//
+//   --sin-<name>        the brand colour, unchanged. Fills, bars, chart
+//                       series, icons, left-edge status rules, and large or
+//                       heavy numerals (>=24px, or >=19px bold) where 3:1 is
+//                       the bar.
+//   --sin-<name>-text   the same hue darkened until it clears 4.5:1 on the
+//                       page background. Anything a person reads at body
+//                       size.
+//
+// Amber has no text variant worth the name at 2.15:1 - darkening it far
+// enough stops being amber. Amber is a fill with navy on top (7.24:1), never
+// a text colour. tools/check_contrast.py enforces all of this and runs in CI,
+// so these are measured claims rather than a comment that drifts.
+
+:root {
+    // --- brand, exactly as specified -------------------------------------
+    --sin-navy: #14243A;
+    --sin-navy-deep: #203654;
+    --sin-blue: #315DCE;
+    --sin-teal: #0F9D92;
+    --sin-emerald: #15966B;
+    --sin-amber: #E7A43B;
+    --sin-red: #D94D57;
+
+    --sin-bg: #F4F7FB;
+    --sin-surface: #FFFFFF;
+    --sin-text: #17243A;
+    --sin-text-muted: #68788F;
+
+    // --- accessible text variants ----------------------------------------
+    // Same hue, darkened to clear 4.5:1 on --sin-bg. Use for body copy.
+    --sin-teal-text: #0C7F76;
+    --sin-emerald-text: #12815C;
+    --sin-amber-text: #9C6613;
+    --sin-red-text: #D3333E;
+    --sin-text-muted-text: #637288;
+
+    // --- semantic status --------------------------------------------------
+    // Status is carried by an icon or a label as well as colour, never by
+    // colour alone: roughly one man in twelve cannot separate the red from
+    // the emerald.
+    --sin-ok: var(--sin-emerald);
+    --sin-ok-text: var(--sin-emerald-text);
+    --sin-warn: var(--sin-amber);
+    --sin-warn-text: var(--sin-amber-text);
+    --sin-critical: var(--sin-red);
+    --sin-critical-text: var(--sin-red-text);
+    --sin-info: var(--sin-blue);
+    --sin-info-text: var(--sin-blue);
+
+    // Tinted fills. Light enough that --sin-text stays readable on them.
+    --sin-ok-fill: #E7F4EF;
+    --sin-warn-fill: #FCF2E1;
+    --sin-critical-fill: #FBEAEB;
+    --sin-info-fill: #E8EEFB;
+    --sin-neutral-fill: #EDF1F7;
+
+    // --- structure --------------------------------------------------------
+    // Two border tokens, because WCAG asks two different things of them.
+    // 1.4.11 requires 3:1 for "visual information required to identify user
+    // interface components and states" - the outline of an input, a select,
+    // a checkbox. It asks nothing of a decorative rule between two table
+    // rows, where a hairline at 3:1 would just be loud.
+    //
+    // So the dividers stay quiet and --sin-border-control carries the
+    // contrast. Using a divider token to outline a control is the mistake
+    // this split exists to prevent; the contrast check tests the control one.
+    --sin-border: #DCE3ED; // decorative: dividers, card edges
+    --sin-border-strong: #C2CCDA; // decorative: emphasis dividers
+    --sin-border-control: #7B91AF; // interactive: 3.23:1 on white, 3.00:1 on the page
+
+    // 4px base. Every margin and padding in the components file is one of
+    // these, so spacing stays on a grid instead of drifting per screen.
+    --sin-space-1: 4px;
+    --sin-space-2: 8px;
+    --sin-space-3: 12px;
+    --sin-space-4: 16px;
+    --sin-space-5: 24px;
+    --sin-space-6: 32px;
+    --sin-space-7: 48px;
+
+    --sin-radius-sm: 4px;
+    --sin-radius: 8px;
+    --sin-radius-lg: 12px;
+
+    // Restrained elevation: two steps, not five. A card lifts, a dropdown
+    // lifts more, nothing else lifts at all.
+    --sin-shadow: 0 1px 2px rgba(20, 36, 58, 0.06), 0 1px 3px rgba(20, 36, 58, 0.08);
+    --sin-shadow-lg: 0 4px 6px rgba(20, 36, 58, 0.07), 0 10px 20px rgba(20, 36, 58, 0.10);
+
+    // --- type -------------------------------------------------------------
+    // Inherits Odoo's own stack rather than loading a webfont: a font file is
+    // a licence question and a page-weight question, and neither is settled.
+    --sin-font: inherit;
+    --sin-font-numeric: "SF Mono", "Roboto Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+
+    --sin-text-xs: 11px;
+    --sin-text-sm: 12px;
+    --sin-text-base: 14px;
+    --sin-text-lg: 16px;
+    --sin-text-xl: 20px;
+    --sin-text-2xl: 28px;
+    --sin-text-3xl: 36px;
+
+    --sin-weight-normal: 400;
+    --sin-weight-medium: 500;
+    --sin-weight-semibold: 600;
+
+    // --- motion -----------------------------------------------------------
+    --sin-transition: 120ms ease-out;
+}
+
+// Honour a reduced-motion preference everywhere this system animates.
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --sin-transition: 0ms;
+    }
+}
