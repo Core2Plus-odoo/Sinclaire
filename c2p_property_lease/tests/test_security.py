@@ -34,16 +34,30 @@ class TestMenuVisibility(TransactionCase):
         user = self.env.ref("c2p_property_lease.group_property_user")
         self.assertIn(user, manager.implied_ids)
 
+    def _root_menus_for(self, user):
+        """The root menus this user actually sees.
+
+        Menu visibility does NOT run through `search`: `_visible_menu_ids`
+        filters on the menu's `group_ids` against the user's groups, and
+        `get_user_roots` applies it. Searching `ir.ui.menu` as a user returns
+        menus they cannot see, so a test written that way passes whatever the
+        groups say - which is how the original defect survived.
+        """
+        return self.env["ir.ui.menu"].with_user(user).get_user_roots()
+
     def test_the_property_menu_is_visible_to_the_administrator(self):
-        """The end-to-end check: read the menu as the administrator, not as
-        superuser, and confirm it is actually returned."""
+        """The end-to-end check, and the one that reproduces the defect."""
         admin = self.env.ref("base.user_admin")
         root = self.env.ref("c2p_property_lease.menu_property_root")
-        visible = self.env["ir.ui.menu"].with_user(admin).search([("id", "=", root.id)])
-        self.assertTrue(visible, "The Property root menu is not visible to the administrator.")
+        self.assertIn(
+            root,
+            self._root_menus_for(admin),
+            "The Property root menu is not visible to the administrator.",
+        )
 
     def test_a_plain_internal_user_does_not_see_the_property_menu(self):
-        """The gate is real: being an employee is not enough."""
+        """The gate is real: being an employee is not enough. Seeding the
+        manager group must not turn into showing the menu to everybody."""
         plain = self.env["res.users"].create(
             {
                 "name": "Plain Employee",
@@ -52,5 +66,20 @@ class TestMenuVisibility(TransactionCase):
             }
         )
         root = self.env.ref("c2p_property_lease.menu_property_root")
-        visible = self.env["ir.ui.menu"].with_user(plain).search([("id", "=", root.id)])
-        self.assertFalse(visible, "The Property menu should be gated on the leasing groups.")
+        self.assertNotIn(
+            root,
+            self._root_menus_for(plain),
+            "The Property menu should be gated on the leasing groups.",
+        )
+
+    def test_a_leasing_user_sees_the_property_menu(self):
+        """The group the menu is actually gated on."""
+        leasing = self.env["res.users"].create(
+            {
+                "name": "Leasing Staff",
+                "login": "leasing_staff_menu",
+                "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_user").id)],
+            }
+        )
+        root = self.env.ref("c2p_property_lease.menu_property_root")
+        self.assertIn(root, self._root_menus_for(leasing))
