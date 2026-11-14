@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+      Building 360.
+
+      Inherits the property module's form rather than replacing it, so every
+      field, button and tab that module adds later appears here too. What this
+      adds is the thing a form view does not do on its own: answer "how is
+      this building doing?" before the reader has to go and read fields.
+
+      The KPI row is above the fold and the detail is below it, which is the
+      progressive disclosure the brief asks for - the numbers somebody checks
+      daily first, the configuration they set once underneath.
+    -->
+    <record id="view_building_form_360" model="ir.ui.view">
+        <field name="name">c2p.building.form.360</field>
+        <field name="model">c2p.building</field>
+        <field name="inherit_id" ref="c2p_property_lease.view_building_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <div class="sin-stack p-3 pb-0" invisible="operating_model == 'brokerage'">
+                    <!--
+                      One line, worst thing first, and only when there is
+                      something to say. Identical rule to the portfolio card,
+                      and the same field behind it, so the card and the record
+                      can never disagree about what is wrong with a building.
+                    -->
+                    <div class="sin-blocked" invisible="not portfolio_alert">
+                        <div class="sin-blocked__title">Needs attention</div>
+                        <field name="portfolio_alert" nolabel="1"/>
+                    </div>
+
+                    <div class="sin-grid">
+                        <div class="sin-card">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Occupancy</span>
+                                <span class="sin-kpi__value">
+                                    <field name="occupancy_rate" digits="[16,0]"/>%
+                                </span>
+                                <span class="sin-kpi__meta">
+                                    <field name="occupied_count"/> of <field name="unit_count"/> units let
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="sin-card" invisible="operating_model != 'head_lease'">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Gross margin</span>
+                                <span class="sin-kpi__value">
+                                    <field name="portfolio_money_display"/>
+                                </span>
+                                <span class="sin-kpi__meta">
+                                    Tenant rent less the head lease cost
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="sin-card" invisible="operating_model != 'owner_management'">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Managed rent</span>
+                                <span class="sin-kpi__value">
+                                    <field name="portfolio_money_display"/>
+                                </span>
+                                <!--
+                                  BRD §6.1, said on the screen rather than
+                                  only in the model. Somebody reading this
+                                  number needs to know it is not ours.
+                                -->
+                                <span class="sin-kpi__meta">
+                                    Collected for the landlord. Not company revenue.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="sin-card" invisible="operating_model != 'head_lease'">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Coverage</span>
+                                <span class="sin-kpi__value">
+                                    <field name="coverage_ratio" digits="[16,2]"/>
+                                </span>
+                                <span class="sin-kpi__meta">
+                                    Below 1.00 the tenant rent does not cover the landlord
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="sin-card" invisible="operating_model != 'head_lease'">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Break-even occupancy</span>
+                                <span class="sin-kpi__value">
+                                    <field name="breakeven_occupancy" digits="[16,0]"/>%
+                                </span>
+                                <span class="sin-kpi__meta">
+                                    Compare against actual occupancy above
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="sin-card">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Vacant</span>
+                                <span class="sin-kpi__value">
+                                    <field name="vacant_count"/>
+                                </span>
+                                <span class="sin-kpi__meta">
+                                    units not currently let
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <field name="portfolio_money_display" invisible="1"/>
+                </div>
+            </xpath>
+
+            <!--
+              The four figures the KPI row now carries come out of the field
+              list below it. Printing a number twice on one screen is not
+              thoroughness: it doubles the reading and invites the two copies
+              to disagree after some later edit rounds one of them
+              differently.
+
+              Conditional rather than hidden outright: a brokerage building
+              shows no KPI row at all, so blanket-hiding these would leave it
+              with no occupancy figure anywhere. The two are exactly
+              complementary, and neither case loses a number.
+
+              What stays is what the cards do NOT show - head lease cost,
+              market rent of all units, contracted rent - because those are
+              the inputs somebody checks when a coverage figure looks wrong.
+            -->
+            <xpath expr="//field[@name='gross_margin']" position="attributes">
+                <attribute name="invisible">operating_model != 'brokerage'</attribute>
+            </xpath>
+            <xpath expr="//field[@name='coverage_ratio']" position="attributes">
+                <attribute name="invisible">operating_model != 'brokerage'</attribute>
+            </xpath>
+            <xpath expr="//field[@name='breakeven_occupancy']" position="attributes">
+                <attribute name="invisible">operating_model != 'brokerage'</attribute>
+            </xpath>
+            <xpath expr="//field[@name='occupancy_rate']" position="attributes">
+                <attribute name="invisible">operating_model != 'brokerage'</attribute>
+            </xpath>
+            <xpath expr="//field[@name='code']" position="before">
+                <field name="operating_model"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!--
+      Unit 360.
+
+      The one addition that matters: a unit held in Draft now says what is
+      missing, instead of showing a Release button that does nothing and an
+      error only after it is pressed.
+    -->
+    <record id="view_unit_form_360" model="ir.ui.view">
+        <field name="name">c2p.unit.form.360</field>
+        <field name="model">c2p.unit</field>
+        <field name="inherit_id" ref="c2p_property_lease.view_unit_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <div class="p-3 pb-0" invisible="state != 'draft'">
+                    <field name="release_checklist" nolabel="1" readonly="1"/>
+                </div>
+            </xpath>
+
+            <!--
+              The property module states the same thing as a sentence just
+              inside the sheet. Two banners saying one thing is the defect
+              this layer is supposed to remove, not add, so its copy goes.
+
+              The list form is kept rather than the sentence because the
+              items are things to go and do: three read fine in prose, six
+              do not, and a reader ticking them off wants them one per line.
+              Hidden rather than deleted - it belongs to the supplier module
+              and comes back the moment this layer is uninstalled.
+            -->
+            <xpath expr="//div[@role='alert']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

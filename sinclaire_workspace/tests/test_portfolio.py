@@ -234,3 +234,111 @@ class TestTheViewLoads(TransactionCase):
         menu = self.env.ref("sinclaire_workspace.menu_portfolio")
         visible = self.env["ir.ui.menu"].with_user(user)._visible_menu_ids()
         self.assertIn(menu.id, visible, "A leasing user cannot see the Portfolio menu.")
+
+
+class TestUnitReadiness(PortfolioCase):
+    """BR-018 made visible. The rules already existed; what was missing was
+    telling the person staring at the greyed-out button why."""
+
+    def _draft_unit(self, building, name, **kw):
+        vals = {
+            "name": name,
+            "building_id": building.id,
+            "unit_type": "1br",
+            "floor": "1",
+            "area_sqft": 900.0,
+            "market_rent": 100000.0,
+            "dewa_no": f"29{abs(hash(name)) % 100000:05d}",
+        }
+        vals.update(kw)
+        return self.env["c2p.unit"].create(vals)
+
+    def test_a_complete_draft_unit_says_it_is_ready(self):
+        """Somebody on this screen is about to act, so 'ready' is the answer
+        to the question they arrived with."""
+        b = self._building("URD")
+        unit = self._draft_unit(b, "URD-101")
+        self.assertEqual(unit.state, "draft")
+        self.assertTrue(unit.is_releasable)
+        self.assertIn("Ready to release", unit.release_checklist)
+
+    def test_an_incomplete_unit_names_every_missing_item(self):
+        b = self._building("URI")
+        unit = self._draft_unit(b, "URI-101", market_rent=0.0, dewa_no=False)
+        self.assertIn("Market rent", unit.release_checklist)
+        self.assertIn("DEWA premise number", unit.release_checklist)
+        self.assertNotIn("Ready to release", unit.release_checklist)
+
+    def test_the_checklist_matches_the_gate_that_actually_blocks(self):
+        """The checklist is derived from RELEASE_REQUIREMENTS rather than
+        re-listing the rules, so the screen cannot name a reason the gate
+        does not actually enforce. Somebody would go and fix the wrong
+        thing."""
+        b = self._building("URM")
+        unit = self._draft_unit(b, "URM-101", area_sqft=0.0)
+        self.assertFalse(unit.is_releasable)
+        for label in unit.release_blockers.split(", "):
+            self.assertIn(label, unit.release_checklist)
+
+    def test_a_missing_analytic_account_is_reported_against_the_building(self):
+        """The unit is complete; the building is not. Naming the unit's
+        fields here would send somebody hunting through the wrong record."""
+        b = self.env["c2p.building"].create(
+            {
+                "name": "No Analytic Tower",
+                "code": "URA",
+                "owner_id": self.landlord.id,
+                "operating_model": "head_lease",
+            }
+        )
+        unit = self._draft_unit(b, "URA-101")
+        self.assertFalse(unit.is_releasable)
+        self.assertIn("Analytic account on the building", unit.release_checklist)
+
+    def test_a_released_unit_shows_no_checklist(self):
+        b = self._building("URR")
+        unit = self._draft_unit(b, "URR-101")
+        unit.sudo().action_release()
+        self.assertNotEqual(unit.state, "draft")
+        self.assertFalse(unit.release_checklist)
+
+    def test_the_checklist_is_escaped(self):
+        """It is an Html field built by string formatting, so a unit type or
+        label carrying markup must not become markup."""
+        b = self._building("URX")
+        unit = self._draft_unit(b, "URX-101", market_rent=0.0)
+        self.assertNotIn("<script", unit.release_checklist)
+        self.assertIn("sin-blocked__list", unit.release_checklist)
+
+
+class TestThe360ViewsLoad(PortfolioCase):
+    def test_the_building_360_form_renders(self):
+        view = self.env.ref("sinclaire_workspace.view_building_form_360")
+        self.env["c2p.building"].get_views([(view.id, "form")])
+
+    def test_the_unit_360_form_renders(self):
+        view = self.env.ref("sinclaire_workspace.view_unit_form_360")
+        self.env["c2p.unit"].get_views([(view.id, "form")])
+
+    def test_a_brokerage_building_keeps_its_raw_figures(self):
+        """The KPI row is hidden for brokerage, so the fields it replaces must
+        reappear. The two conditions are complementary on purpose: neither
+        case may end up with no occupancy figure anywhere on the screen."""
+        import re
+
+        arch = self.env.ref("sinclaire_workspace.view_building_form_360").arch
+        swapped = re.findall(r"name='(gross_margin|coverage_ratio|breakeven_occupancy|occupancy_rate)'", arch)
+        self.assertEqual(len(swapped), 4, "every duplicated figure should be swapped")
+        self.assertEqual(
+            arch.count("operating_model != 'brokerage'"),
+            4,
+            "each swap must be conditional, not an outright hide",
+        )
+
+    def test_the_unit_screen_states_the_blockers_once(self):
+        """The property module says the same thing as a sentence inside the
+        sheet. Two banners for one fact is the clutter this layer exists to
+        remove, so exactly one of them renders."""
+        arch = self.env.ref("sinclaire_workspace.view_unit_form_360").arch
+        self.assertIn("release_checklist", arch)
+        self.assertIn("role='alert'", arch.replace('"', "'"))

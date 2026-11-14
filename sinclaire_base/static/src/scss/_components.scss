@@ -338,6 +338,27 @@
 .sin-blocked__title {
     font-weight: var(--sin-weight-semibold);
     margin-bottom: var(--sin-space-1);
+
+    &::before {
+        content: "! ";
+    }
+}
+
+// The same notice when nothing is blocking. Worth saying here, unlike on a
+// portfolio card: somebody on this screen is about to act, and "ready" is
+// the answer to the question they came with. On a card in a grid of twenty
+// it would just be noise.
+.sin-blocked--ready {
+    background: var(--sin-ok-fill);
+    border-left-color: var(--sin-emerald);
+
+    .sin-blocked__title {
+        margin-bottom: 0;
+
+        &::before {
+            content: "✓ ";
+        }
+    }
 }
 
 .sin-blocked__list {
