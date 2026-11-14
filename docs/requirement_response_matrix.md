@@ -282,8 +282,8 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 
 | Status | Count |
 | --- | --- |
-| Built | 8 |
-| Partial | 34 |
+| Built | 9 |
+| Partial | 33 |
 | Not started | 144 |
 
 186 requirements, BR-001 to BR-186 with no gaps or duplicates, of which **3
