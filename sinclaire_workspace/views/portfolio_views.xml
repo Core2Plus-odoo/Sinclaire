@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+      The Property Portfolio card.
+
+      This replaces the kanban template that shipped with c2p_property_lease
+      rather than adding a second one: two portfolio screens is how a system
+      ends up with two different occupancy figures.
+
+      Standard Odoo kanban, standard fields, standard actions. The only thing
+      that is ours is the markup inside the card, which uses the design-system
+      classes from sinclaire_base. That is the architecture the brief asks for
+      - customise the experience, not the ERP core.
+    -->
+    <record id="view_building_kanban_workspace" model="ir.ui.view">
+        <field name="name">c2p.building.kanban.workspace</field>
+        <field name="model">c2p.building</field>
+        <field name="inherit_id" ref="c2p_property_lease.view_building_kanban"/>
+        <field name="mode">primary</field>
+        <field name="priority">8</field>
+        <field name="arch" type="xml">
+            <xpath expr="//templates" position="replace">
+                <templates>
+                    <t t-name="card">
+                        <div class="sin-building">
+                            <div class="sin-building__head">
+                                <div class="sin-building__identity">
+                                    <h3 class="sin-building__name"><field name="name"/></h3>
+                                    <div class="sin-building__location">
+                                        <field name="community"/>
+                                        <field name="city" invisible="not city or community"/>
+                                    </div>
+                                </div>
+                                <!--
+                                  The operating model decides whose money the
+                                  rent is, so it is on the face of the card.
+                                  Every figure below it changes meaning with it.
+                                -->
+                                <span class="sin-building__model sin-building__model--head-lease"
+                                      invisible="operating_model != 'head_lease'">Head Lease</span>
+                                <span class="sin-building__model sin-building__model--owner-management"
+                                      invisible="operating_model != 'owner_management'">Owner Management</span>
+                                <span class="sin-building__model sin-building__model--brokerage"
+                                      invisible="operating_model != 'brokerage'">Brokerage</span>
+                            </div>
+
+                            <div class="sin-meter" invisible="operating_model == 'brokerage'">
+                                <div class="sin-meter__fill"
+                                     t-attf-class="sin-meter__fill {{ record.portfolio_tone.raw_value == 'critical' ? 'sin-meter__fill--critical' : record.portfolio_tone.raw_value == 'warn' ? 'sin-meter__fill--warn' : '' }}"
+                                     t-attf-style="width: #{record.occupancy_rate.raw_value || 0}%"/>
+                            </div>
+
+                            <div class="sin-building__stats">
+                                <div class="sin-building__stat">
+                                    <span class="sin-building__stat-value"><field name="unit_count"/></span>
+                                    <span class="sin-building__stat-label">Units</span>
+                                </div>
+                                <div class="sin-building__stat" invisible="operating_model == 'brokerage'">
+                                    <span class="sin-building__stat-value">
+                                        <field name="occupancy_rate" digits="[16,0]"/>%
+                                    </span>
+                                    <span class="sin-building__stat-label">Occupancy</span>
+                                </div>
+                                <div class="sin-building__stat" invisible="not portfolio_money_label">
+                                    <!--
+                                      Shortened, not formatted with the
+                                      monetary widget: full precision
+                                      overflowed the column and clipped
+                                      mid-number. A truncated figure still
+                                      looks like a figure, which is worse
+                                      than a rounded one.
+                                    -->
+                                    <span class="sin-building__stat-value">
+                                        <field name="portfolio_money_display"/>
+                                    </span>
+                                    <span class="sin-building__stat-label">
+                                        <field name="portfolio_money_label"/>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!--
+                              One line, worst thing first, or nothing at all.
+                              An "all good" badge on every card is noise that
+                              teaches people to stop reading the badges.
+                            -->
+                            <div class="sin-building__next" invisible="not portfolio_alert">
+                                <field name="portfolio_alert"/>
+                            </div>
+                            <field name="portfolio_tone" invisible="1"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="operating_model" invisible="1"/>
+                            <field name="city" invisible="1"/>
+                        </div>
+                    </t>
+                </templates>
+            </xpath>
+        </field>
+    </record>
+
+    <!--
+      Filters that match how the portfolio is actually read: by operating
+      model, and by what needs attention. "Needs attention" is one click
+      rather than a saved filter each person has to build for themselves.
+    -->
+    <record id="view_building_search_workspace" model="ir.ui.view">
+        <field name="name">c2p.building.search.workspace</field>
+        <field name="model">c2p.building</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="community"/>
+                <field name="owner_id"/>
+                <filter name="f_head_lease" string="Head Lease"
+                        domain="[('operating_model','=','head_lease')]"/>
+                <filter name="f_owner_management" string="Owner Management"
+                        domain="[('operating_model','=','owner_management')]"/>
+                <filter name="f_brokerage" string="Brokerage"
+                        domain="[('operating_model','=','brokerage')]"/>
+                <separator/>
+                <filter name="f_attention" string="Needs Attention"
+                        domain="[('portfolio_tone','in',('warn','critical'))]"/>
+                <filter name="f_critical" string="Critical"
+                        domain="[('portfolio_tone','=','critical')]"/>
+                <separator/>
+                <filter name="f_unreconciled" string="Not Reconciled"
+                        domain="[('units_reconciled','=',False)]"/>
+                <group>
+                    <filter name="g_model" string="Operating Model"
+                            context="{'group_by':'operating_model'}"/>
+                    <filter name="g_community" string="Community"
+                            context="{'group_by':'community'}"/>
+                    <filter name="g_owner" string="Landlord"
+                            context="{'group_by':'owner_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_portfolio" model="ir.actions.act_window">
+        <field name="name">Property Portfolio</field>
+        <field name="res_model">c2p.building</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_building_search_workspace"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No buildings in the portfolio yet</p>
+            <p>
+                Add a building once its landlord and, for a head lease, its signed
+                underwriting agreement are on record. Units are created against the
+                building and released for marketing when their mandatory data is complete.
+            </p>
+        </field>
+    </record>
+
+    <record id="action_portfolio_kanban" model="ir.actions.act_window.view">
+        <field name="sequence">1</field>
+        <field name="view_mode">kanban</field>
+        <field name="view_id" ref="view_building_kanban_workspace"/>
+        <field name="act_window_id" ref="action_portfolio"/>
+    </record>
+
+    <menuitem id="menu_portfolio"
+              name="Portfolio"
+              parent="c2p_property_lease.menu_property_root"
+              action="action_portfolio"
+              sequence="1"/>
+</odoo>
