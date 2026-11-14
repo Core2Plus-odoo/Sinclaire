@@ -66,14 +66,36 @@ class TestLease(TransactionCase):
         vals.update(kw)
         return self.env["c2p.lease"].create(vals)
 
+    def _exception_approver(self):
+        """A property manager who is not the requester.
+
+        Both halves matter: BRD §5.1 reserves the decision to a manager and
+        §8.4 forbids approving your own request. A fixture that satisfied only
+        one of them would pass here and prove nothing about the other.
+        """
+        user = self.env["res.users"].search([("login", "=", "fixture_exception_approver")], limit=1)
+        if not user:
+            user = self.env["res.users"].create(
+                {
+                    "name": "Fixture Exception Approver",
+                    "login": "fixture_exception_approver",
+                    "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_manager").id)],
+                }
+            )
+        return user
+
     def _activate(self, lease):
         """Activate a lease that has no cheques.
 
         BR-075 refuses that outright, so these tests - which are about other
         things - grant the approved exception BRD §5.1 requires and then use
-        the ordinary action, so the state guards under test still run. The
-        approval's own rules are tested in test_cheque_exception.py, which is
-        why the state is set directly here rather than through action_approve.
+        the ordinary action, so the state guards under test still run.
+
+        This used to write state="approved" directly, which was the same
+        bypass that made the approval control defeatable in the product: the
+        fixture was quietly exercising the hole rather than the rule. It now
+        approves the way a person has to, through action_approve as a manager
+        who is not the requester.
         """
         self.env["c2p.lease.cheque.exception"].create(
             {
@@ -83,7 +105,7 @@ class TestLease(TransactionCase):
                 "deadline": fields.Date.context_today(self.env.user) + timedelta(days=7),
                 "responsible_user_id": self.env.uid,
             }
-        ).write({"state": "approved", "approved_by_id": self.env.uid})
+        ).with_user(self._exception_approver()).action_approve()
         lease.action_activate()
         return lease
 
@@ -664,10 +686,29 @@ class TestLeaseStates(TransactionCase):
             }
         )
 
+    def _exception_approver(self):
+        """A property manager who is not the requester.
+
+        Both halves matter: BRD §5.1 reserves the decision to a manager and
+        §8.4 forbids approving your own request. A fixture that satisfied only
+        one of them would pass here and prove nothing about the other.
+        """
+        user = self.env["res.users"].search([("login", "=", "fixture_exception_approver")], limit=1)
+        if not user:
+            user = self.env["res.users"].create(
+                {
+                    "name": "Fixture Exception Approver",
+                    "login": "fixture_exception_approver",
+                    "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_manager").id)],
+                }
+            )
+        return user
+
     def _activate(self, lease):
         """See TestLease._activate: BR-075 refuses a cheque-less activation, so
-        the exception BRD §5.1 requires is granted first and the ordinary action
-        is used, keeping the state guards under test in play."""
+        the exception BRD §5.1 requires is granted first and the ordinary
+        action is used, keeping the state guards under test in play - now
+        genuinely, through action_approve rather than a direct state write."""
         self.env["c2p.lease.cheque.exception"].create(
             {
                 "lease_id": lease.id,
@@ -676,7 +717,7 @@ class TestLeaseStates(TransactionCase):
                 "deadline": fields.Date.context_today(self.env.user) + timedelta(days=7),
                 "responsible_user_id": self.env.uid,
             }
-        ).write({"state": "approved", "approved_by_id": self.env.uid})
+        ).with_user(self._exception_approver()).action_approve()
         lease.action_activate()
         return lease
 
