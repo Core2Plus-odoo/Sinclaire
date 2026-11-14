@@ -211,6 +211,13 @@ class SamplePortfolio(models.AbstractModel):
                         "name": name,
                         "code": code,
                         "community": community,
+                        # BR-021. A head lease cannot be activated over a
+                        # building with no municipality reference (BR-027), so
+                        # the seed carries them: demo data that cannot complete
+                        # its own onboarding teaches the wrong thing.
+                        "plot_no": f"{code}-PLOT-{345 + ord(code[0])}",
+                        "municipality_no": f"{600 + ord(code[0])}-{code}",
+                        "handover_condition": "fitted",
                         "city": "Dubai",
                         "owner_id": landlords[owner_i].id,
                         # BR-012: every building carries its own analytic
@@ -351,6 +358,18 @@ class SamplePortfolio(models.AbstractModel):
             potential = building.potential_rent
             if not potential:
                 continue
+            # BR-027. Every field the activation gate requires, because a
+            # seeded head lease that cannot be activated is a demo that stops
+            # at its first screen. These are the terms a real agreement would
+            # carry, not placeholders to satisfy a check.
+            bank = self.env["res.partner.bank"].search(
+                [("partner_id", "=", building.owner_id.id)], limit=1
+            ) or self.env["res.partner.bank"].create(
+                {
+                    "acc_number": f"AE07 0331 {abs(hash(code)) % 10**12:012d}",
+                    "partner_id": building.owner_id.id,
+                }
+            )
             lease = HeadLease.create(
                 {
                     "building_id": building.id,
@@ -362,6 +381,15 @@ class SamplePortfolio(models.AbstractModel):
                     "security_deposit": round(potential * cost_share * 0.05, -2),
                     "ejari_no": f"HL-{building.code}-{start.year}",
                     "ejari_date": start,
+                    "agreement_ref": f"HLA-{building.code}-{start.year}",
+                    "date_signed": start - relativedelta(days=21),
+                    "landlord_bank_id": bank.id,
+                    "insurance_expiry": start + relativedelta(years=1),
+                    "sublease_permitted": True,
+                    "contracting_party": "manager",
+                    "collection_party": "manager",
+                    "free_period_days": 30,
+                    "escalation_pct": 5.0,
                 }
             )
             lease.action_activate()

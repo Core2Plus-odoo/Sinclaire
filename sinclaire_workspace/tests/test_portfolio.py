@@ -6,6 +6,7 @@ because the order is the design decision - get it wrong and the screen shows
 a vacancy notice on a building that is losing money every month.
 """
 
+from odoo.addons.c2p_property_lease.tests.common import head_lease_vals
 from odoo.tests.common import TransactionCase
 
 
@@ -23,6 +24,10 @@ class PortfolioCase(TransactionCase):
             "code": code,
             "owner_id": self.landlord.id,
             "operating_model": model,
+            # BR-021/BR-027: without these, no head lease over this building
+            # can be activated.
+            "plot_no": f"{code}-PLOT",
+            "municipality_no": f"MUN-{code}",
             "analytic_account_id": self.env["account.analytic.account"]
             .create({"name": f"{code} Tower", "plan_id": self.plan.id})
             .id,
@@ -63,14 +68,7 @@ class PortfolioCase(TransactionCase):
 
     def _head_lease(self, building, amount):
         head = self.env["c2p.head.lease"].create(
-            {
-                "building_id": building.id,
-                "landlord_id": self.landlord.id,
-                "date_start": "2026-01-01",
-                "date_end": "2026-12-31",
-                "annual_amount": amount,
-                "cheque_count": "4",
-            }
+            head_lease_vals(self.env, building, self.landlord, annual_amount=amount)
         )
         head.action_activate()
         building.invalidate_recordset()

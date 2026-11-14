@@ -79,6 +79,11 @@
                         <group>
                             <field name="street"/>
                             <field name="community"/>
+                            <field name="plot_no"/>
+                            <field name="municipality_no"/>
+                            <field name="makani_no"/>
+                            <field name="handover_date"/>
+                            <field name="handover_condition"/>
                             <field name="city"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                             <field name="occupancy_rate" digits="[16,1]"/>

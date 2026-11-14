@@ -57,20 +57,20 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 | BR-011 | 4.1 | Owner record with required documents, validated | Must | Cfg | `res.partner` | Partner + document checklist | S2 | Partial |
 | BR-012 | 4.1 | Building with its own analytic account | Must | Cus | `c2p.building` | Analytic account per building | S2 | Built |
 | BR-013 | 4.1 | Head lease: term, fixed annual commitment, instalment count, deposit, registration, escalation/renewal, responsibilities, attachments | Must | Cus | `c2p.head.lease` | Extend existing model | S2 | Partial |
-| BR-014 | 4.1 | **Prevent overlapping head leases on the same building** unless an approved renewal or amendment relationship exists | Must | Cus | `c2p.head.lease` | Constraint; today it blocks overlap with no renewal exception | S2 | Partial |
+| BR-014 | 4.1 | **Prevent overlapping head leases on the same building** unless an approved renewal or amendment relationship exists | Must | Cus | `c2p.head.lease` | Overlapping active head leases refused, with an approved renewal excepted via renewal_of_id | S2 | Built |
 | BR-015 | 4.1 | Generate landlord payment schedule and outbound PDC schedule | Must | Cus | `c2p.head.lease`, `account.payment` | Wizard exists | S2 | Built |
 | BR-016 | 4.1 | Units created individually or by controlled import; duplicate codes blocked; **totals reconciled to the building's declared counts** | Must | Cus | `c2p.unit`, `c2p.building` | Import + control totals | S2 | Partial |
 | BR-017 | 4.1 | Market rent and floor/minimum rent by yearly, monthly and daily term | Must | Cus | `c2p.unit` | Three rate sets; floor rent drives the override block | S2 | Partial |
 | BR-018 | 4.1 | Units released for marketing only after mandatory data and approval checks | Must | Cus | `c2p.unit`, `c2p.lease` | Units default to Draft; `RELEASE_REQUIREMENTS` gates `action_release` and names every missing field at once; release is a Leasing Manager action; activation refuses on an unreleased unit | S2 | Built |
 | BR-019 | 4.1.1 | **Three operating models** — Head Lease, Owner Management, Brokerage — selecting accounting, payee, client-money, cheque, contract, approval, statement, commission and profitability behaviour | Must | Cus | `c2p.building`, `c2p.head.lease` | `operating_model` on the building; margin, coverage and break-even computed only under Head Lease; tenant rent split into `contracted_rent` (ours) and `managed_rent` (the landlord's); a head lease cannot attach to a non-head-leased building. Downstream contract, cheque and commission behaviour still to follow | S2 | Partial |
 | BR-020 | 4.1.1 | Contract versions (offer/LOI, draft, approved, signed, amended, renewed, expired, terminated, archived) retained without overwriting | Must | Cus | `c2p.head.lease` | Version chain | S2 | — |
-| BR-021 | 4.1.1 | Plot and municipality references, residential/commercial unit counts, amenities, handover condition, commencement trigger, free/grace period | Must | Cus | `c2p.building` | Field extension | S2 | — |
-| BR-022 | 4.1.1 | Record subleasing permission, contracting/collection in owner's or manager's name, and authority to sign, register Ejari, collect, pursue arrears, appoint legal representatives, market, place staff/signage | Must | Cus | `c2p.head.lease` | Authority flags | S2 | — |
+| BR-021 | 4.1.1 | Plot and municipality references, residential/commercial unit counts, amenities, handover condition, commencement trigger, free/grace period | Must | Cus | `c2p.building` | Plot, municipality and Makani references, handover date and condition, amenities, free period on the head lease | S2 | Built |
+| BR-022 | 4.1.1 | Record subleasing permission, contracting/collection in owner's or manager's name, and authority to sign, register Ejari, collect, pursue arrears, appoint legal representatives, market, place staff/signage | Must | Cus | `c2p.head.lease` | Subleasing permission, contracting and collection party, and the Ejari/arrears/legal/signage authorities; collection party drives the tenant cheque payee | S2 | Built |
 | BR-023 | 4.1.1 | Responsibility matrix per landlord agreement; major → landlord, minor/routine → New Sinclair; **unclear cases routed for case-by-case management approval** retaining assessment, evidence, approver, responsible party, recharge decision, financial treatment | Must | Cus | new model | Responsibility matrix + approval route (OD-06) | S3 | — |
 | BR-024 | 4.1.1, 7.1 | Effective-dated **monthly maintenance limit per building**: amount, currency, warning threshold, responsible manager, covered categories, whether commitments consume it | Must | Cus | new model | Limit model | S3 | — |
 | BR-025 | 4.1.1, 7.1 | CEO approves limit creation/change, cross-building reallocation, excess spend and emergency override, with reason, evidence and audit | Must | Cus | new model | Approval workflow | S3 | — |
 | BR-026 | 4.1.1 | Dated obligations and reminders: rent instalments, guarantee cheques, insurance, TPL, lift/fire/Civil Defence AMCs, Ejari/NOC, handover, owner notices, renewal intent, deposit and cheque return | Must | Cus | `c2p.property.compliance` | Typed compliance model + activities | S2 | — |
-| BR-027 | 4.1.1 | **Block activation** until mandatory ownership, authority, insurance, readiness, meter, certification and signed-contract documents are complete or an approved exception exists | Must | Cus | `c2p.head.lease`, `c2p.lease` | Activation gate | S2 | — |
+| BR-027 | 4.1.1 | **Block activation** until mandatory ownership, authority, insurance, readiness, meter, certification and signed-contract documents are complete or an approved exception exists | Must | Cus | `c2p.head.lease`, `c2p.lease` | Activation gate on the head lease: agreement reference, signature date, amount, landlord bank account, authorities, building references and insurance in force | S2 | Built |
 | BR-028 | 4.1.2 | Head-lease landlord rent spread over the service period regardless of payment dates, free periods, deposits or PDCs | Must | Cus | new recognition model | Monthly recognition lines; amendments create reversal/delta, never overwrite posted periods | S2 | — |
 | BR-029 | 4.1.2 | Owner-management fee as percentage **or** fixed amount, with basis, rate, period, limits, billing date, VAT, effective dates, leasing commission, renewal fees, reimbursable costs, owner balance | Must | Cus | `c2p.management.contract` | New model | S2 | — |
 | BR-030 | 4.1.2, 6.3.2 | Brokerage commission **earned when the reservation or memorandum is signed and evidence is complete** — not on collection | Must | Cus | `c2p.brokerage.transaction` | Recognition milestone | S3 | — |
@@ -282,9 +282,9 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 
 | Status | Count |
 | --- | --- |
-| Built | 12 |
-| Partial | 32 |
-| Not started | 142 |
+| Built | 16 |
+| Partial | 31 |
+| Not started | 139 |
 
 186 requirements, BR-001 to BR-186 with no gaps or duplicates, of which **3
 carry the BRD's own IDs** (BR-001 to BR-003). Counts are generated from the

@@ -3,10 +3,54 @@ from dateutil.relativedelta import relativedelta
 from odoo import api
 from odoo import fields
 from odoo import models
+from odoo.exceptions import UserError
 from odoo.exceptions import ValidationError
 
 # Cheques per year -> months between instalments.
 CHEQUE_PLAN = {1: 12, 2: 6, 3: 4, 4: 3, 6: 2, 12: 1}
+
+# BR-022 / BRD §4.1.1. Who the landlord agreement authorises to contract with
+# tenants, and in whose name rent is collected. These are two separate
+# permissions and a landlord may grant one without the other: an agreement can
+# let New Sinclair sign tenancy contracts while requiring every dirham to be
+# collected in the owner's name.
+AUTHORITY_PARTY = [
+    ("manager", "New Sinclair"),
+    ("owner", "The landlord"),
+]
+
+# BR-027 / BRD §4.1.1. A head lease may not be activated until these are on
+# record. Each is (field, what to call it, is it satisfied) - the same shape
+# as the unit release gate, because it answers the same question: why is this
+# button refusing me?
+#
+# Activating a head lease commits the company to pay a landlord a fixed sum
+# whether or not a single unit is let. Doing that from an agreement nobody has
+# produced, over a building with no municipality reference, is how a company
+# ends up owing money on a property it cannot legally let.
+HEAD_LEASE_REQUIREMENTS = [
+    ("agreement_ref", "Signed agreement reference", lambda r: bool(r.agreement_ref)),
+    ("date_signed", "Date the agreement was signed", lambda r: bool(r.date_signed)),
+    ("annual_amount", "Annual amount payable", lambda r: r.annual_amount > 0),
+    ("landlord_id", "Landlord", lambda r: bool(r.landlord_id)),
+    (
+        "landlord_bank_id",
+        "Landlord bank account for the instalments",
+        lambda r: bool(r.landlord_bank_id),
+    ),
+    ("contracting_party", "Who may sign tenancy contracts", lambda r: bool(r.contracting_party)),
+    ("collection_party", "In whose name rent is collected", lambda r: bool(r.collection_party)),
+    (
+        "building_ready",
+        "Building plot and municipality references",
+        lambda r: bool(r.building_id.plot_no and r.building_id.municipality_no),
+    ),
+    (
+        "insurance_expiry",
+        "Property insurance in force",
+        lambda r: bool(r.insurance_expiry) and r.insurance_expiry >= fields.Date.context_today(r),
+    ),
+]
 
 
 class HeadLease(models.Model):
@@ -55,6 +99,74 @@ class HeadLease(models.Model):
 
     ejari_no = fields.Char(string="Ejari No.", tracking=True)
     ejari_date = fields.Date(string="Ejari Registered On")
+
+    # --- BR-013: what the signed agreement actually says -------------------
+    agreement_ref = fields.Char(
+        string="Agreement Reference",
+        tracking=True,
+        help="The reference on the signed head-lease agreement. Entered from the document, never assumed.",
+    )
+    date_signed = fields.Date(string="Signed On", tracking=True)
+    landlord_bank_id = fields.Many2one(
+        "res.partner.bank",
+        string="Landlord Bank Account",
+        help="Where the instalments are paid. Used to check a landlord cheque is "
+        "drawn to an account the agreement names.",
+    )
+    free_period_days = fields.Integer(
+        string="Rent-Free Days",
+        help="BRD §4.1.1. A fit-out or grace period at the start of the term. The "
+        "amount is still owed for the year; this records when it starts running.",
+    )
+    escalation_pct = fields.Float(
+        string="Escalation %",
+        help="Agreed uplift applied on renewal. Recorded here so a renewal is "
+        "checked against the agreement rather than negotiated afresh.",
+    )
+    insurance_expiry = fields.Date(
+        string="Insurance Expires",
+        tracking=True,
+        help="BR-027. A head lease cannot be activated without insurance in force.",
+    )
+
+    # --- BR-014: a renewal is not an overlap -------------------------------
+    renewal_ids = fields.One2many("c2p.head.lease", "renewal_of_id", string="Renewed By")
+    renewal_of_id = fields.Many2one(
+        "c2p.head.lease",
+        string="Renewal Of",
+        copy=False,
+        index="btree_not_null",
+        help="The agreement this one renews. Two head leases on one building overlap only when they are unrelated.",
+    )
+
+    # --- BR-022: what the landlord authorises ------------------------------
+    contracting_party = fields.Selection(
+        AUTHORITY_PARTY,
+        string="Tenancy Contracts Signed By",
+        tracking=True,
+        help="BRD §4.1.1. Who the landlord agreement authorises to sign tenancy contracts.",
+    )
+    collection_party = fields.Selection(
+        AUTHORITY_PARTY,
+        string="Rent Collected In The Name Of",
+        tracking=True,
+        help="BRD §4.2.2. The contract authority half of the payee rule: tenant "
+        "cheques are made out to whoever this names.",
+    )
+    sublease_permitted = fields.Boolean(
+        string="Subleasing Permitted",
+        help="Whether the landlord agreement permits units to be sublet. A head "
+        "lease is subleasing by definition, so an agreement that forbids it is "
+        "one that cannot be operated as a head lease.",
+    )
+    may_register_ejari = fields.Boolean(string="May Register Ejari", default=True)
+    may_pursue_arrears = fields.Boolean(string="May Pursue Arrears", default=True)
+    may_appoint_legal = fields.Boolean(string="May Appoint Legal Representatives")
+    may_place_signage = fields.Boolean(string="May Market And Place Signage", default=True)
+
+    # --- BR-027: the activation gate ---------------------------------------
+    activation_blockers = fields.Char(compute="_compute_activation", string="Still Missing")
+    is_activatable = fields.Boolean(compute="_compute_activation")
 
     state = fields.Selection(
         [("draft", "Draft"), ("active", "Active"), ("expired", "Expired"), ("terminated", "Terminated")],
@@ -149,9 +261,59 @@ class HeadLease(models.Model):
                     )
                 )
 
-    @api.constrains("state", "building_id", "date_start", "date_end")
+    @api.depends(
+        "agreement_ref",
+        "date_signed",
+        "annual_amount",
+        "landlord_id",
+        "landlord_bank_id",
+        "contracting_party",
+        "collection_party",
+        "insurance_expiry",
+        "building_id.plot_no",
+        "building_id.municipality_no",
+    )
+    def _compute_activation(self):
+        """BR-027, and the same shape as the unit release gate.
+
+        Activating a head lease commits this company to pay a landlord a fixed
+        sum whether or not a single unit is let. The list is derived from
+        HEAD_LEASE_REQUIREMENTS rather than restated, so the screen cannot name
+        a reason the gate does not enforce.
+        """
+        for rec in self:
+            missing = [label for _f, label, ok in HEAD_LEASE_REQUIREMENTS if not ok(rec)]
+            rec.activation_blockers = ", ".join(missing)
+            rec.is_activatable = not missing
+
+    @api.constrains("sublease_permitted", "state")
+    def _check_subleasing_is_permitted(self):
+        """A head lease IS subleasing.
+
+        Underwriting a building means taking it in and letting the units out.
+        An agreement that forbids that cannot be operated this way, and
+        discovering it after the tenancies are signed is discovering it far
+        too late.
+        """
+        for rec in self.filtered(lambda r: r.state == "active" and not r.sublease_permitted):
+            raise ValidationError(
+                self.env._(
+                    "%(name)s cannot be activated: the landlord agreement does not permit "
+                    "subleasing, and a head lease is subleasing by definition. Confirm the "
+                    "agreement, or record this building as Owner Management instead.",
+                    name=rec.display_name,
+                )
+            )
+
+    @api.constrains("state", "building_id", "date_start", "date_end", "renewal_of_id")
     def _check_no_overlap(self):
-        """A building cannot be underwritten twice for the same period."""
+        """A building cannot be underwritten twice for the same period.
+
+        BR-014 excepts an approved renewal: a term that begins as the previous
+        one ends is the same commercial arrangement continuing, and the two
+        records touch at the boundary by design. Only unrelated agreements
+        are a genuine double commitment.
+        """
         for rec in self.filtered(lambda r: r.state == "active" and r.date_start and r.date_end):
             clash = self.search(
                 [
@@ -160,6 +322,7 @@ class HeadLease(models.Model):
                     ("state", "=", "active"),
                     ("date_start", "<=", rec.date_end),
                     ("date_end", ">=", rec.date_start),
+                    ("id", "not in", (rec.renewal_of_id | rec.renewal_ids).ids),
                 ],
                 limit=1,
             )
@@ -191,7 +354,22 @@ class HeadLease(models.Model):
 
     # ------------------------------------------------------------------ actions
     def action_activate(self):
+        """BR-027. The gate, not a suggestion.
+
+        An exception needs the agreement itself to change, not an override on
+        this button: the missing items are facts about a signed document and
+        a building, and clicking past them would record a commitment the
+        company cannot evidence.
+        """
         for rec in self:
+            if not rec.is_activatable:
+                raise UserError(
+                    rec.env._(
+                        "%(name)s cannot be activated yet. Still missing: %(missing)s.",
+                        name=rec.display_name,
+                        missing=rec.activation_blockers,
+                    )
+                )
             rec.state = "active"
 
     def action_terminate(self):

@@ -19,6 +19,10 @@ class TestHeadLease(TransactionCase):
                 "name": "Underwritten Tower",
                 "code": "UWT",
                 "owner_id": cls.landlord.id,
+                # BR-027 refuses to activate a head lease over a building with
+                # no municipality reference.
+                "plot_no": "UWT-PLOT-411",
+                "municipality_no": "661-UWT",
                 # BR-018 refuses release without an analytic account.
                 "analytic_account_id": cls.env["account.analytic.account"]
                 .create({"name": "Underwritten Tower", "plan_id": plan.id})
@@ -45,6 +49,18 @@ class TestHeadLease(TransactionCase):
             unit.sudo().action_release()
 
     def _head_lease(self, amount=140000.0, **kw):
+        """A head lease these tests can activate.
+
+        BR-027 refuses activation until the agreement is evidenced, so the
+        fixture now carries the terms a signed agreement would. It used to
+        create a commitment to pay a landlord for a year with no agreement
+        reference, no signature date, no insurance and nowhere to send the
+        money - which the gate exists to prevent, and which these tests were
+        quietly relying on being possible.
+        """
+        bank = self.env["res.partner.bank"].search([("partner_id", "=", self.landlord.id)], limit=1) or self.env[
+            "res.partner.bank"
+        ].create({"acc_number": "AE070331000000000111", "partner_id": self.landlord.id})
         vals = {
             "building_id": self.building.id,
             "landlord_id": self.landlord.id,
@@ -52,6 +68,13 @@ class TestHeadLease(TransactionCase):
             "date_end": "2026-12-31",
             "annual_amount": amount,
             "cheque_count": "4",
+            "agreement_ref": "HLA-UWT-2026",
+            "date_signed": "2025-12-10",
+            "landlord_bank_id": bank.id,
+            "insurance_expiry": "2027-06-30",
+            "sublease_permitted": True,
+            "contracting_party": "manager",
+            "collection_party": "manager",
         }
         vals.update(kw)
         lease = self.env["c2p.head.lease"].create(vals)
