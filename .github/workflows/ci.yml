@@ -43,6 +43,9 @@ jobs:
       - name: Test the repo's own tooling
         run: python -m unittest discover -s tools/tests -v
 
+      - name: No unreachable code in test fixtures
+        run: python tools/check_test_hygiene.py
+
       - name: Module versions bumped where source changed
         run: python tools/check_version_bumps.py
 

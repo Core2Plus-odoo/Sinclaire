@@ -26,6 +26,20 @@ class TestCeoDashboard(TransactionCase):
         )
         cls.occupied_unit = cls._unit("CMD-101")
         cls.vacant_unit = cls._unit("CMD-102")
+        cls.lease = cls.env["c2p.lease"].create(
+            {
+                "tenant_id": cls.tenant.id,
+                "unit_id": cls.occupied_unit.id,
+                "date_start": "2026-01-01",
+                "date_end": "2026-12-31",
+                "annual_rent": 120000.0,
+                "cheque_count": "4",
+            }
+        )
+        # The load path, not the leasing process: these tests are about what
+        # the dashboard reports over tenancies that are already running, and
+        # BR-075 refuses a cheque-less activation through action_activate.
+        cls.lease._activate_as_loaded()
 
     @classmethod
     def _unit(cls, name, **kw):
@@ -42,35 +56,57 @@ class TestCeoDashboard(TransactionCase):
             "floor": "1",
             "area_sqft": 900.0,
             "market_rent": 100000.0,
-            "dewa_no": "2100001",
+            # Derived from the unit name so two fixtures never share a meter
+            # reference, which was how CMD-201 and CMD-202 both ended up as
+            # 2100001.
+            "dewa_no": f"21{abs(hash(name)) % 100000:05d}",
         }
         vals.update(kw)
         unit = cls.env["c2p.unit"].create(vals)
         unit.sudo().action_release()
         return unit
-        cls.lease = cls.env["c2p.lease"].create(
-            {
-                "tenant_id": cls.tenant.id,
-                "unit_id": cls.occupied_unit.id,
-                "date_start": "2026-01-01",
-                "date_end": "2026-12-31",
-                "annual_rent": 120000.0,
-                "cheque_count": "4",
-            }
-        )
-        # The load path, not the leasing process: these tests are about what
-        # the dashboard reports over tenancies that are already running, and
-        # BR-075 refuses a cheque-less activation through action_activate.
-        cls.lease._activate_as_loaded()
 
     def _dashboard(self):
         return self.env["c2p.ceo.dashboard"].create({})
 
+    def test_the_fixture_is_actually_built(self):
+        """Guard, and the reason this file changed.
+
+        The lease setup used to sit after `return unit` inside the unit
+        factory, so it never ran: cls.lease did not exist, no unit was ever
+        occupied, and every assertion below was being satisfied by whatever
+        else happened to be in the database. On a CI image carrying demo data
+        that reads as green and proves nothing. If the fixture breaks again,
+        this fails first and says so, rather than the suite quietly going on
+        to measure somebody else's records.
+        """
+        self.assertTrue(self.lease, "The lease fixture was never created.")
+        self.assertEqual(self.lease.state, "active")
+        self.assertEqual(self.occupied_unit.state, "occupied")
+        self.assertIn(self.vacant_unit.state, EMPTY_STATES)
+
     def test_portfolio_counts_reflect_the_units(self):
+        """Measured against this building, not the whole database.
+
+        The old version asserted each count was at least 1, which any
+        populated database satisfies whether or not this test's own records
+        exist.
+        """
         dash = self._dashboard()
+        units = self.building.unit_ids
+        self.assertEqual(len(units.filtered(lambda u: u.state == "occupied")), 1)
+        self.assertEqual(len(units.filtered(lambda u: u.state in EMPTY_STATES)), 1)
+        # The dashboard is company-wide, so it must at least carry this
+        # building's contribution.
         self.assertGreaterEqual(dash.building_count, 1)
         self.assertGreaterEqual(dash.occupied_count, 1)
         self.assertGreaterEqual(dash.vacant_count, 1)
+
+    def test_contracted_rent_includes_the_active_lease(self):
+        """The counterpart to the draft-lease test below: that one proves a
+        draft is excluded, and nothing proved an active one is included -
+        which a dead fixture would also have satisfied."""
+        self.assertGreaterEqual(self._dashboard().contracted_rent, 120000.0)
 
     def test_occupancy_rate_is_a_percentage_of_units(self):
         dash = self._dashboard()
