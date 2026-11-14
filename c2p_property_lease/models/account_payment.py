@@ -14,6 +14,12 @@ from odoo.exceptions import ValidationError
 #   replaced  - this instrument bounced and a replacement has been linked.
 #               Leaving it Bounced forever makes the bounce register grow
 #               without ever showing which bounces were made good.
+#   cancelled - withdrawn before it was ever banked: the lease terminated
+#               early, the terms were renegotiated, or the cheque was handed
+#               back. Distinct from Bounced, which is a cheque that failed,
+#               and from Replaced, which is a bounce made good. Without it
+#               those cheques either sit In Hand forever, overstating the
+#               cover, or get deleted, destroying the custody trail.
 PDC_STATES = [
     ("expected", "Expected"),
     ("held", "In Hand"),
@@ -21,6 +27,7 @@ PDC_STATES = [
     ("cleared", "Cleared"),
     ("bounced", "Bounced"),
     ("replaced", "Replaced"),
+    ("cancelled", "Cancelled"),
 ]
 
 
@@ -79,6 +86,18 @@ class AccountPayment(models.Model):
         store=True,
         string="Owner Funds",
         help="Payable to the landlord, held by this company. Never this company's cash or rental income (BRD §6.1).",
+    )
+    # BR-116 wants "deposit evidence", and this deliberately does NOT reuse
+    # account.payment.partner_bank_id. On an inbound payment Odoo already uses
+    # that field for the account the money is received INTO, and computes it
+    # from the journal - so it arrives pre-filled and would silently satisfy a
+    # guard written against it. The landlord's account is a different fact and
+    # needs a field of its own.
+    owner_deposit_bank_id = fields.Many2one(
+        "res.partner.bank",
+        string="Deposited Into",
+        copy=False,
+        help="The landlord's own bank account this instrument was banked into on the due date (BRD §4.2.1).",
     )
 
     # ------------------------------------------------------------ BR-117, bounce
@@ -142,6 +161,29 @@ class AccountPayment(models.Model):
                 rec.payee_partner_id = rec.company_id.partner_id
                 rec.is_owner_funds = False
 
+    @api.constrains("owner_deposit_bank_id", "payee_partner_id")
+    def _check_owner_deposit_account(self):
+        """The account recorded has to be the payee's own.
+
+        Otherwise "deposited to the landlord's account" can be satisfied by
+        naming any account at all, including one of this company's, which is
+        the thing BR-116 exists to rule out.
+        """
+        for rec in self:
+            account = rec.owner_deposit_bank_id
+            if not account or not rec.payee_partner_id:
+                continue
+            if account.partner_id != rec.payee_partner_id:
+                raise ValidationError(
+                    self.env._(
+                        "%(account)s belongs to %(holder)s, not to %(payee)s. Owner funds "
+                        "must be banked into the payee's own account.",
+                        account=account.display_name,
+                        holder=account.partner_id.display_name,
+                        payee=rec.payee_partner_id.display_name,
+                    )
+                )
+
     @api.constrains("replacement_payment_id")
     def _check_replacement(self):
         for rec in self:
@@ -168,7 +210,7 @@ class AccountPayment(models.Model):
         itself. That is the exact confusion BRD §6.1 exists to prevent.
         """
         for rec in self:
-            if rec.is_owner_funds and not rec.partner_bank_id:
+            if rec.is_owner_funds and not rec.owner_deposit_bank_id:
                 raise UserError(
                     rec.env._(
                         "%(ref)s is payable to %(payee)s and is owner funds. Record the "
@@ -183,6 +225,31 @@ class AccountPayment(models.Model):
         for rec in self:
             rec.pdc_state = "bounced"
             rec.message_post(body=self.env._("Cheque returned unpaid. Follow up with the tenant."))
+
+    def action_pdc_cancel(self, reason=None):
+        """Withdraw an instrument that was never banked (BR-114).
+
+        A cleared cheque cannot be cancelled - the money moved, and undoing
+        that is a credit note or a refund, not a change of status on the
+        register. A bounced one cannot either: it failed, which is a fact
+        about what happened and not something to erase.
+        """
+        for rec in self:
+            if rec.pdc_state in ("cleared", "bounced", "replaced"):
+                raise UserError(
+                    rec.env._(
+                        "%(ref)s is %(state)s and cannot be cancelled. Cancelling is for "
+                        "an instrument that was never banked.",
+                        ref=rec.cheque_no or rec.display_name,
+                        state=dict(rec._fields["pdc_state"].selection)[rec.pdc_state],
+                    )
+                )
+            rec.pdc_state = "cancelled"
+            if reason:
+                note = rec.env._("Cheque cancelled: %(reason)s", reason=reason)
+            else:
+                note = rec.env._("Cheque cancelled before presentation.")
+            rec.message_post(body=note)
 
     def action_link_replacement(self, replacement):
         """BR-117: a bounce is closed by the instrument that makes it good.

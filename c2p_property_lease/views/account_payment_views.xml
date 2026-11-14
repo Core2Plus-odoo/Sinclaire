@@ -18,6 +18,8 @@
                 <field name="maturity_date"/>
                 <field name="amount" sum="Total"/>
                 <field name="is_owner_funds" string="Owner Funds" optional="show"/>
+                <field name="owner_deposit_bank_id" string="Deposited Into" optional="hide"
+                       invisible="not is_owner_funds"/>
                 <field name="pdc_state" widget="badge"/>
                 <field name="replacement_payment_id" optional="hide"/>
                 <field name="bounce_reason" optional="hide"/>
@@ -28,7 +30,9 @@
                 <button name="action_pdc_clear" type="object" string="Cleared"
                         icon="fa-check" invisible="pdc_state not in ('held','deposited')"/>
                 <button name="action_pdc_bounce" type="object" string="Bounced"
-                        icon="fa-times" invisible="pdc_state in ('bounced','replaced')"/>
+                        icon="fa-times" invisible="pdc_state in ('bounced','replaced','cancelled')"/>
+                <button name="action_pdc_cancel" type="object" string="Cancel"
+                        icon="fa-ban" invisible="pdc_state in ('cleared','bounced','replaced','cancelled')"/>
             </list>
         </field>
     </record>
@@ -57,6 +61,7 @@
                 <filter name="f_owner_funds" string="Owner Funds" domain="[('is_owner_funds','=',True)]"/>
                 <separator/>
                 <filter name="f_third_party" string="Third-Party Cheques" domain="[('is_third_party','=',True)]"/>
+                <filter name="f_cancelled" string="Cancelled" domain="[('pdc_state','=','cancelled')]"/>
                 <group>
                     <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
                     <filter name="g_state" string="Cheque Status" context="{'group_by':'pdc_state'}"/>

@@ -281,6 +281,33 @@ class TestChequeStates(ChequeCase):
         with self.assertRaises(ValidationError):
             cheque.replacement_payment_id = cheque
 
+    def test_an_unbanked_cheque_can_be_cancelled(self):
+        """BR-114. A cheque handed back on an early termination is neither
+        bounced nor cleared, and leaving it In Hand overstates the cover."""
+        lease = self._lease(self._building("SCN", "head_lease"), "SCN-101")
+        cheque = self._cheque(lease, cheque_no="850001", amount=120000.0)
+        cheque.action_pdc_cancel(reason="Lease terminated early; cheque returned to tenant.")
+        self.assertEqual(cheque.pdc_state, "cancelled")
+        lease.invalidate_recordset()
+        self.assertEqual(lease.cheques_received, 0, "A cancelled cheque is not cover.")
+
+    def test_a_cleared_cheque_cannot_be_cancelled(self):
+        """The money moved. Undoing that is a refund, not a status change."""
+        lease = self._lease(self._building("SCC", "head_lease"), "SCC-101")
+        cheque = self._cheque(lease, cheque_no="850002")
+        cheque.action_pdc_clear()
+        with self.assertRaises(UserError):
+            cheque.action_pdc_cancel()
+
+    def test_a_bounced_cheque_cannot_be_cancelled(self):
+        """It failed. That is a fact about what happened, not something to
+        erase from the register."""
+        lease = self._lease(self._building("SCB", "head_lease"), "SCB-101")
+        cheque = self._cheque(lease, cheque_no="850003")
+        cheque.action_pdc_bounce()
+        with self.assertRaises(UserError):
+            cheque.action_pdc_cancel()
+
 
 class TestOwnerFundsCustody(ChequeCase):
     """BR-116 / BRD §6.1: where the landlord's money went."""
@@ -298,11 +325,27 @@ class TestOwnerFundsCustody(ChequeCase):
     def test_owner_funds_clear_once_the_deposit_account_is_recorded(self):
         lease = self._lease(self._building("CUD", "owner_management"), "CUD-101")
         cheque = self._cheque(lease, cheque_no="900002")
-        cheque.partner_bank_id = self.env["res.partner.bank"].create(
+        cheque.owner_deposit_bank_id = self.env["res.partner.bank"].create(
             {"acc_number": "AE070331234567890123456", "partner_id": self.landlord.id}
         )
         cheque.action_pdc_clear()
         self.assertEqual(cheque.pdc_state, "cleared")
+
+    def test_the_deposit_account_must_belong_to_the_payee(self):
+        """Otherwise the guard is satisfied by naming any account at all,
+        including one of this company's, which is what BR-116 rules out.
+
+        This is also why the field is not account.payment.partner_bank_id:
+        Odoo computes that one from the journal on an inbound payment, so it
+        arrives already filled in and would satisfy the guard on its own.
+        """
+        lease = self._lease(self._building("CUW", "owner_management"), "CUW-101")
+        cheque = self._cheque(lease, cheque_no="900004")
+        not_the_landlord = self.env["res.partner.bank"].create(
+            {"acc_number": "AE070339999999990123456", "partner_id": self.tenant.id}
+        )
+        with self.assertRaises(ValidationError):
+            cheque.owner_deposit_bank_id = not_the_landlord
 
     def test_company_cheques_clear_without_one(self):
         """The guard is about other people's money, not paperwork for its own
