@@ -233,10 +233,15 @@
     color: var(--sin-text);
 }
 
+// Not three equal columns. A unit count is two characters and a money figure
+// is "AED −144k"; splitting the width evenly makes the short ones roomy and
+// wraps the long one onto a second line, which drops that card's labels out
+// of line with its neighbours'. So the counts size to their content and the
+// money figure takes what is left.
 .sin-building__stats {
     display: grid;
     gap: var(--sin-space-3);
-    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    grid-template-columns: auto auto 1fr;
 }
 
 .sin-building__stat {
@@ -250,6 +255,10 @@
     font-size: var(--sin-text-xl);
     font-weight: var(--sin-weight-semibold);
     font-variant-numeric: tabular-nums;
+    // A figure that wraps mid-amount is unreadable, and it shifts every label
+    // beneath it. The card figure is abbreviated precisely so it fits on one
+    // line; this makes that a guarantee rather than a hope.
+    white-space: nowrap;
 }
 
 .sin-building__stat-label {
@@ -373,6 +382,13 @@
 
     .sin-building__head {
         flex-direction: column;
+    }
+
+    // One column per stat at phone width: three abbreviated figures side by
+    // side in 358px is how a card starts eliding its own numbers.
+    .sin-building__stats {
+        gap: var(--sin-space-2);
+        grid-template-columns: 1fr 1fr;
     }
 
     .sin-grid {

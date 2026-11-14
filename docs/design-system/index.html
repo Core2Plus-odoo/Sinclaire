@@ -268,7 +268,7 @@
 .sin-building__stats {
   display: grid;
   gap: var(--sin-space-3);
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  grid-template-columns: auto auto 1fr;
 }
 
 .sin-building__stat {
@@ -282,6 +282,7 @@
   font-size: var(--sin-text-xl);
   font-weight: var(--sin-weight-semibold);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .sin-building__next {
@@ -385,6 +386,10 @@
   }
   .sin-building__head {
     flex-direction: column;
+  }
+  .sin-building__stats {
+    gap: var(--sin-space-2);
+    grid-template-columns: 1fr 1fr;
   }
   .sin-grid {
     grid-template-columns: 1fr;
