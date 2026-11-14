@@ -8,12 +8,19 @@
                   decoration-success="pdc_state == 'cleared'">
                 <field name="cheque_no"/>
                 <field name="partner_id" string="Tenant"/>
+                <field name="drawer_partner_id" string="Signed By" optional="hide"/>
+                <field name="is_third_party" string="Third Party" optional="hide"/>
+                <field name="payee_partner_id" string="Payable To" optional="show"/>
                 <field name="unit_id"/>
                 <field name="building_id" optional="show"/>
+                <field name="operating_model" optional="hide"/>
                 <field name="cheque_bank"/>
                 <field name="maturity_date"/>
                 <field name="amount" sum="Total"/>
+                <field name="is_owner_funds" string="Owner Funds" optional="show"/>
                 <field name="pdc_state" widget="badge"/>
+                <field name="replacement_payment_id" optional="hide"/>
+                <field name="bounce_reason" optional="hide"/>
                 <field name="state"/>
                 <field name="currency_id" column_invisible="1"/>
                 <button name="action_pdc_deposit" type="object" string="Deposit"
@@ -21,7 +28,7 @@
                 <button name="action_pdc_clear" type="object" string="Cleared"
                         icon="fa-check" invisible="pdc_state not in ('held','deposited')"/>
                 <button name="action_pdc_bounce" type="object" string="Bounced"
-                        icon="fa-times" invisible="pdc_state == 'bounced'"/>
+                        icon="fa-times" invisible="pdc_state in ('bounced','replaced')"/>
             </list>
         </field>
     </record>
@@ -37,10 +44,24 @@
                 <filter name="f_held" string="In Hand" domain="[('pdc_state','=','held')]"/>
                 <filter name="f_due" string="Due Now"
                         domain="[('maturity_date','&lt;=',context_today().strftime('%Y-%m-%d')),('pdc_state','=','held')]"/>
-                <filter name="f_bounced" string="Bounced" domain="[('pdc_state','=','bounced')]"/>
+                <filter name="f_bounced" string="Bounced" domain="[('pdc_state','=','bounced')]"
+                        help="Returned unpaid and not yet made good. A bounce with a replacement
+                              linked against it moves to Replaced and drops out of here."/>
+                <filter name="f_expected" string="Not Yet Handed Over" domain="[('pdc_state','=','expected')]"
+                        help="BR-114: the schedule says a cheque is due and none has been received."/>
+                <separator/>
+                <!-- BRD §6.1. The whole point of the owner-funds flag is that
+                     somebody can pull the two sets apart on screen without
+                     working out each building's operating model by hand. -->
+                <filter name="f_company_funds" string="Company Funds" domain="[('is_owner_funds','=',False)]"/>
+                <filter name="f_owner_funds" string="Owner Funds" domain="[('is_owner_funds','=',True)]"/>
+                <separator/>
+                <filter name="f_third_party" string="Third-Party Cheques" domain="[('is_third_party','=',True)]"/>
                 <group>
                     <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
                     <filter name="g_state" string="Cheque Status" context="{'group_by':'pdc_state'}"/>
+                    <filter name="g_funds" string="Whose Funds" context="{'group_by':'is_owner_funds'}"/>
+                    <filter name="g_payee" string="Payable To" context="{'group_by':'payee_partner_id'}"/>
                     <filter name="g_month" string="Maturity Month" context="{'group_by':'maturity_date:month'}"/>
                 </group>
             </search>

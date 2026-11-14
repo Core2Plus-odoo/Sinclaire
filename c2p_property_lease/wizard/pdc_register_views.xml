@@ -17,12 +17,20 @@
                         <field name="bank_name"/>
                     </group>
                 </group>
+                <field name="payee_is_landlord" invisible="1"/>
+                <div class="alert alert-warning" role="alert" invisible="not payee_is_landlord">
+                    This building is owner-managed, so these cheques must be made out to
+                    <field name="payee_partner_id" readonly="1" nolabel="1" class="oe_inline"/>,
+                    not to the company. They are the landlord's funds, held and banked on the
+                    landlord's behalf.
+                </div>
                 <field name="line_ids">
                     <list editable="bottom">
                         <field name="cheque_no"/>
                         <field name="bank_name"/>
                         <field name="maturity_date"/>
                         <field name="amount" sum="Total"/>
+                        <field name="drawer_partner_id" optional="show"/>
                         <field name="currency_id" column_invisible="1"/>
                     </list>
                 </field>

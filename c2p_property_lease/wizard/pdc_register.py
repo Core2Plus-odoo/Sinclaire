@@ -28,6 +28,24 @@ class PdcRegister(models.TransientModel):
     first_cheque_no = fields.Char(required=True, help="Subsequent cheque numbers increment from this one.")
     line_ids = fields.One2many("c2p.pdc.register.line", "wizard_id", string="Cheques")
 
+    # BR-043 / BRD §4.2.2. Whoever is taking cheques in at the counter needs to
+    # know whose name to ask for before the tenant writes them, not after. Under
+    # Owner Management that is the landlord, and a cheque made out to the wrong
+    # party has to go back to the tenant to be rewritten.
+    payee_partner_id = fields.Many2one("res.partner", compute="_compute_payee_hint", string="Cheques Payable To")
+    payee_is_landlord = fields.Boolean(compute="_compute_payee_hint")
+
+    @api.depends("lease_id")
+    def _compute_payee_hint(self):
+        for rec in self:
+            building = rec.lease_id.building_id
+            if building.operating_model == "owner_management":
+                rec.payee_partner_id = building.owner_id
+                rec.payee_is_landlord = True
+            else:
+                rec.payee_partner_id = rec.lease_id.company_id.partner_id
+                rec.payee_is_landlord = False
+
     @api.onchange("lease_id", "first_maturity", "first_cheque_no", "bank_name")
     def _onchange_generate(self):
         if not (self.lease_id and self.first_maturity and self.first_cheque_no):
@@ -48,6 +66,7 @@ class PdcRegister(models.TransientModel):
                         "amount": self.lease_id.instalment_amount,
                         "cheque_no": str(base + i) if base else self.first_cheque_no,
                         "bank_name": self.bank_name,
+                        "drawer_partner_id": self.lease_id.tenant_id.id,
                     },
                 )
             )
@@ -74,6 +93,10 @@ class PdcRegister(models.TransientModel):
                     "cheque_no": line.cheque_no,
                     "cheque_bank": line.bank_name,
                     "maturity_date": line.maturity_date,
+                    # BR-047: the debtor is the tenant either way - partner_id
+                    # above - but the drawer is whoever actually signed, and a
+                    # third-party cheque is only visible if that is recorded.
+                    "drawer_partner_id": line.drawer_partner_id.id or self.lease_id.tenant_id.id,
                     "pdc_state": "held",
                     "memo": f"PDC {line.cheque_no} {line.bank_name} – {self.lease_id.unit_id.display_name}",
                 }
@@ -92,3 +115,8 @@ class PdcRegisterLine(models.TransientModel):
     amount = fields.Monetary(required=True)
     cheque_no = fields.Char(required=True)
     bank_name = fields.Char(string="Drawn On")
+    drawer_partner_id = fields.Many2one(
+        "res.partner",
+        string="Signed By",
+        help="Leave as the tenant unless somebody else signed this cheque on their behalf.",
+    )
