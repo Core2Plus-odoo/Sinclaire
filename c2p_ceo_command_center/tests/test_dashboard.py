@@ -11,25 +11,43 @@ class TestCeoDashboard(TransactionCase):
         cls.company = cls.env.company
         cls.landlord = cls.env["res.partner"].create({"name": "CC Landlord"})
         cls.tenant = cls.env["res.partner"].create({"name": "CC Tenant"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
         cls.building = cls.env["c2p.building"].create(
             {
                 "name": "Command Tower",
                 "code": "CMD",
                 "owner_id": cls.landlord.id,
+                # BR-018 refuses to release a unit whose building has no
+                # analytic account, and these tests need lettable units.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "Command Tower", "plan_id": plan.id})
+                .id,
             }
         )
-        cls.occupied_unit = cls.env["c2p.unit"].create(
-            {
-                "name": "CMD-101",
-                "building_id": cls.building.id,
-            }
-        )
-        cls.vacant_unit = cls.env["c2p.unit"].create(
-            {
-                "name": "CMD-102",
-                "building_id": cls.building.id,
-            }
-        )
+        cls.occupied_unit = cls._unit("CMD-101")
+        cls.vacant_unit = cls._unit("CMD-102")
+
+    @classmethod
+    def _unit(cls, name, **kw):
+        """A released, lettable unit.
+
+        BR-018 holds a new unit in Draft until its mandatory data is present,
+        so these fixtures supply that data and release the unit rather than
+        relying on the old Available default.
+        """
+        vals = {
+            "name": name,
+            "building_id": cls.building.id,
+            "unit_type": "1br",
+            "floor": "1",
+            "area_sqft": 900.0,
+            "market_rent": 100000.0,
+            "dewa_no": "2100001",
+        }
+        vals.update(kw)
+        unit = cls.env["c2p.unit"].create(vals)
+        unit.sudo().action_release()
+        return unit
         cls.lease = cls.env["c2p.lease"].create(
             {
                 "tenant_id": cls.tenant.id,
@@ -91,12 +109,7 @@ class TestCeoDashboard(TransactionCase):
         before = self._dashboard()
         base_count, base_rent = before.expiring_lease_count, before.expiring_rent
 
-        near_unit = self.env["c2p.unit"].create(
-            {
-                "name": "CMD-201",
-                "building_id": self.building.id,
-            }
-        )
+        near_unit = self._unit("CMD-201")
         near = self.env["c2p.lease"].create(
             {
                 "tenant_id": self.tenant.id,
@@ -109,12 +122,7 @@ class TestCeoDashboard(TransactionCase):
         )
         near._activate_as_loaded()
 
-        far_unit = self.env["c2p.unit"].create(
-            {
-                "name": "CMD-202",
-                "building_id": self.building.id,
-            }
-        )
+        far_unit = self._unit("CMD-202")
         far = self.env["c2p.lease"].create(
             {
                 "tenant_id": self.tenant.id,

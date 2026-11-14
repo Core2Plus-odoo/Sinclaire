@@ -43,6 +43,21 @@ class C2pBuilding(models.Model):
     city = fields.Char(default="Dubai")
     community = fields.Char()
 
+    # BR-016: what the head lease or the building declaration says this
+    # building contains. Units are then reconciled against it, so an import
+    # that silently drops rows is visible as a variance rather than as a
+    # portfolio that looks complete and is not.
+    declared_residential_units = fields.Integer(string="Declared Residential Units")
+    declared_commercial_units = fields.Integer(string="Declared Commercial Units")
+    declared_unit_count = fields.Integer(compute="_compute_declared", store=True, string="Declared Units")
+    unit_variance = fields.Integer(
+        compute="_compute_unit_stats",
+        store=True,
+        string="Variance",
+        help="Units on record less units declared. Zero means the building reconciles.",
+    )
+    units_reconciled = fields.Boolean(compute="_compute_unit_stats", store=True)
+
     unit_ids = fields.One2many("c2p.unit", "building_id", string="Units")
     unit_count = fields.Integer(compute="_compute_unit_stats", store=True)
     occupied_count = fields.Integer(compute="_compute_unit_stats", store=True)
@@ -83,11 +98,26 @@ class C2pBuilding(models.Model):
             rec.coverage_ratio = rec.contracted_rent / lease.annual_amount if lease.annual_amount else 0.0
             rec.breakeven_occupancy = lease.annual_amount / rec.potential_rent * 100.0 if rec.potential_rent else 0.0
 
-    @api.depends("unit_ids.state", "unit_ids.current_lease_id.annual_rent", "unit_ids.market_rent")
+    @api.depends("declared_residential_units", "declared_commercial_units")
+    def _compute_declared(self):
+        for rec in self:
+            rec.declared_unit_count = rec.declared_residential_units + rec.declared_commercial_units
+
+    @api.depends(
+        "unit_ids.state",
+        "unit_ids.current_lease_id.annual_rent",
+        "unit_ids.market_rent",
+        "declared_unit_count",
+    )
     def _compute_unit_stats(self):
         for rec in self:
             units = rec.unit_ids
             rec.unit_count = len(units)
+            # A building with nothing declared is not "reconciled" - it has
+            # nothing to reconcile against. Reporting it as balanced would
+            # hide exactly the buildings nobody has filled in yet.
+            rec.unit_variance = rec.unit_count - rec.declared_unit_count
+            rec.units_reconciled = bool(rec.declared_unit_count) and rec.unit_variance == 0
             rec.occupied_count = len(units.filtered(lambda u: u.state == "occupied"))
             rec.vacant_count = len(units.filtered(lambda u: u.state in EMPTY_STATES))
             rec.occupancy_rate = (rec.occupied_count / rec.unit_count * 100.0) if rec.unit_count else 0.0

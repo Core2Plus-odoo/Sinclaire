@@ -18,20 +18,41 @@ class TestLease(TransactionCase):
         cls.company = cls.env.company
         cls.landlord = cls.env["res.partner"].create({"name": "Test Landlord"})
         cls.tenant = cls.env["res.partner"].create({"name": "Test Tenant"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
         cls.building = cls.env["c2p.building"].create(
             {
                 "name": "Test Tower",
                 "code": "TST",
                 "owner_id": cls.landlord.id,
+                # BR-018 refuses to release a unit whose building has no
+                # analytic account, so the fixture building carries one.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "Test Tower", "plan_id": plan.id})
+                .id,
             }
         )
-        cls.unit = cls.env["c2p.unit"].create(
-            {
-                "name": "TST-101",
-                "building_id": cls.building.id,
-                "unit_type": "1br",
-            }
-        )
+        cls.unit = cls._lettable_unit("TST-101")
+
+    @classmethod
+    def _lettable_unit(self, name, **kw):
+        """A unit created and released, which is where most of these tests start.
+
+        BR-018 holds a new unit in Draft until its mandatory data is in, so a
+        test that wants a lettable unit has to supply that data and release it.
+        """
+        vals = {
+            "name": name,
+            "building_id": self.building.id,
+            "unit_type": "1br",
+            "floor": "1",
+            "area_sqft": 900.0,
+            "market_rent": 95000.0,
+            "dewa_no": "2000001",
+        }
+        vals.update(kw)
+        unit = self.env["c2p.unit"].create(vals)
+        unit.sudo().action_release()
+        return unit
 
     def _lease(self, **kw):
         vals = {
@@ -239,6 +260,184 @@ class TestLease(TransactionCase):
         self.assertEqual(order.c2p_lease_id, lease)
         self.assertEqual(order.order_line.price_unit, lease.instalment_amount)
 
+    # ------------------------------------------------------------- BR-018
+    # Units are released for letting only once the data a lease depends on is
+    # present, and only by a Leasing Manager.
+
+    def test_a_new_unit_starts_in_draft(self):
+        unit = self.env["c2p.unit"].create({"name": "R1", "building_id": self.building.id})
+        self.assertEqual(unit.state, "draft")
+
+    def test_an_incomplete_unit_cannot_be_released(self):
+        unit = self.env["c2p.unit"].create({"name": "R2", "building_id": self.building.id})
+        with self.assertRaises(UserError):
+            unit.sudo().action_release()
+        self.assertEqual(unit.state, "draft")
+
+    def test_the_refusal_names_every_missing_field_at_once(self):
+        unit = self.env["c2p.unit"].create({"name": "R3", "building_id": self.building.id})
+        with self.assertRaises(UserError) as caught:
+            unit.sudo().action_release()
+        message = str(caught.exception)
+        for label in ("Floor", "Area", "Market rent", "DEWA"):
+            self.assertIn(label, message)
+
+    def test_a_complete_unit_releases(self):
+        unit = self._lettable_unit("R4")
+        self.assertEqual(unit.state, "available")
+        self.assertFalse(unit.release_blockers)
+        self.assertTrue(unit.is_releasable)
+
+    def test_a_building_without_an_analytic_account_blocks_release(self):
+        """BR-012: rent that cannot be attributed to a building is the defect
+        this prevents."""
+        bare = self.env["c2p.building"].create({"name": "No Analytic", "code": "NAN", "owner_id": self.landlord.id})
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": "N1",
+                "building_id": bare.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 95000.0,
+                "dewa_no": "2000002",
+            }
+        )
+        self.assertIn("Analytic", unit.release_blockers)
+        with self.assertRaises(UserError):
+            unit.sudo().action_release()
+
+    def test_release_is_a_manager_action(self):
+        user = self.env["res.users"].create(
+            {
+                "name": "Leasing Clerk",
+                "login": "clerk_br018",
+                "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_user").id)],
+            }
+        )
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": "R5",
+                "building_id": self.building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 95000.0,
+                "dewa_no": "2000003",
+            }
+        )
+        with self.assertRaises(UserError):
+            unit.with_user(user).action_release()
+
+    def test_a_lease_cannot_be_activated_on_an_unreleased_unit(self):
+        """Without this the release gate is decorative: the lease would put a
+        tenant into a unit whose mandatory data was never checked."""
+        unit = self.env["c2p.unit"].create({"name": "R6", "building_id": self.building.id, "unit_type": "1br"})
+        lease = self._lease(unit_id=unit.id)
+        with self.assertRaises(UserError) as caught:
+            self._activate(lease)
+        self.assertIn("not been released", str(caught.exception))
+
+    # ------------------------------------------------------------- BR-017
+    # Floor rent is the approved minimum, and the override is a manager action.
+
+    def test_a_lease_at_or_above_the_floor_is_fine(self):
+        unit = self._lettable_unit("F1", floor_rent=90000.0)
+        lease = self._lease(unit_id=unit.id, annual_rent=90000.0)
+        self.assertEqual(lease.annual_rent, 90000.0)
+
+    def test_a_lease_below_the_floor_is_refused(self):
+        unit = self._lettable_unit("F2", floor_rent=90000.0)
+        with self.assertRaises(ValidationError) as caught:
+            self._lease(unit_id=unit.id, annual_rent=80000.0)
+        self.assertIn("floor rent", str(caught.exception))
+
+    def test_an_approved_discount_lets_it_through(self):
+        unit = self._lettable_unit("F3", floor_rent=90000.0)
+        lease = self._lease(unit_id=unit.id, annual_rent=80000.0, below_floor_approved=True)
+        self.assertTrue(lease.below_floor_approved)
+
+    def test_a_unit_with_no_floor_rent_is_unconstrained(self):
+        """How units behaved before BR-017, and how they still behave until a
+        floor is approved for them."""
+        unit = self._lettable_unit("F4")
+        lease = self._lease(unit_id=unit.id, annual_rent=1000.0)
+        self.assertEqual(lease.annual_rent, 1000.0)
+
+    def test_the_override_is_a_manager_action(self):
+        user = self.env["res.users"].create(
+            {
+                "name": "Leasing Clerk 2",
+                "login": "clerk_br017",
+                "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_user").id)],
+            }
+        )
+        unit = self._lettable_unit("F5", floor_rent=90000.0)
+        lease = self._lease(unit_id=unit.id, annual_rent=95000.0)
+        with self.assertRaises(UserError):
+            lease.with_user(user).write({"below_floor_approved": True})
+
+    def test_the_three_rate_sets_are_held_separately(self):
+        """A monthly let is not an annual rent over twelve: short lets carry a
+        premium, so the rates are stored, not derived."""
+        unit = self._lettable_unit("F6", market_rent_monthly=9000.0, market_rent_daily=450.0, floor_rent_monthly=8000.0)
+        self.assertEqual(unit.market_rent_monthly, 9000.0)
+        self.assertEqual(unit.market_rent_daily, 450.0)
+        self.assertEqual(unit.floor_rent_monthly, 8000.0)
+        self.assertNotEqual(unit.market_rent_monthly, unit.market_rent / 12.0)
+
+    # ------------------------------------------------------------- BR-016
+    # Units are reconciled against what the building declares.
+
+    def test_a_building_with_nothing_declared_does_not_reconcile(self):
+        """It has nothing to reconcile against. Reporting it as balanced would
+        hide the buildings nobody has filled in."""
+        self.assertFalse(self.building.units_reconciled)
+
+    def test_a_building_reconciles_when_the_counts_agree(self):
+        building = self.env["c2p.building"].create(
+            {
+                "name": "Reconciled Tower",
+                "code": "REC",
+                "owner_id": self.landlord.id,
+                "declared_residential_units": 2,
+                "declared_commercial_units": 0,
+            }
+        )
+        for n in ("1", "2"):
+            self.env["c2p.unit"].create({"name": f"REC-{n}", "building_id": building.id})
+        building.invalidate_recordset()
+        self.assertEqual(building.declared_unit_count, 2)
+        self.assertEqual(building.unit_variance, 0)
+        self.assertTrue(building.units_reconciled)
+
+    def test_a_short_building_reports_a_negative_variance(self):
+        """The import dropped rows. This is the number that says so."""
+        building = self.env["c2p.building"].create(
+            {
+                "name": "Short Tower",
+                "code": "SHT",
+                "owner_id": self.landlord.id,
+                "declared_residential_units": 5,
+            }
+        )
+        self.env["c2p.unit"].create({"name": "SHT-1", "building_id": building.id})
+        building.invalidate_recordset()
+        self.assertEqual(building.unit_variance, -4)
+        self.assertFalse(building.units_reconciled)
+
+    def test_declared_count_is_residential_plus_commercial(self):
+        building = self.env["c2p.building"].create(
+            {
+                "name": "Mixed Tower",
+                "code": "MIX",
+                "owner_id": self.landlord.id,
+                "declared_residential_units": 8,
+                "declared_commercial_units": 3,
+            }
+        )
+        self.assertEqual(building.declared_unit_count, 11)
+
 
 @tagged("post_install", "-at_install")
 class TestChequeSchedules(TransactionCase):
@@ -286,12 +485,37 @@ class TestUnitStates(TransactionCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.landlord = cls.env["res.partner"].create({"name": "States Landlord"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
         cls.building = cls.env["c2p.building"].create(
-            {"name": "States Tower", "code": "STT", "owner_id": cls.landlord.id}
+            {
+                "name": "States Tower",
+                "code": "STT",
+                "owner_id": cls.landlord.id,
+                # BR-018 refuses release without an analytic account.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "States Tower", "plan_id": plan.id})
+                .id,
+            }
         )
 
     def _unit(self, name, state=None, market_rent=100000.0):
-        unit = self.env["c2p.unit"].create({"name": name, "building_id": self.building.id, "market_rent": market_rent})
+        """A unit carrying the data BR-018 requires, so it can be released.
+
+        `state` is written directly: these tests are about the state machine,
+        and most of them need a unit parked in a state the transitions would
+        not reach from Draft.
+        """
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": name,
+                "building_id": self.building.id,
+                "market_rent": market_rent,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "dewa_no": f"24{abs(hash(name)) % 100000:05d}",
+            }
+        )
         if state:
             unit.state = state
         return unit
@@ -351,7 +575,7 @@ class TestUnitStates(TransactionCase):
 
     def test_release_then_market_then_hold_then_reserve(self):
         unit = self._unit("S2", "draft")
-        unit.action_release()
+        unit.sudo().action_release()
         self.assertEqual(unit.state, "available")
         unit.action_market()
         self.assertEqual(unit.state, "under_marketing")
@@ -403,10 +627,33 @@ class TestLeaseStates(TransactionCase):
         super().setUpClass()
         cls.landlord = cls.env["res.partner"].create({"name": "LS Landlord"})
         cls.tenant = cls.env["res.partner"].create({"name": "LS Tenant"})
-        cls.building = cls.env["c2p.building"].create({"name": "LS Tower", "code": "LST", "owner_id": cls.landlord.id})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
+        cls.building = cls.env["c2p.building"].create(
+            {
+                "name": "LS Tower",
+                "code": "LST",
+                "owner_id": cls.landlord.id,
+                # BR-018 refuses release without an analytic account.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "LS Tower", "plan_id": plan.id})
+                .id,
+            }
+        )
 
     def _lease(self, unit_name):
-        unit = self.env["c2p.unit"].create({"name": unit_name, "building_id": self.building.id})
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": unit_name,
+                "building_id": self.building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 100000.0,
+                "dewa_no": f"25{abs(hash(unit_name)) % 100000:05d}",
+            }
+        )
+        # BR-018: a lease cannot be activated on a unit never released.
+        unit.sudo().action_release()
         return self.env["c2p.lease"].create(
             {
                 "unit_id": unit.id,

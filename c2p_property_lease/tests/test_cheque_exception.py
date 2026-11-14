@@ -27,8 +27,17 @@ class TestChequeException(TransactionCase):
         super().setUpClass()
         cls.landlord = cls.env["res.partner"].create({"name": "Exception Landlord"})
         cls.tenant = cls.env["res.partner"].create({"name": "Exception Tenant"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
         cls.building = cls.env["c2p.building"].create(
-            {"name": "Exception Tower", "code": "EXC", "owner_id": cls.landlord.id}
+            {
+                "name": "Exception Tower",
+                "code": "EXC",
+                "owner_id": cls.landlord.id,
+                # BR-018 refuses release without an analytic account.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "Exception Tower", "plan_id": plan.id})
+                .id,
+            }
         )
         cls.manager = new_test_user(
             cls.env,
@@ -44,7 +53,21 @@ class TestChequeException(TransactionCase):
         )
 
     def _unit(self, name):
-        return self.env["c2p.unit"].create({"name": name, "building_id": self.building.id})
+        """A released, lettable unit. BR-018 holds a new unit in Draft until
+        its mandatory data is present, and a lease cannot activate on one."""
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": name,
+                "building_id": self.building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 100000.0,
+                "dewa_no": "2200001",
+            }
+        )
+        unit.sudo().action_release()
+        return unit
 
     def _lease(self, name, **kw):
         vals = {
