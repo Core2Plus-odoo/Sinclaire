@@ -93,11 +93,11 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 | BR-040 | 4.2.1 | Duplicate applicant detection using permitted identifiers **without exposing restricted values** to unauthorised users | Must | Cus | `res.partner` | Hashed/masked match | S2 | — |
 | BR-041 | 4.2.2 | Quotation built from selected unit and approved offer, showing the full charge set, payee instructions, validity and total due | Must | Cus | `sale.order` | Quotation template | S2 | — |
 | BR-042 | 4.2.2 | Amounts sourced from approved pricing/tax/fee/deposit/commission rules; **manual override needs reason and approval** | Must | Cus | `sale.order` | Override gate | S2 | — |
-| BR-043 | 4.2.2 | **Payee derived from the operating model**; under management-only, tenant cheques may be in the landlord's name and must not be presented as company funds | Must | Cus | `sale.order`, `account.payment` | Payee resolution | S2 | — |
+| BR-043 | 4.2.2 | **Payee derived from the operating model**; under management-only, tenant cheques may be in the landlord's name and must not be presented as company funds | Must | Cus | `sale.order`, `account.payment` | `payee_partner_id` derived from the building's operating model, overridable; `is_owner_funds` marks the landlord's money | S2 | Built |
 | BR-044 | 4.2.2 | Quotation retains version, issue date, expiry, issuer, approver, delivery evidence, acceptance/rejection date, cancellation reason | Must | Cus | `sale.order` | Version + evidence | S2 | — |
 | BR-045 | 4.2.3 | **Third-party cheque undertaking**: signed undertaking and management approval before the cheque is accepted; full payer, relationship, identity, bank, cheque and responsibility detail | Must | Cus | `account.payment` | Undertaking model | S2 | — |
 | BR-046 | 4.2.3 | Validate payer against cheque details; **block activation** where undertaking or approval is missing | Must | Cus | `c2p.lease` | Activation gate | S2 | — |
-| BR-047 | 4.2.3 | Third-party cheque linked to the tenant receivable while identifying the legal payer and payee separately | Must | Cus | `account.payment` | Payer vs. debtor split | S2 | — |
+| BR-047 | 4.2.3 | Third-party cheque linked to the tenant receivable while identifying the legal payer and payee separately | Must | Cus | `account.payment` | `drawer_partner_id` records the signer, `partner_id` keeps the receivable on the tenant, `is_third_party` flags the split | S2 | Built |
 | BR-048 | 4.2.3 | Exception report: third-party cheques without valid documents, approval, identity verification or matching schedule line | Must | Rep | report | Exception list | S2 | — |
 | BR-049 | 4.2.4 | Brokerage workflow: leads, listings, requirements, mandates, authority documents, broker assignment, marketing approval, viewings, offers, reservation/memorandum, due diligence, milestones, external coordination, commission, referral/co-broker, closure | Must | Cus | brokerage models | New model set | S3 | — |
 | BR-050 | 4.2.4, 6.3.2 | **Client funds** (deposits, reservation amounts, sale proceeds) separately identified by client and transaction, reconciled, restricted, **never recognised as revenue** | Must | Cus | client-fund accounts | Control accounts + workflow (C2, OD-02) | S3 | — |
@@ -187,10 +187,10 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 | BR-111 | 6.1 | Company, building, unit, lease, tenant, analytic, tax treatment and source stamped on every entry | Must | Cus | `account.move.line` | Analytic distribution | S2 | Partial |
 | BR-112 | 6.1 | **Duplicate invoice generation prevented**; schedule line linked to invoice and payment | Must | Cus | `account.move` | Idempotency | S2 | — |
 | BR-113 | 6.2 | Cheque schedules from lease or head lease with controlled manual change before confirmation | Must | Cus | `account.payment` | Wizard | S2 | Built |
-| BR-114 | 6.2 | Daily views for instruments due, overdue, deposited, uncleared, bounced, replaced or missing | Must | Rep | `account.payment` | Filtered views; Replaced and Expected states missing | S2 | Partial |
+| BR-114 | 6.2 | Daily views for instruments due, overdue, deposited, uncleared, bounced, replaced or missing | Must | Rep | `account.payment` | Expected and Replaced states added; register filters cover every state | S2 | Built |
 | BR-115 | 6.2 | Physical custody and handover recorded with user, date/time and acknowledgement | Must | Cus | `account.payment` | Custody history | S2 | — |
 | BR-116 | 6.2, 6.3.1 | **Landlord-name cheques**: collected and held by New Sinclair, deposited to the landlord's bank account on the rent due date, with payee, tenant obligation, due date, custody, deposit date, deposit evidence and cleared/bounced status — **never company rent revenue or company cash** | Must | Cus | `account.payment`, custody account | Custody control account (C1, OD-02) | S2 | — |
-| BR-117 | 6.2 | On bounce: reopen the receivable, record bank charges, create follow-up, notify, link the replacement instrument | Must | Cus | `account.payment` | Bounce handler exists; Replaced state missing | S2 | Partial |
+| BR-117 | 6.2 | On bounce: reopen the receivable, record bank charges, create follow-up, notify, link the replacement instrument | Must | Cus | `account.payment` | Replacement link and `bounce_reason`/`bounce_charge` built; receivable reopen and follow-up activity still outstanding | S2 | Partial |
 | BR-118 | 6.2 | Bank-statement import and reconciliation for company accounts; for landlord accounts, deposit evidence and an approved clearance/bounce confirmation process. **No cheque treated as cleared before bank or landlord confirmation** | Must | Cfg | `account.bank.statement` | Import + manual confirmation path | S2 | — |
 | BR-119 | 6.2.1 | Host-to-host: transmit approved payroll/WPS files, receive technical and business acknowledgements and status, retrieve statements, feed reconciliation, with encryption, authentication, SoD, maker-checker release, identifiers, duplicate prevention, cut-off, retry, rejection/resubmission, response retention and audit | Must | Int | banking | Odoo side built; **bank certification is outside our control** (D1) | S4 | — |
 | BR-120 | 6.2.2 | DEWA and Ejari connectivity assessed; approved authority interfaces or authorised providers only; requests mapped to company, building, unit, party, lease, document, payment and user; duplicates prevented; acknowledgements, status, rejection reasons and references captured | Must | Int | DEWA/Ejari | **No open DEWA third-party interface exists** (D2) | S4 | — |
@@ -282,9 +282,9 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 
 | Status | Count |
 | --- | --- |
-| Built | 9 |
-| Partial | 33 |
-| Not started | 144 |
+| Built | 12 |
+| Partial | 32 |
+| Not started | 142 |
 
 186 requirements, BR-001 to BR-186 with no gaps or duplicates, of which **3
 carry the BRD's own IDs** (BR-001 to BR-003). Counts are generated from the

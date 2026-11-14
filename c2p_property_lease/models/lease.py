@@ -39,6 +39,14 @@ LEASE_STATES = [
 # A cheque counts as received once it is physically in hand, and still counts
 # once banked or cleared. A bounced cheque does not: the instrument exists but
 # the money never arrived, which is precisely the situation BR-075 is about.
+#
+# The three states added for BR-114 are all deliberately absent. "expected" is a
+# cheque the schedule says is due and nobody has handed over, so counting it as
+# received would turn the missing-cheque flag into a tick. "replaced" is a
+# bounced instrument that has been made good by another one - the replacement is
+# a payment record of its own and is counted there, so counting the original too
+# would report the cover twice. "cancelled" was withdrawn before it was ever
+# banked, so it is a custody record, not cover.
 RECEIVED_CHEQUE_STATES = ("held", "deposited", "cleared")
 
 LIVE_STATES = ("active", "notice")
