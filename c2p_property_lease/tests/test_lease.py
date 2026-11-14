@@ -260,150 +260,6 @@ class TestLease(TransactionCase):
         self.assertEqual(order.c2p_lease_id, lease)
         self.assertEqual(order.order_line.price_unit, lease.instalment_amount)
 
-
-@tagged("post_install", "-at_install")
-class TestChequeSchedules(TransactionCase):
-    """Every offered cheque count must have a schedule behind it.
-
-    `_find_subscription_plan` indexes CHEQUE_PLAN by the selected cheque
-    count, so a value offered in the dropdown but missing from the map raises
-    KeyError when the lease is confirmed - which is how the 3-cheque option
-    was unusable on the tenant lease while the head lease accepted it.
-    """
-
-    def test_tenant_lease_offers_the_six_uae_schedules(self):
-        selection = {int(v) for v, _ in self.env["c2p.lease"]._fields["cheque_count"].selection}
-        self.assertEqual(selection, {1, 2, 3, 4, 6, 12})
-
-    def test_head_lease_offers_the_six_uae_schedules(self):
-        selection = {int(v) for v, _ in self.env["c2p.head.lease"]._fields["cheque_count"].selection}
-        self.assertEqual(selection, {1, 2, 3, 4, 6, 12})
-
-    def test_tenant_lease_schedule_map_covers_every_offered_count(self):
-        from odoo.addons.c2p_property_lease.models.lease import CHEQUE_PLAN
-
-        selection = {int(v) for v, _ in self.env["c2p.lease"]._fields["cheque_count"].selection}
-        self.assertEqual(selection, set(CHEQUE_PLAN), "dropdown and CHEQUE_PLAN have drifted apart")
-
-    def test_head_lease_schedule_map_covers_every_offered_count(self):
-        from odoo.addons.c2p_property_lease.models.head_lease import CHEQUE_PLAN
-
-        selection = {int(v) for v, _ in self.env["c2p.head.lease"]._fields["cheque_count"].selection}
-        self.assertEqual(selection, set(CHEQUE_PLAN), "dropdown and CHEQUE_PLAN have drifted apart")
-
-    def test_every_schedule_divides_the_year(self):
-        from odoo.addons.c2p_property_lease.models.lease import CHEQUE_PLAN
-
-        for cheques, months in CHEQUE_PLAN.items():
-            self.assertEqual(cheques * months, 12, f"{cheques} cheques x {months} months != 12")
-
-
-@tagged("post_install", "-at_install")
-class TestUnitStates(TransactionCase):
-    """BRD §3.2's ten-state unit model, and the guarantee that adding it did
-    not move any number the dashboard already showed."""
-
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.landlord = cls.env["res.partner"].create({"name": "States Landlord"})
-        cls.building = cls.env["c2p.building"].create(
-            {"name": "States Tower", "code": "STT", "owner_id": cls.landlord.id}
-        )
-
-    def _unit(self, name, state=None, market_rent=100000.0):
-        unit = self.env["c2p.unit"].create({"name": name, "building_id": self.building.id, "market_rent": market_rent})
-        if state:
-            unit.state = state
-        return unit
-
-    def test_all_ten_brd_states_exist(self):
-        from odoo.addons.c2p_property_lease.models.unit import UNIT_STATES
-
-        self.assertEqual(
-            [s for s, _ in UNIT_STATES],
-            [
-                "draft",
-                "available",
-                "under_marketing",
-                "viewing_hold",
-                "reserved",
-                "contracted",
-                "occupied",
-                "notice",
-                "vacant",
-                "blocked",
-            ],
-        )
-
-    def test_earning_and_empty_states_do_not_overlap(self):
-        from odoo.addons.c2p_property_lease.models.unit import EARNING_STATES
-        from odoo.addons.c2p_property_lease.models.unit import EMPTY_STATES
-        from odoo.addons.c2p_property_lease.models.unit import UNIT_STATES
-
-        self.assertFalse(set(EARNING_STATES) & set(EMPTY_STATES))
-        known = {s for s, _ in UNIT_STATES}
-        self.assertTrue(set(EARNING_STATES) <= known)
-        self.assertTrue(set(EMPTY_STATES) <= known)
-        # Draft and Blocked belong to neither, deliberately.
-        self.assertEqual(known - set(EARNING_STATES) - set(EMPTY_STATES), {"draft", "blocked"})
-
-    def test_vacancy_loss_counts_every_empty_state(self):
-        """The reason EMPTY_STATES exists: a unit being marketed, held or
-        reserved earns nothing, exactly as it did when all four were one
-        "vacant" state."""
-        from odoo.addons.c2p_property_lease.models.unit import EMPTY_STATES
-
-        for i, state in enumerate(EMPTY_STATES):
-            self._unit(f"E{i}", state, market_rent=50000.0)
-        self.building.invalidate_recordset()
-        self.assertEqual(self.building.vacant_count, len(EMPTY_STATES))
-
-    def test_blocked_and_draft_are_not_vacancy_loss(self):
-        self._unit("D1", "draft")
-        self._unit("B1", "blocked")
-        self.building.invalidate_recordset()
-        self.assertEqual(self.building.vacant_count, 0)
-
-    def test_a_unit_cannot_skip_from_draft_to_reserved(self):
-        unit = self._unit("S1", "draft")
-        with self.assertRaises(UserError):
-            unit.action_reserve()
-
-    def test_release_then_market_then_hold_then_reserve(self):
-        unit = self._lettable_unit("S2")
-        self.assertEqual(unit.state, "available")
-        unit.action_market()
-        self.assertEqual(unit.state, "under_marketing")
-        unit.action_hold()
-        self.assertEqual(unit.state, "viewing_hold")
-        unit.action_reserve()
-        self.assertEqual(unit.state, "reserved")
-
-    def test_a_handed_back_unit_is_not_available_until_turnaround(self):
-        """BRD §3.2 separates Vacant from Available. A unit straight out of a
-        tenancy is not re-lettable until the turnaround is done."""
-        unit = self._unit("S3", "vacant")
-        with self.assertRaises(UserError):
-            unit.action_market()
-        unit.action_turnaround_complete()
-        self.assertEqual(unit.state, "available")
-
-    def test_unblocking_returns_the_unit_to_the_state_it_left(self):
-        """Not to Available. An occupied unit blocked for maintenance is still
-        occupied when the work finishes."""
-        unit = self._unit("S4", "occupied")
-        unit.action_block()
-        self.assertEqual(unit.state, "blocked")
-        unit.action_unblock()
-        self.assertEqual(unit.state, "occupied")
-
-    def test_unblocking_an_available_unit_stays_available(self):
-        unit = self._unit("S5", "available")
-        unit.action_block()
-        unit.action_unblock()
-        self.assertEqual(unit.state, "available")
-
     # ------------------------------------------------------------- BR-018
     # Units are released for letting only once the data a lease depends on is
     # present, and only by a Leasing Manager.
@@ -582,6 +438,176 @@ class TestUnitStates(TransactionCase):
         )
         self.assertEqual(building.declared_unit_count, 11)
 
+
+@tagged("post_install", "-at_install")
+class TestChequeSchedules(TransactionCase):
+    """Every offered cheque count must have a schedule behind it.
+
+    `_find_subscription_plan` indexes CHEQUE_PLAN by the selected cheque
+    count, so a value offered in the dropdown but missing from the map raises
+    KeyError when the lease is confirmed - which is how the 3-cheque option
+    was unusable on the tenant lease while the head lease accepted it.
+    """
+
+    def test_tenant_lease_offers_the_six_uae_schedules(self):
+        selection = {int(v) for v, _ in self.env["c2p.lease"]._fields["cheque_count"].selection}
+        self.assertEqual(selection, {1, 2, 3, 4, 6, 12})
+
+    def test_head_lease_offers_the_six_uae_schedules(self):
+        selection = {int(v) for v, _ in self.env["c2p.head.lease"]._fields["cheque_count"].selection}
+        self.assertEqual(selection, {1, 2, 3, 4, 6, 12})
+
+    def test_tenant_lease_schedule_map_covers_every_offered_count(self):
+        from odoo.addons.c2p_property_lease.models.lease import CHEQUE_PLAN
+
+        selection = {int(v) for v, _ in self.env["c2p.lease"]._fields["cheque_count"].selection}
+        self.assertEqual(selection, set(CHEQUE_PLAN), "dropdown and CHEQUE_PLAN have drifted apart")
+
+    def test_head_lease_schedule_map_covers_every_offered_count(self):
+        from odoo.addons.c2p_property_lease.models.head_lease import CHEQUE_PLAN
+
+        selection = {int(v) for v, _ in self.env["c2p.head.lease"]._fields["cheque_count"].selection}
+        self.assertEqual(selection, set(CHEQUE_PLAN), "dropdown and CHEQUE_PLAN have drifted apart")
+
+    def test_every_schedule_divides_the_year(self):
+        from odoo.addons.c2p_property_lease.models.lease import CHEQUE_PLAN
+
+        for cheques, months in CHEQUE_PLAN.items():
+            self.assertEqual(cheques * months, 12, f"{cheques} cheques x {months} months != 12")
+
+
+@tagged("post_install", "-at_install")
+class TestUnitStates(TransactionCase):
+    """BRD §3.2's ten-state unit model, and the guarantee that adding it did
+    not move any number the dashboard already showed."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.landlord = cls.env["res.partner"].create({"name": "States Landlord"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
+        cls.building = cls.env["c2p.building"].create(
+            {
+                "name": "States Tower",
+                "code": "STT",
+                "owner_id": cls.landlord.id,
+                # BR-018 refuses release without an analytic account.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "States Tower", "plan_id": plan.id})
+                .id,
+            }
+        )
+
+    def _unit(self, name, state=None, market_rent=100000.0):
+        """A unit carrying the data BR-018 requires, so it can be released.
+
+        `state` is written directly: these tests are about the state machine,
+        and most of them need a unit parked in a state the transitions would
+        not reach from Draft.
+        """
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": name,
+                "building_id": self.building.id,
+                "market_rent": market_rent,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "dewa_no": f"24{abs(hash(name)) % 100000:05d}",
+            }
+        )
+        if state:
+            unit.state = state
+        return unit
+
+    def test_all_ten_brd_states_exist(self):
+        from odoo.addons.c2p_property_lease.models.unit import UNIT_STATES
+
+        self.assertEqual(
+            [s for s, _ in UNIT_STATES],
+            [
+                "draft",
+                "available",
+                "under_marketing",
+                "viewing_hold",
+                "reserved",
+                "contracted",
+                "occupied",
+                "notice",
+                "vacant",
+                "blocked",
+            ],
+        )
+
+    def test_earning_and_empty_states_do_not_overlap(self):
+        from odoo.addons.c2p_property_lease.models.unit import EARNING_STATES
+        from odoo.addons.c2p_property_lease.models.unit import EMPTY_STATES
+        from odoo.addons.c2p_property_lease.models.unit import UNIT_STATES
+
+        self.assertFalse(set(EARNING_STATES) & set(EMPTY_STATES))
+        known = {s for s, _ in UNIT_STATES}
+        self.assertTrue(set(EARNING_STATES) <= known)
+        self.assertTrue(set(EMPTY_STATES) <= known)
+        # Draft and Blocked belong to neither, deliberately.
+        self.assertEqual(known - set(EARNING_STATES) - set(EMPTY_STATES), {"draft", "blocked"})
+
+    def test_vacancy_loss_counts_every_empty_state(self):
+        """The reason EMPTY_STATES exists: a unit being marketed, held or
+        reserved earns nothing, exactly as it did when all four were one
+        "vacant" state."""
+        from odoo.addons.c2p_property_lease.models.unit import EMPTY_STATES
+
+        for i, state in enumerate(EMPTY_STATES):
+            self._unit(f"E{i}", state, market_rent=50000.0)
+        self.building.invalidate_recordset()
+        self.assertEqual(self.building.vacant_count, len(EMPTY_STATES))
+
+    def test_blocked_and_draft_are_not_vacancy_loss(self):
+        self._unit("D1", "draft")
+        self._unit("B1", "blocked")
+        self.building.invalidate_recordset()
+        self.assertEqual(self.building.vacant_count, 0)
+
+    def test_a_unit_cannot_skip_from_draft_to_reserved(self):
+        unit = self._unit("S1", "draft")
+        with self.assertRaises(UserError):
+            unit.action_reserve()
+
+    def test_release_then_market_then_hold_then_reserve(self):
+        unit = self._unit("S2", "draft")
+        unit.sudo().action_release()
+        self.assertEqual(unit.state, "available")
+        unit.action_market()
+        self.assertEqual(unit.state, "under_marketing")
+        unit.action_hold()
+        self.assertEqual(unit.state, "viewing_hold")
+        unit.action_reserve()
+        self.assertEqual(unit.state, "reserved")
+
+    def test_a_handed_back_unit_is_not_available_until_turnaround(self):
+        """BRD §3.2 separates Vacant from Available. A unit straight out of a
+        tenancy is not re-lettable until the turnaround is done."""
+        unit = self._unit("S3", "vacant")
+        with self.assertRaises(UserError):
+            unit.action_market()
+        unit.action_turnaround_complete()
+        self.assertEqual(unit.state, "available")
+
+    def test_unblocking_returns_the_unit_to_the_state_it_left(self):
+        """Not to Available. An occupied unit blocked for maintenance is still
+        occupied when the work finishes."""
+        unit = self._unit("S4", "occupied")
+        unit.action_block()
+        self.assertEqual(unit.state, "blocked")
+        unit.action_unblock()
+        self.assertEqual(unit.state, "occupied")
+
+    def test_unblocking_an_available_unit_stays_available(self):
+        unit = self._unit("S5", "available")
+        unit.action_block()
+        unit.action_unblock()
+        self.assertEqual(unit.state, "available")
+
     def test_a_blocked_occupied_unit_cannot_be_double_let_after_unblocking(self):
         """The defect this guards: if unblocking returned the unit to
         Available, the activation guard - which reads unit state - would let a
@@ -601,10 +627,33 @@ class TestLeaseStates(TransactionCase):
         super().setUpClass()
         cls.landlord = cls.env["res.partner"].create({"name": "LS Landlord"})
         cls.tenant = cls.env["res.partner"].create({"name": "LS Tenant"})
-        cls.building = cls.env["c2p.building"].create({"name": "LS Tower", "code": "LST", "owner_id": cls.landlord.id})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
+        cls.building = cls.env["c2p.building"].create(
+            {
+                "name": "LS Tower",
+                "code": "LST",
+                "owner_id": cls.landlord.id,
+                # BR-018 refuses release without an analytic account.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "LS Tower", "plan_id": plan.id})
+                .id,
+            }
+        )
 
     def _lease(self, unit_name):
-        unit = self.env["c2p.unit"].create({"name": unit_name, "building_id": self.building.id})
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": unit_name,
+                "building_id": self.building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 100000.0,
+                "dewa_no": f"25{abs(hash(unit_name)) % 100000:05d}",
+            }
+        )
+        # BR-018: a lease cannot be activated on a unit never released.
+        unit.sudo().action_release()
         return self.env["c2p.lease"].create(
             {
                 "unit_id": unit.id,
