@@ -28,18 +28,35 @@ LANDLORDS = [
     ("Horizon Gulf Investments LLC", 2),
 ]
 # code, name, community, landlord index, head-lease cost as a share of market
-# rent, floors, units/floor, commercial ground floor.
+# rent, floors, units/floor, commercial ground floor, operating model, the
+# name rent is collected in.
 #
 # The cost share is what decides whether a deal works. DEI is deliberately
 # underwritten too keenly, so the portfolio has one building below cost and the
 # dashboard has something real to flag.
+#
+# BRD §4.1.2 gives three operating models and the portfolio has to carry all
+# three. A seed where every building is head-leased demonstrates a third of the
+# business and, worse, lets the head-lease assumption look correct: the margin
+# defect that BR-019 fixed was invisible precisely because there was no
+# owner-managed building to contradict it.
+#
+#   JLT  Owner Management - the landlord keeps the tenant rent and we earn a
+#        fee, so the cheques are the landlord's money passing through our hands.
+#   MRN  Brokerage - listing stock under the broker licence. No head lease, no
+#        tenancies of ours, and no margin of its own.
+#   WRQ  Head Lease, but collected in the landlord's name. BRD §4.2.2 derives
+#        the payee from the operating model AND the contract authority, and
+#        this is the case that separates the two: we may sign the tenancy, but
+#        the rent is still not ours.
 BUILDINGS = [
-    ("MKH", "Al Mankhool Residence", "Al Mankhool", 0, 0.72, 5, 4, False),
-    ("KRM", "Karama Court", "Al Karama", 1, 0.75, 4, 4, False),
-    ("WRQ", "Warqa Gardens", "Al Warqa", 1, 0.70, 4, 4, True),
-    ("JLT", "Lake Point Tower", "Jumeirah Lakes Towers", 2, 0.78, 5, 4, True),
-    ("DSL", "Silicon Heights", "Dubai Silicon Oasis", 2, 0.74, 4, 4, False),
-    ("DEI", "Deira Pearl", "Deira", 0, 0.92, 3, 4, True),
+    ("MKH", "Al Mankhool Residence", "Al Mankhool", 0, 0.72, 5, 4, False, "head_lease", "manager"),
+    ("KRM", "Karama Court", "Al Karama", 1, 0.75, 4, 4, False, "head_lease", "manager"),
+    ("WRQ", "Warqa Gardens", "Al Warqa", 1, 0.70, 4, 4, True, "head_lease", "owner"),
+    ("JLT", "Lake Point Tower", "Jumeirah Lakes Towers", 2, 0.78, 5, 4, True, "owner_management", "owner"),
+    ("DSL", "Silicon Heights", "Dubai Silicon Oasis", 2, 0.74, 4, 4, False, "head_lease", "manager"),
+    ("DEI", "Deira Pearl", "Deira", 0, 0.92, 3, 4, True, "head_lease", "manager"),
+    ("MRN", "Marina Vista", "Dubai Marina", 2, 0.00, 4, 4, False, "brokerage", "manager"),
 ]
 SLOT_TYPE = {1: "studio", 2: "1br", 3: "2br", 4: "3br"}
 BAND = {
@@ -135,6 +152,7 @@ COUNTERS = (
     "head_leases",
     "cheques",
     "landlord_cheques",
+    "replacements",
     "invoices",
     "facilities",
 )
@@ -190,6 +208,26 @@ class SamplePortfolio(models.AbstractModel):
         tag = self.env["res.partner.category"].search([("name", "=", "Tenant")], limit=1)
         return tag or self.env["res.partner.category"].create({"name": "Tenant"})
 
+    def _landlord_bank(self, partner):
+        """The landlord's own account, reused rather than recreated.
+
+        BR-116 asks owner funds to record the account they were banked into,
+        and the constraint on that field insists the account belongs to the
+        payee. A landlord has one account; creating a second with a generated
+        number trips res_partner_bank_unique_number the moment two buildings
+        share an owner, which this portfolio does by design.
+        """
+        Bank = self.env["res.partner.bank"]
+        existing = Bank.search([("partner_id", "=", partner.id)], limit=1)
+        if existing:
+            return existing
+        return Bank.create(
+            {
+                "acc_number": f"AE07 0331 {abs(hash(partner.name)) % 10**12:012d}",
+                "partner_id": partner.id,
+            }
+        )
+
     def _analytic_plan(self):
         """The plan every building's analytic account hangs from.
 
@@ -203,7 +241,7 @@ class SamplePortfolio(models.AbstractModel):
     def _buildings(self, landlords, created):
         buildings = {}
         plan = self._analytic_plan()
-        for code, name, community, owner_i, _cost_share, *_ in BUILDINGS:
+        for code, name, community, owner_i, _cost_share, _f, _pf, _comm, model, _collect in BUILDINGS:
             building = self.env["c2p.building"].search([("code", "=", code)], limit=1)
             if not building:
                 building = self.env["c2p.building"].create(
@@ -211,6 +249,10 @@ class SamplePortfolio(models.AbstractModel):
                         "name": name,
                         "code": code,
                         "community": community,
+                        # BR-019. Set at creation, never defaulted: the operating
+                        # model decides whose money the tenant rent is, and every
+                        # margin and coverage figure reads from it.
+                        "operating_model": model,
                         # BR-021. A head lease cannot be activated over a
                         # building with no municipality reference (BR-027), so
                         # the seed carries them: demo data that cannot complete
@@ -243,7 +285,7 @@ class SamplePortfolio(models.AbstractModel):
     def _units_and_leases(self, buildings, tag, rng, created):
         today = fields.Date.context_today(self)
         tenant_i = 0
-        for code, _name, _community, _owner, _cost_share, floors, per_floor, commercial in BUILDINGS:
+        for code, _name, _community, _owner, _cost_share, floors, per_floor, commercial, model, _collect in BUILDINGS:
             building = buildings[code]
             for floor in range(1, floors + 1):
                 for slot in range(1, per_floor + 1):
@@ -259,6 +301,12 @@ class SamplePortfolio(models.AbstractModel):
                     # hands the vacancy check a different number.
                     unit = self._unit(building, name, unit_type, self._rng("unit", name), created)
 
+                    # A brokerage building is listing stock under the broker
+                    # licence. We sell and let it for the owner; we do not hold
+                    # the tenancies, so it carries units and no leases of ours.
+                    if model == "brokerage":
+                        tenant_i += 1
+                        continue
                     if self._rng("vacancy", name).random() < VACANCY_RATE:
                         tenant_i += 1
                         continue
@@ -351,32 +399,38 @@ class SamplePortfolio(models.AbstractModel):
         today = fields.Date.context_today(self)
         start = today.replace(month=1, day=1)
         HeadLease = self.env["c2p.head.lease"]
-        for code, _name, _community, _owner, cost_share, *_ in BUILDINGS:
+        for code, _name, _community, _owner, cost_share, _f, _pf, _comm, model, collect in BUILDINGS:
             building = buildings[code]
+            # BR-019. A head lease on an owner-managed or brokerage building is
+            # a contradiction the model refuses outright, so the seed must not
+            # offer one. Underwriting is what head leasing means.
+            if model != "head_lease":
+                continue
             if HeadLease.search_count([("building_id", "=", building.id), ("state", "=", "active")]):
                 continue
             potential = building.potential_rent
             if not potential:
                 continue
+            annual = round(potential * cost_share, -3)
+            # BR-027. The activation gate requires an amount payable, so a head
+            # lease priced at nothing cannot be activated and would abort the
+            # whole load. A building carrying no head-lease cost is not
+            # underwritten, whatever anyone later sets its operating model to.
+            if not annual:
+                _logger.info("c2p.sample.portfolio: %s has no head-lease cost, skipping", code)
+                continue
             # BR-027. Every field the activation gate requires, because a
             # seeded head lease that cannot be activated is a demo that stops
             # at its first screen. These are the terms a real agreement would
             # carry, not placeholders to satisfy a check.
-            bank = self.env["res.partner.bank"].search(
-                [("partner_id", "=", building.owner_id.id)], limit=1
-            ) or self.env["res.partner.bank"].create(
-                {
-                    "acc_number": f"AE07 0331 {abs(hash(code)) % 10**12:012d}",
-                    "partner_id": building.owner_id.id,
-                }
-            )
+            bank = self._landlord_bank(building.owner_id)
             lease = HeadLease.create(
                 {
                     "building_id": building.id,
                     "landlord_id": building.owner_id.id,
                     "date_start": start,
                     "date_end": start + relativedelta(years=1, days=-1),
-                    "annual_amount": round(potential * cost_share, -3),
+                    "annual_amount": annual,
                     "cheque_count": "4",
                     "security_deposit": round(potential * cost_share * 0.05, -2),
                     "ejari_no": f"HL-{building.code}-{start.year}",
@@ -387,7 +441,10 @@ class SamplePortfolio(models.AbstractModel):
                     "insurance_expiry": start + relativedelta(years=1),
                     "sublease_permitted": True,
                     "contracting_party": "manager",
-                    "collection_party": "manager",
+                    # BR-022. WRQ collects in the landlord's name even though we
+                    # sign the tenancies, which is the half of BRD §4.2.2 that
+                    # the operating model alone does not express.
+                    "collection_party": collect,
                     "free_period_days": 30,
                     "escalation_pct": 5.0,
                 }
@@ -486,34 +543,125 @@ class SamplePortfolio(models.AbstractModel):
                 continue
             count = int(lease.cheque_count)
             step = max(1, 12 // count)
+            drawer = self._drawer(lease, self._rng("drawer", lease.id))
+            bounced = Payment.browse()
             for i in range(count):
                 maturity = lease.date_start + relativedelta(months=step * i)
                 if maturity > lease.date_end:
                     break
-                if maturity < today:
-                    state = "bounced" if rng.random() < 0.08 else "cleared"
-                elif (maturity - today).days <= 30:
-                    state = "deposited"
-                else:
-                    state = "held"
-                Payment.create(
-                    {
-                        "partner_id": lease.tenant_id.id,
-                        "partner_type": "customer",
-                        "payment_type": "inbound",
-                        "amount": lease.instalment_amount,
-                        "date": maturity,
-                        "journal_id": journal.id,
-                        "payment_method_line_id": method_line.id,
-                        "company_id": company.id,
-                        "lease_id": lease.id,
-                        "cheque_no": str(rng.randint(300000, 799999)),
-                        "cheque_bank": rng.choice(BANKS),
-                        "maturity_date": maturity,
-                        "pdc_state": state,
-                    }
-                )
+                state = self._cheque_state(maturity, today, rng)
+                vals = {
+                    "partner_id": lease.tenant_id.id,
+                    "partner_type": "customer",
+                    "payment_type": "inbound",
+                    "amount": lease.instalment_amount,
+                    "date": maturity,
+                    "journal_id": journal.id,
+                    "payment_method_line_id": method_line.id,
+                    "company_id": company.id,
+                    "lease_id": lease.id,
+                    # BR-114. An Expected instrument is one the schedule says is
+                    # due and nobody has handed over, so it has no number yet.
+                    # That is the whole distinction from In Hand, and giving it
+                    # a number would erase it.
+                    "cheque_no": False if state == "expected" else str(rng.randint(300000, 799999)),
+                    "cheque_bank": False if state == "expected" else rng.choice(BANKS),
+                    "maturity_date": maturity,
+                    "pdc_state": state,
+                }
+                if drawer:
+                    vals["drawer_partner_id"] = drawer.id
+                if state == "bounced":
+                    vals["bounce_reason"] = rng.choice(
+                        ["Insufficient funds", "Account closed", "Signature differs", "Payment stopped"]
+                    )
+                    vals["bounce_charge"] = rng.choice([50.0, 75.0, 100.0])
+                payment = Payment.create(vals)
+                # BR-116. Owner funds that have cleared record the landlord
+                # account they were banked into. Without it the register cannot
+                # tell money held for a landlord from money this company banked
+                # for itself, which is the confusion BRD §6.1 exists to prevent.
+                if payment.is_owner_funds and state == "cleared" and payment.payee_partner_id:
+                    payment.owner_deposit_bank_id = self._landlord_bank(payment.payee_partner_id)
                 created["cheques"] += 1
+                if state == "bounced":
+                    bounced |= payment
+            self._replace_bounced(bounced, journal, method_line, company, today, rng, created)
+
+    @staticmethod
+    def _cheque_state(maturity, today, rng):
+        """BR-114. Seven states exist and a seed that only ever produces four
+        teaches the register wrong.
+
+        Cancelled and Expected are the two the old seed never reached, and they
+        are the two that carry the most meaning: a cancelled instrument was
+        withdrawn before it was ever banked, and an expected one is a collection
+        problem rather than a data-entry one.
+        """
+        if maturity < today:
+            draw = rng.random()
+            if draw < 0.08:
+                return "bounced"
+            if draw < 0.11:
+                return "cancelled"
+            return "cleared"
+        if (maturity - today).days <= 30:
+            return "deposited"
+        if rng.random() < 0.06:
+            return "expected"
+        return "held"
+
+    def _drawer(self, lease, rng):
+        """BR-047. Sometimes the person who signs the cheque is not the tenant.
+
+        The receivable stays against the tenant whatever happens - somebody else
+        paying does not move the obligation. What changes is who the bank chases
+        if the instrument is returned, and a portfolio where drawer and tenant
+        are always the same partner never exercises that distinction.
+        """
+        if lease.tenant_id.is_company or rng.random() >= 0.12:
+            return None
+        name = rng.choice(COMPANIES) + " (Employer)"
+        partner = self.env["res.partner"].search([("name", "=", name)], limit=1)
+        return partner or self.env["res.partner"].create({"name": name, "is_company": True, "city": "Dubai"})
+
+    def _replace_bounced(self, bounced, journal, method_line, company, today, rng, created):
+        """BR-117. A bounce is closed by the instrument that makes it good.
+
+        About half are made good and half are left outstanding, because a
+        register where every bounce has been replaced shows nothing to chase and
+        one where none has shows a company that never collects.
+        """
+        Payment = self.env["account.payment"]
+        for original in bounced:
+            if self._rng("replace", original.id).random() < 0.5:
+                continue
+            maturity = original.maturity_date + relativedelta(months=1)
+            replacement = Payment.create(
+                {
+                    "partner_id": original.partner_id.id,
+                    "partner_type": "customer",
+                    "payment_type": "inbound",
+                    "amount": original.amount,
+                    "date": maturity,
+                    "journal_id": journal.id,
+                    "payment_method_line_id": method_line.id,
+                    "company_id": company.id,
+                    "lease_id": original.lease_id.id,
+                    "drawer_partner_id": original.drawer_partner_id.id or False,
+                    "cheque_no": str(rng.randint(800000, 899999)),
+                    "cheque_bank": original.cheque_bank,
+                    "maturity_date": maturity,
+                    "pdc_state": "cleared" if maturity < today else "held",
+                }
+            )
+            if replacement.is_owner_funds and replacement.pdc_state == "cleared" and replacement.payee_partner_id:
+                replacement.owner_deposit_bank_id = self._landlord_bank(replacement.payee_partner_id)
+            # Moves the original to Replaced, so the bounce register shows what
+            # is still outstanding rather than every bounce that ever happened.
+            original.action_link_replacement(replacement)
+            created["cheques"] += 1
+            created["replacements"] += 1
 
     def _invoices(self, created):
         """Posted invoices so the income KPIs report something other than zero."""
