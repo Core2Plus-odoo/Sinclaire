@@ -7,13 +7,29 @@ stand*. This file is *how to work here*.
 ## What this is
 
 Odoo 19 Enterprise property-management modules for **New Sinclair Property
-Management LLC**, built by C2P Consultants. Three addons:
+Management LLC**, built by C2P Consultants. Four addons, in three layers:
 
-| Module | Version | What it is |
+| Module | Layer | What it is |
 | --- | --- | --- |
-| `sinclaire_base` | 19.0.1.0.0 | Company branding and shared config |
-| `c2p_property_lease` | 19.0.1.7.1 | Buildings, units, tenancies, head leases, cheque register, bank facilities |
-| `c2p_ceo_command_center` | 19.0.1.3.0 | Leadership dashboard over the above |
+| `sinclaire_base` | 1 | Company branding, shared config, and the `sin-*` design tokens and components |
+| `c2p_property_lease` | 2 | Buildings, units, tenancies, head leases, cheque register, bank facilities |
+| `c2p_ceo_command_center` | 2 | Leadership dashboard over the above |
+| `sinclaire_workspace` | 3 | Role-aware workspaces and the 360 screens — presentation only |
+
+Versions are in the manifests; this table deliberately does not repeat them,
+because a version typed in two places is the defect described below.
+
+**The layering is a contract term, not a preference.** `c2p_property_lease` is
+the supplier's work under OPL-1; `sinclaire_workspace` is client development
+under LGPL-3. So business rules go in layer 2 and *only* presentation plus
+derived display fields go in layer 3. A rule that creeps into the workspace
+module is a licensing problem as well as an architectural one.
+
+New screens follow the existing 360s: **inherit the form view** and add
+derived fields, with the `sin-*` components from `sinclaire_base`. Do not reach
+for an OWL client action — one was written for Tenant 360 and thrown away,
+because a bespoke component re-implements what a form view already does and
+drops every field the underlying module adds later.
 
 The **BRD is the contract.** Requirements are catalogued in
 `docs/requirement_response_matrix.md` as `BR-001`…`BR-186`; reports in
@@ -52,13 +68,15 @@ policy, **do not guess it** — log it in `docs/decisions_required.md` as an
 ```bash
 ruff check . && ruff format --check .
 python tools/validate_manifests.py
+python tools/check_test_hygiene.py
+python tools/check_contrast.py
 python tools/check_version_bumps.py
 python tools/check_requirement_matrix.py
 python tools/gen_data_dictionary.py --check
 python -m unittest discover -s tools/tests
 ```
 
-All six run in CI (`.github/workflows/ci.yml`). The Odoo tests
+All eight run in CI (`.github/workflows/ci.yml`). The Odoo tests
 (`.github/workflows/odoo-tests.yml`) install the addons into a real database
 and are the **only** gate that catches an install failure — there is no Odoo in
 the dev container, so CI is the first execution of any Odoo test you write.
@@ -88,10 +106,18 @@ Say so when you report, rather than implying you ran them.
 ## The recurring defect in this codebase
 
 **Two structures that must agree about a set of values, with nothing asserting
-that they do.** It has caused five separate defects here: a cheque-schedule map
+that they do.** It has caused six separate defects here: a cheque-schedule map
 that never gained the 3-cheque option; a summary dict built from a hand-written
 key tuple; a state group that drifted from the state selection; counts typed
-into a markdown table; a months-per-instalment map duplicated in a wizard.
+into a markdown table; a months-per-instalment map duplicated in a wizard; and
+the renewal-alert bands, which existed as a literal `(90, 60, 30)` inside the
+cron while a second screen decided separately what "expiring soon" meant.
+
+The wizard's map is worth dwelling on, because it was fixed on a branch and the
+defect still reached `main` from a different direction. Two people removing the
+same duplication independently is not redundant work — whichever copy survives
+is the one that drifts next. The fix is never "delete the copy"; it is *delete
+the copy and add the test that fails if one comes back.*
 
 So: **derive, don't type.** One constant, one place, and a test that walks the
 whole set. `tools/check_requirement_matrix.py` and

@@ -1,0 +1,418 @@
+// Sinclaire reusable components (Phase 1).
+//
+// Every value here is a token from _tokens.scss. No literal colour, no
+// off-grid spacing: that is what keeps a design system a system rather than
+// a folder of similar-looking screens.
+//
+// Scoped under .sin- so nothing here can reach Odoo's own web client by
+// accident. This is a layer over standard Odoo, not a replacement for it.
+
+// ---------------------------------------------------------------- surfaces
+.sin-card {
+    background: var(--sin-surface);
+    border: 1px solid var(--sin-border);
+    border-radius: var(--sin-radius);
+    box-shadow: var(--sin-shadow);
+    padding: var(--sin-space-4);
+}
+
+.sin-card--flush {
+    padding: 0;
+}
+
+// A card that is also a link to somewhere. Only this and real controls get
+// hover movement; a static card staying still is what makes the moving one
+// read as clickable.
+.sin-card--actionable {
+    cursor: pointer;
+    transition:
+        box-shadow var(--sin-transition),
+        border-color var(--sin-transition);
+
+    &:hover,
+    &:focus-visible {
+        border-color: var(--sin-border-control);
+        box-shadow: var(--sin-shadow-lg);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--sin-blue);
+        outline-offset: 2px;
+    }
+}
+
+.sin-section-title {
+    color: var(--sin-text);
+    font-size: var(--sin-text-lg);
+    font-weight: var(--sin-weight-semibold);
+    margin: 0 0 var(--sin-space-3);
+}
+
+.sin-label {
+    color: var(--sin-text-muted-text);
+    font-size: var(--sin-text-xs);
+    font-weight: var(--sin-weight-medium);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+// ------------------------------------------------------------------ KPI card
+.sin-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sin-space-1);
+}
+
+.sin-kpi__label {
+    @extend .sin-label;
+}
+
+.sin-kpi__value {
+    color: var(--sin-text);
+    font-size: var(--sin-text-3xl);
+    font-weight: var(--sin-weight-semibold);
+    // Tabular figures so a column of numbers lines up and a changing value
+    // does not make the card twitch.
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+
+// The brand colours are legible at this size (3:1 is the bar above 24px),
+// which is the one place they may carry text.
+.sin-kpi__value--ok {
+    color: var(--sin-emerald);
+}
+.sin-kpi__value--warn {
+    color: var(--sin-amber-text);
+}
+.sin-kpi__value--critical {
+    color: var(--sin-red);
+}
+
+.sin-kpi__meta {
+    color: var(--sin-text-muted-text);
+    font-size: var(--sin-text-sm);
+}
+
+// The period a figure covers, which the design brief requires every KPI to
+// state. Styled rather than optional, so it is awkward to leave out.
+.sin-kpi__period {
+    color: var(--sin-text-muted-text);
+    font-size: var(--sin-text-xs);
+}
+
+// --------------------------------------------------------------- status pill
+// Colour is never the only signal: each modifier also carries a glyph
+// through ::before, because roughly one man in twelve cannot separate the
+// red from the emerald.
+.sin-status {
+    align-items: center;
+    border-radius: var(--sin-radius-sm);
+    color: var(--sin-text);
+    display: inline-flex;
+    font-size: var(--sin-text-sm);
+    font-weight: var(--sin-weight-medium);
+    gap: var(--sin-space-1);
+    padding: var(--sin-space-1) var(--sin-space-2);
+    white-space: nowrap;
+
+    &::before {
+        font-weight: var(--sin-weight-semibold);
+    }
+}
+
+.sin-status--ok {
+    background: var(--sin-ok-fill);
+    &::before {
+        content: "✓";
+    }
+}
+
+.sin-status--warn {
+    background: var(--sin-warn-fill);
+    &::before {
+        content: "!";
+    }
+}
+
+.sin-status--critical {
+    background: var(--sin-critical-fill);
+    &::before {
+        content: "✕";
+    }
+}
+
+.sin-status--info {
+    background: var(--sin-info-fill);
+    &::before {
+        content: "i";
+    }
+}
+
+.sin-status--neutral {
+    background: var(--sin-neutral-fill);
+    &::before {
+        content: "–";
+    }
+}
+
+// ------------------------------------------------------------- building card
+// A grid of these must read as a row, not as three cards that happen to be
+// adjacent. So the card fills the grid cell, the content column stretches,
+// and the "next action" line is pushed to the bottom - which puts it on the
+// same baseline across every card however long the names above it run.
+.sin-building {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--sin-space-3);
+}
+
+.sin-building__head {
+    align-items: flex-start;
+    display: flex;
+    gap: var(--sin-space-2);
+    justify-content: space-between;
+}
+
+// min-width: 0 lets a long building name wrap inside its own column instead
+// of forcing the card wider and shoving the model pill onto a second line.
+.sin-building__identity {
+    flex: 1;
+    min-width: 0;
+}
+
+.sin-building__name {
+    color: var(--sin-text);
+    font-size: var(--sin-text-lg);
+    font-weight: var(--sin-weight-semibold);
+    line-height: 1.3;
+    margin: 0;
+    // Two lines are reserved whether or not the name needs them. Real
+    // portfolios mix "Barsha Point" with "Jumeirah Gardens Residences", and
+    // without this the longer name pushes its card's figures a line below
+    // its neighbours', so a row of cards reads as misaligned rather than as
+    // a row. The cost is a little white space under short names, which is
+    // cheaper than ragged numbers.
+    min-height: calc(var(--sin-text-lg) * 1.3 * 2);
+}
+
+.sin-building__location {
+    color: var(--sin-text-muted-text);
+    font-size: var(--sin-text-sm);
+}
+
+// The operating model decides whose money the rent is, so it is on the face
+// of the card rather than a field inside. Every figure below it means
+// something different depending on this one word.
+.sin-building__model {
+    border-radius: var(--sin-radius-sm);
+    flex-shrink: 0;
+    font-size: var(--sin-text-xs);
+    font-weight: var(--sin-weight-medium);
+    letter-spacing: 0.03em;
+    padding: var(--sin-space-1) var(--sin-space-2);
+    text-transform: uppercase;
+    // "Owner Management" is two words and must stay on one line: wrapped
+    // across two it reads as a heading rather than a tag.
+    white-space: nowrap;
+}
+
+.sin-building__model--head-lease {
+    background: var(--sin-info-fill);
+    color: var(--sin-text);
+}
+
+.sin-building__model--owner-management {
+    background: var(--sin-warn-fill);
+    color: var(--sin-text);
+}
+
+.sin-building__model--brokerage {
+    background: var(--sin-neutral-fill);
+    color: var(--sin-text);
+}
+
+// Not three equal columns. A unit count is two characters and a money figure
+// is "AED −144k"; splitting the width evenly makes the short ones roomy and
+// wraps the long one onto a second line, which drops that card's labels out
+// of line with its neighbours'. So the counts size to their content and the
+// money figure takes what is left.
+.sin-building__stats {
+    display: grid;
+    gap: var(--sin-space-3);
+    grid-template-columns: auto auto 1fr;
+}
+
+.sin-building__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sin-building__stat-value {
+    color: var(--sin-text);
+    font-size: var(--sin-text-xl);
+    font-weight: var(--sin-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    // A figure that wraps mid-amount is unreadable, and it shifts every label
+    // beneath it. The card figure is abbreviated precisely so it fits on one
+    // line; this makes that a guarantee rather than a hope.
+    white-space: nowrap;
+}
+
+.sin-building__stat-label {
+    @extend .sin-label;
+}
+
+// What to do next, which the brief asks every card to answer.
+.sin-building__next {
+    border-top: 1px solid var(--sin-border);
+    color: var(--sin-text-muted-text);
+    font-size: var(--sin-text-sm);
+    // Pushed to the bottom so it lands on one baseline across the row.
+    margin-top: auto;
+    padding-top: var(--sin-space-3);
+}
+
+// ------------------------------------------------------------- occupancy bar
+.sin-meter {
+    background: var(--sin-neutral-fill);
+    border-radius: var(--sin-radius-sm);
+    height: 6px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.sin-meter__fill {
+    background: var(--sin-emerald);
+    border-radius: var(--sin-radius-sm);
+    height: 100%;
+    transition: width var(--sin-transition);
+}
+
+.sin-meter__fill--warn {
+    background: var(--sin-amber);
+}
+.sin-meter__fill--critical {
+    background: var(--sin-red);
+}
+
+// --------------------------------------------------------------- empty state
+// Guidance, not an apology. An empty screen is a chance to say what the
+// screen is for and what the first action is.
+.sin-empty {
+    align-items: center;
+    color: var(--sin-text-muted-text);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sin-space-2);
+    padding: var(--sin-space-6) var(--sin-space-4);
+    text-align: center;
+}
+
+.sin-empty__title {
+    color: var(--sin-text);
+    font-size: var(--sin-text-lg);
+    font-weight: var(--sin-weight-semibold);
+}
+
+.sin-empty__body {
+    font-size: var(--sin-text-base);
+    max-width: 46ch;
+}
+
+// ------------------------------------------------------------ blocked notice
+// Why an action is unavailable, in plain language. The brief asks that a
+// blocked action explain itself rather than simply being greyed out, and
+// the unit release rules already produce exactly this list of reasons.
+.sin-blocked {
+    background: var(--sin-warn-fill);
+    border-left: 3px solid var(--sin-amber);
+    border-radius: var(--sin-radius-sm);
+    color: var(--sin-text);
+    font-size: var(--sin-text-sm);
+    padding: var(--sin-space-3);
+}
+
+.sin-blocked__title {
+    font-weight: var(--sin-weight-semibold);
+    margin-bottom: var(--sin-space-1);
+
+    &::before {
+        content: "! ";
+    }
+}
+
+// The same notice when nothing is blocking. Worth saying here, unlike on a
+// portfolio card: somebody on this screen is about to act, and "ready" is
+// the answer to the question they came with. On a card in a grid of twenty
+// it would just be noise.
+.sin-blocked--ready {
+    background: var(--sin-ok-fill);
+    border-left-color: var(--sin-emerald);
+
+    .sin-blocked__title {
+        margin-bottom: 0;
+
+        &::before {
+            content: "✓ ";
+        }
+    }
+}
+
+.sin-blocked__list {
+    margin: 0;
+    padding-left: var(--sin-space-4);
+}
+
+// ------------------------------------------------------------------- layout
+.sin-grid {
+    display: grid;
+    gap: var(--sin-space-4);
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+// Cards in a grid stretch to the tallest in their row, so a row reads as a
+// row. Without this each card is only as tall as its own content and the
+// bottom edges come out ragged.
+.sin-grid > .sin-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.sin-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sin-space-4);
+}
+
+.sin-row {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sin-space-3);
+}
+
+// Phone width. The brief asks for representative desktop, tablet and mobile,
+// and a KPI at 36px is the first thing that overflows a narrow column.
+@media (max-width: 575px) {
+    .sin-kpi__value {
+        font-size: var(--sin-text-2xl);
+    }
+
+    .sin-building__head {
+        flex-direction: column;
+    }
+
+    // One column per stat at phone width: three abbreviated figures side by
+    // side in 358px is how a card starts eliding its own numbers.
+    .sin-building__stats {
+        gap: var(--sin-space-2);
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .sin-grid {
+        grid-template-columns: 1fr;
+    }
+}

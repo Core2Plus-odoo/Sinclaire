@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from dateutil.relativedelta import relativedelta
 from psycopg2 import IntegrityError
 
 from odoo import fields
@@ -7,7 +8,6 @@ from odoo.exceptions import UserError
 from odoo.exceptions import ValidationError
 from odoo.tests import tagged
 from odoo.tests.common import TransactionCase
-from odoo.tests.common import new_test_user
 from odoo.tools import mute_logger
 
 
@@ -19,26 +19,41 @@ class TestLease(TransactionCase):
         cls.company = cls.env.company
         cls.landlord = cls.env["res.partner"].create({"name": "Test Landlord"})
         cls.tenant = cls.env["res.partner"].create({"name": "Test Tenant"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
         cls.building = cls.env["c2p.building"].create(
             {
                 "name": "Test Tower",
                 "code": "TST",
                 "owner_id": cls.landlord.id,
+                # BR-018 refuses to release a unit whose building has no
+                # analytic account, so the fixture building carries one.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "Test Tower", "plan_id": plan.id})
+                .id,
             }
         )
-        cls.unit = cls.env["c2p.unit"].create(
-            {
-                "name": "TST-101",
-                "building_id": cls.building.id,
-                "unit_type": "1br",
-            }
-        )
-        cls.approver = new_test_user(
-            cls.env,
-            login="c2p_tl_approver",
-            groups="c2p_property_lease.group_property_manager",
-            name="Lease Test Approver",
-        )
+        cls.unit = cls._lettable_unit("TST-101")
+
+    @classmethod
+    def _lettable_unit(self, name, **kw):
+        """A unit created and released, which is where most of these tests start.
+
+        BR-018 holds a new unit in Draft until its mandatory data is in, so a
+        test that wants a lettable unit has to supply that data and release it.
+        """
+        vals = {
+            "name": name,
+            "building_id": self.building.id,
+            "unit_type": "1br",
+            "floor": "1",
+            "area_sqft": 900.0,
+            "market_rent": 95000.0,
+            "dewa_no": "2000001",
+        }
+        vals.update(kw)
+        unit = self.env["c2p.unit"].create(vals)
+        unit.sudo().action_release()
+        return unit
 
     def _lease(self, **kw):
         vals = {
@@ -52,16 +67,38 @@ class TestLease(TransactionCase):
         vals.update(kw)
         return self.env["c2p.lease"].create(vals)
 
+    def _exception_approver(self):
+        """A property manager who is not the requester.
+
+        Both halves matter: BRD §5.1 reserves the decision to a manager and
+        §8.4 forbids approving your own request. A fixture that satisfied only
+        one of them would pass here and prove nothing about the other.
+        """
+        user = self.env["res.users"].search([("login", "=", "fixture_exception_approver")], limit=1)
+        if not user:
+            user = self.env["res.users"].create(
+                {
+                    "name": "Fixture Exception Approver",
+                    "login": "fixture_exception_approver",
+                    "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_manager").id)],
+                }
+            )
+        return user
+
     def _activate(self, lease):
         """Activate a lease that has no cheques.
 
         BR-075 refuses that outright, so these tests - which are about other
         things - grant the approved exception BRD §5.1 requires and then use
-        the ordinary action, so the state guards under test still run. The
-        approval's own rules are tested in test_cheque_exception.py, which is
-        why the state is set directly here rather than through action_approve.
+        the ordinary action, so the state guards under test still run.
+
+        This used to write state="approved" directly, which was the same
+        bypass that made the approval control defeatable in the product: the
+        fixture was quietly exercising the hole rather than the rule. It now
+        approves the way a person has to, through action_approve as a manager
+        who is not the requester.
         """
-        exception = self.env["c2p.lease.cheque.exception"].create(
+        self.env["c2p.lease.cheque.exception"].create(
             {
                 "lease_id": lease.id,
                 "reason": "Test fixture",
@@ -69,12 +106,7 @@ class TestLease(TransactionCase):
                 "deadline": fields.Date.context_today(self.env.user) + timedelta(days=7),
                 "responsible_user_id": self.env.uid,
             }
-        )
-        # Through the real action, as a real manager. The approval rules hold on
-        # every write path now, so a fixture cannot stamp the state itself - and
-        # the test user these run as is not in the manager group, because
-        # has_group is a genuine membership check even for the superuser.
-        exception.with_user(self.approver).action_approve()
+        ).with_user(self._exception_approver()).action_approve()
         lease.action_activate()
         return lease
 
@@ -251,6 +283,184 @@ class TestLease(TransactionCase):
         self.assertEqual(order.c2p_lease_id, lease)
         self.assertEqual(order.order_line.price_unit, lease.instalment_amount)
 
+    # ------------------------------------------------------------- BR-018
+    # Units are released for letting only once the data a lease depends on is
+    # present, and only by a Leasing Manager.
+
+    def test_a_new_unit_starts_in_draft(self):
+        unit = self.env["c2p.unit"].create({"name": "R1", "building_id": self.building.id})
+        self.assertEqual(unit.state, "draft")
+
+    def test_an_incomplete_unit_cannot_be_released(self):
+        unit = self.env["c2p.unit"].create({"name": "R2", "building_id": self.building.id})
+        with self.assertRaises(UserError):
+            unit.sudo().action_release()
+        self.assertEqual(unit.state, "draft")
+
+    def test_the_refusal_names_every_missing_field_at_once(self):
+        unit = self.env["c2p.unit"].create({"name": "R3", "building_id": self.building.id})
+        with self.assertRaises(UserError) as caught:
+            unit.sudo().action_release()
+        message = str(caught.exception)
+        for label in ("Floor", "Area", "Market rent", "DEWA"):
+            self.assertIn(label, message)
+
+    def test_a_complete_unit_releases(self):
+        unit = self._lettable_unit("R4")
+        self.assertEqual(unit.state, "available")
+        self.assertFalse(unit.release_blockers)
+        self.assertTrue(unit.is_releasable)
+
+    def test_a_building_without_an_analytic_account_blocks_release(self):
+        """BR-012: rent that cannot be attributed to a building is the defect
+        this prevents."""
+        bare = self.env["c2p.building"].create({"name": "No Analytic", "code": "NAN", "owner_id": self.landlord.id})
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": "N1",
+                "building_id": bare.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 95000.0,
+                "dewa_no": "2000002",
+            }
+        )
+        self.assertIn("Analytic", unit.release_blockers)
+        with self.assertRaises(UserError):
+            unit.sudo().action_release()
+
+    def test_release_is_a_manager_action(self):
+        user = self.env["res.users"].create(
+            {
+                "name": "Leasing Clerk",
+                "login": "clerk_br018",
+                "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_user").id)],
+            }
+        )
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": "R5",
+                "building_id": self.building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 95000.0,
+                "dewa_no": "2000003",
+            }
+        )
+        with self.assertRaises(UserError):
+            unit.with_user(user).action_release()
+
+    def test_a_lease_cannot_be_activated_on_an_unreleased_unit(self):
+        """Without this the release gate is decorative: the lease would put a
+        tenant into a unit whose mandatory data was never checked."""
+        unit = self.env["c2p.unit"].create({"name": "R6", "building_id": self.building.id, "unit_type": "1br"})
+        lease = self._lease(unit_id=unit.id)
+        with self.assertRaises(UserError) as caught:
+            self._activate(lease)
+        self.assertIn("not been released", str(caught.exception))
+
+    # ------------------------------------------------------------- BR-017
+    # Floor rent is the approved minimum, and the override is a manager action.
+
+    def test_a_lease_at_or_above_the_floor_is_fine(self):
+        unit = self._lettable_unit("F1", floor_rent=90000.0)
+        lease = self._lease(unit_id=unit.id, annual_rent=90000.0)
+        self.assertEqual(lease.annual_rent, 90000.0)
+
+    def test_a_lease_below_the_floor_is_refused(self):
+        unit = self._lettable_unit("F2", floor_rent=90000.0)
+        with self.assertRaises(ValidationError) as caught:
+            self._lease(unit_id=unit.id, annual_rent=80000.0)
+        self.assertIn("floor rent", str(caught.exception))
+
+    def test_an_approved_discount_lets_it_through(self):
+        unit = self._lettable_unit("F3", floor_rent=90000.0)
+        lease = self._lease(unit_id=unit.id, annual_rent=80000.0, below_floor_approved=True)
+        self.assertTrue(lease.below_floor_approved)
+
+    def test_a_unit_with_no_floor_rent_is_unconstrained(self):
+        """How units behaved before BR-017, and how they still behave until a
+        floor is approved for them."""
+        unit = self._lettable_unit("F4")
+        lease = self._lease(unit_id=unit.id, annual_rent=1000.0)
+        self.assertEqual(lease.annual_rent, 1000.0)
+
+    def test_the_override_is_a_manager_action(self):
+        user = self.env["res.users"].create(
+            {
+                "name": "Leasing Clerk 2",
+                "login": "clerk_br017",
+                "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_user").id)],
+            }
+        )
+        unit = self._lettable_unit("F5", floor_rent=90000.0)
+        lease = self._lease(unit_id=unit.id, annual_rent=95000.0)
+        with self.assertRaises(UserError):
+            lease.with_user(user).write({"below_floor_approved": True})
+
+    def test_the_three_rate_sets_are_held_separately(self):
+        """A monthly let is not an annual rent over twelve: short lets carry a
+        premium, so the rates are stored, not derived."""
+        unit = self._lettable_unit("F6", market_rent_monthly=9000.0, market_rent_daily=450.0, floor_rent_monthly=8000.0)
+        self.assertEqual(unit.market_rent_monthly, 9000.0)
+        self.assertEqual(unit.market_rent_daily, 450.0)
+        self.assertEqual(unit.floor_rent_monthly, 8000.0)
+        self.assertNotEqual(unit.market_rent_monthly, unit.market_rent / 12.0)
+
+    # ------------------------------------------------------------- BR-016
+    # Units are reconciled against what the building declares.
+
+    def test_a_building_with_nothing_declared_does_not_reconcile(self):
+        """It has nothing to reconcile against. Reporting it as balanced would
+        hide the buildings nobody has filled in."""
+        self.assertFalse(self.building.units_reconciled)
+
+    def test_a_building_reconciles_when_the_counts_agree(self):
+        building = self.env["c2p.building"].create(
+            {
+                "name": "Reconciled Tower",
+                "code": "REC",
+                "owner_id": self.landlord.id,
+                "declared_residential_units": 2,
+                "declared_commercial_units": 0,
+            }
+        )
+        for n in ("1", "2"):
+            self.env["c2p.unit"].create({"name": f"REC-{n}", "building_id": building.id})
+        building.invalidate_recordset()
+        self.assertEqual(building.declared_unit_count, 2)
+        self.assertEqual(building.unit_variance, 0)
+        self.assertTrue(building.units_reconciled)
+
+    def test_a_short_building_reports_a_negative_variance(self):
+        """The import dropped rows. This is the number that says so."""
+        building = self.env["c2p.building"].create(
+            {
+                "name": "Short Tower",
+                "code": "SHT",
+                "owner_id": self.landlord.id,
+                "declared_residential_units": 5,
+            }
+        )
+        self.env["c2p.unit"].create({"name": "SHT-1", "building_id": building.id})
+        building.invalidate_recordset()
+        self.assertEqual(building.unit_variance, -4)
+        self.assertFalse(building.units_reconciled)
+
+    def test_declared_count_is_residential_plus_commercial(self):
+        building = self.env["c2p.building"].create(
+            {
+                "name": "Mixed Tower",
+                "code": "MIX",
+                "owner_id": self.landlord.id,
+                "declared_residential_units": 8,
+                "declared_commercial_units": 3,
+            }
+        )
+        self.assertEqual(building.declared_unit_count, 11)
+
 
 @tagged("post_install", "-at_install")
 class TestChequeSchedules(TransactionCase):
@@ -261,6 +471,47 @@ class TestChequeSchedules(TransactionCase):
     KeyError when the lease is confirmed - which is how the 3-cheque option
     was unusable on the tenant lease while the head lease accepted it.
     """
+
+    def _lease_for_schedule(self, cheque_count):
+        """A lettable unit and a lease on it, for one cheque schedule.
+
+        Built per subtest rather than once: a unit takes one tenancy at a
+        time, so six schedules need six units.
+        """
+        landlord = self.env["res.partner"].create({"name": f"Schedule Landlord {cheque_count}"})
+        plan = self.env["account.analytic.plan"].create({"name": f"Schedule Properties {cheque_count}"})
+        building = self.env["c2p.building"].create(
+            {
+                "name": f"Schedule Tower {cheque_count}",
+                "code": f"SC{cheque_count}",
+                "owner_id": landlord.id,
+                "analytic_account_id": self.env["account.analytic.account"]
+                .create({"name": f"Schedule Tower {cheque_count}", "plan_id": plan.id})
+                .id,
+            }
+        )
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": f"SC{cheque_count}-101",
+                "building_id": building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 120000.0,
+                "dewa_no": f"70{cheque_count:05d}",
+            }
+        )
+        unit.sudo().action_release()
+        return self.env["c2p.lease"].create(
+            {
+                "unit_id": unit.id,
+                "tenant_id": self.env["res.partner"].create({"name": f"Schedule Tenant {cheque_count}"}).id,
+                "date_start": "2026-01-01",
+                "date_end": "2026-12-31",
+                "annual_rent": 120000.0,
+                "cheque_count": str(cheque_count),
+            }
+        )
 
     def test_tenant_lease_offers_the_six_uae_schedules(self):
         selection = {int(v) for v, _ in self.env["c2p.lease"]._fields["cheque_count"].selection}
@@ -288,6 +539,46 @@ class TestChequeSchedules(TransactionCase):
         for cheques, months in CHEQUE_PLAN.items():
             self.assertEqual(cheques * months, 12, f"{cheques} cheques x {months} months != 12")
 
+    def test_the_register_wizard_spaces_cheques_by_the_shared_plan(self):
+        """The wizard must not carry a schedule map of its own.
+
+        It did, and the copy never gained the 3-cheque option, so registering
+        cheques on a 3-cheque lease raised KeyError on a value the form
+        offers. Deleting the copy is not the fix on its own - whichever copy
+        survives is the one that drifts next - so this drives the wizard for
+        every offered count and checks the spacing against CHEQUE_PLAN. It
+        fails if a second map comes back, however it is spelled.
+        """
+        from odoo.addons.c2p_property_lease.models.lease import CHEQUE_PLAN
+
+        journal = self.env["account.journal"].search(
+            [("type", "=", "bank"), ("company_id", "=", self.env.company.id)], limit=1
+        )
+        if not journal or not journal.inbound_payment_method_line_ids:
+            self.skipTest("no bank journal with an inbound payment method")
+
+        first_maturity = fields.Date.to_date("2026-02-01")
+        for count, months in sorted(CHEQUE_PLAN.items()):
+            with self.subTest(cheques=count):
+                lease = self._lease_for_schedule(count)
+                wizard = self.env["c2p.pdc.register"].create(
+                    {
+                        "lease_id": lease.id,
+                        "journal_id": journal.id,
+                        "first_maturity": first_maturity,
+                        "first_cheque_no": "700001",
+                    }
+                )
+                wizard._onchange_generate()
+                dates = sorted(wizard.line_ids.mapped("maturity_date"))
+                self.assertEqual(len(dates), count, "the wizard generated the wrong number of cheques")
+                for i, date in enumerate(dates):
+                    self.assertEqual(
+                        date,
+                        first_maturity + relativedelta(months=months * i),
+                        f"cheque {i + 1} of {count} is not {months} month(s) after the one before",
+                    )
+
 
 @tagged("post_install", "-at_install")
 class TestUnitStates(TransactionCase):
@@ -298,12 +589,37 @@ class TestUnitStates(TransactionCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.landlord = cls.env["res.partner"].create({"name": "States Landlord"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
         cls.building = cls.env["c2p.building"].create(
-            {"name": "States Tower", "code": "STT", "owner_id": cls.landlord.id}
+            {
+                "name": "States Tower",
+                "code": "STT",
+                "owner_id": cls.landlord.id,
+                # BR-018 refuses release without an analytic account.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "States Tower", "plan_id": plan.id})
+                .id,
+            }
         )
 
     def _unit(self, name, state=None, market_rent=100000.0):
-        unit = self.env["c2p.unit"].create({"name": name, "building_id": self.building.id, "market_rent": market_rent})
+        """A unit carrying the data BR-018 requires, so it can be released.
+
+        `state` is written directly: these tests are about the state machine,
+        and most of them need a unit parked in a state the transitions would
+        not reach from Draft.
+        """
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": name,
+                "building_id": self.building.id,
+                "market_rent": market_rent,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "dewa_no": f"24{abs(hash(name)) % 100000:05d}",
+            }
+        )
         if state:
             unit.state = state
         return unit
@@ -363,7 +679,7 @@ class TestUnitStates(TransactionCase):
 
     def test_release_then_market_then_hold_then_reserve(self):
         unit = self._unit("S2", "draft")
-        unit.action_release()
+        unit.sudo().action_release()
         self.assertEqual(unit.state, "available")
         unit.action_market()
         self.assertEqual(unit.state, "under_marketing")
@@ -415,16 +731,33 @@ class TestLeaseStates(TransactionCase):
         super().setUpClass()
         cls.landlord = cls.env["res.partner"].create({"name": "LS Landlord"})
         cls.tenant = cls.env["res.partner"].create({"name": "LS Tenant"})
-        cls.building = cls.env["c2p.building"].create({"name": "LS Tower", "code": "LST", "owner_id": cls.landlord.id})
-        cls.approver = new_test_user(
-            cls.env,
-            login="c2p_ls_approver",
-            groups="c2p_property_lease.group_property_manager",
-            name="Lease State Approver",
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
+        cls.building = cls.env["c2p.building"].create(
+            {
+                "name": "LS Tower",
+                "code": "LST",
+                "owner_id": cls.landlord.id,
+                # BR-018 refuses release without an analytic account.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "LS Tower", "plan_id": plan.id})
+                .id,
+            }
         )
 
     def _lease(self, unit_name):
-        unit = self.env["c2p.unit"].create({"name": unit_name, "building_id": self.building.id})
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": unit_name,
+                "building_id": self.building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 100000.0,
+                "dewa_no": f"25{abs(hash(unit_name)) % 100000:05d}",
+            }
+        )
+        # BR-018: a lease cannot be activated on a unit never released.
+        unit.sudo().action_release()
         return self.env["c2p.lease"].create(
             {
                 "unit_id": unit.id,
@@ -435,11 +768,30 @@ class TestLeaseStates(TransactionCase):
             }
         )
 
+    def _exception_approver(self):
+        """A property manager who is not the requester.
+
+        Both halves matter: BRD §5.1 reserves the decision to a manager and
+        §8.4 forbids approving your own request. A fixture that satisfied only
+        one of them would pass here and prove nothing about the other.
+        """
+        user = self.env["res.users"].search([("login", "=", "fixture_exception_approver")], limit=1)
+        if not user:
+            user = self.env["res.users"].create(
+                {
+                    "name": "Fixture Exception Approver",
+                    "login": "fixture_exception_approver",
+                    "group_ids": [(4, self.env.ref("c2p_property_lease.group_property_manager").id)],
+                }
+            )
+        return user
+
     def _activate(self, lease):
         """See TestLease._activate: BR-075 refuses a cheque-less activation, so
-        the exception BRD §5.1 requires is granted first and the ordinary action
-        is used, keeping the state guards under test in play."""
-        exception = self.env["c2p.lease.cheque.exception"].create(
+        the exception BRD §5.1 requires is granted first and the ordinary
+        action is used, keeping the state guards under test in play - now
+        genuinely, through action_approve rather than a direct state write."""
+        self.env["c2p.lease.cheque.exception"].create(
             {
                 "lease_id": lease.id,
                 "reason": "Test fixture",
@@ -447,12 +799,7 @@ class TestLeaseStates(TransactionCase):
                 "deadline": fields.Date.context_today(self.env.user) + timedelta(days=7),
                 "responsible_user_id": self.env.uid,
             }
-        )
-        # Through the real action, as a real manager. The approval rules hold on
-        # every write path now, so a fixture cannot stamp the state itself - and
-        # the test user these run as is not in the manager group, because
-        # has_group is a genuine membership check even for the superuser.
-        exception.with_user(self.approver).action_approve()
+        ).with_user(self._exception_approver()).action_approve()
         lease.action_activate()
         return lease
 
@@ -558,3 +905,111 @@ class TestLeaseStates(TransactionCase):
         with self.assertRaises(UserError) as caught:
             lease.action_activate()
         self.assertIn("cannot be activated", str(caught.exception))
+
+
+@tagged("post_install", "-at_install")
+class TestOperatingModels(TransactionCase):
+    """BR-019 / BRD §4.1.2: the field that decides whose money the rent is.
+
+    The defect these cover is not a missing feature. Before BR-019 every
+    building was treated as a head lease, so an owner-managed building - which
+    has no head lease, and therefore no head_lease_cost - reported the
+    landlord's entire tenant rent as this company's gross margin. BRD §6.1
+    calls that money "not New Sinclair cash or rental income".
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.landlord = cls.env["res.partner"].create({"name": "OM Landlord"})
+        cls.tenant = cls.env["res.partner"].create({"name": "OM Tenant"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
+        cls.plan = plan
+
+    def _building(self, code, model):
+        return self.env["c2p.building"].create(
+            {
+                "name": f"{code} Tower",
+                "code": code,
+                "owner_id": self.landlord.id,
+                "operating_model": model,
+                "analytic_account_id": self.env["account.analytic.account"]
+                .create({"name": f"{code} Tower", "plan_id": self.plan.id})
+                .id,
+            }
+        )
+
+    def _let_unit(self, building, name, rent):
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": name,
+                "building_id": building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": rent,
+                "dewa_no": f"26{abs(hash(name)) % 100000:05d}",
+            }
+        )
+        unit.sudo().action_release()
+        lease = self.env["c2p.lease"].create(
+            {
+                "unit_id": unit.id,
+                "tenant_id": self.tenant.id,
+                "date_start": "2026-01-01",
+                "date_end": "2026-12-31",
+                "annual_rent": rent,
+                "cheque_count": "1",
+            }
+        )
+        unit.current_lease_id = lease
+        unit.state = "occupied"
+        building.invalidate_recordset()
+        return unit
+
+    def test_a_building_defaults_to_head_lease(self):
+        """Every building that existed before BR-019 was one."""
+        self.assertEqual(self._building("DFL", "head_lease").operating_model, "head_lease")
+
+    def test_owner_managed_rent_is_not_this_company_s_rent(self):
+        """The defect, stated as a test."""
+        b = self._building("OWM", "owner_management")
+        self._let_unit(b, "OWM-101", 120000.0)
+        self.assertEqual(b.contracted_rent, 0.0, "Owner-managed rent is not our contracted rent.")
+        self.assertEqual(b.managed_rent, 120000.0, "It is rent administered for the landlord.")
+
+    def test_owner_managed_buildings_report_no_margin(self):
+        """Before BR-019 this returned the whole tenant rent as margin."""
+        b = self._building("OWM2", "owner_management")
+        self._let_unit(b, "OWM2-101", 120000.0)
+        self.assertEqual(b.gross_margin, 0.0)
+        self.assertEqual(b.coverage_ratio, 0.0)
+        self.assertEqual(b.breakeven_occupancy, 0.0)
+
+    def test_head_leased_rent_is_this_company_s_rent(self):
+        """The other side of the same split: under a head lease it is ours."""
+        b = self._building("HDL", "head_lease")
+        self._let_unit(b, "HDL-101", 120000.0)
+        self.assertEqual(b.contracted_rent, 120000.0)
+        self.assertEqual(b.managed_rent, 0.0)
+
+    def test_a_head_lease_cannot_attach_to_an_owner_managed_building(self):
+        b = self._building("OWM3", "owner_management")
+        with self.assertRaises(ValidationError):
+            self.env["c2p.head.lease"].create(
+                {
+                    "building_id": b.id,
+                    "landlord_id": self.landlord.id,
+                    "date_start": "2026-01-01",
+                    "date_end": "2026-12-31",
+                    "annual_amount": 500000.0,
+                }
+            )
+
+    def test_brokerage_buildings_carry_neither(self):
+        """Brokerage earns commission on transactions, not rent on units."""
+        b = self._building("BRK", "brokerage")
+        self._let_unit(b, "BRK-101", 120000.0)
+        self.assertEqual(b.contracted_rent, 0.0)
+        self.assertEqual(b.gross_margin, 0.0)
+        self.assertEqual(b.managed_rent, 120000.0)

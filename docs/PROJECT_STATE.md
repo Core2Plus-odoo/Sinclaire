@@ -1,6 +1,6 @@
 # Project state — resume point
 
-**As at 2026-10-12.** Written so the work survives the loss of the Odoo.sh
+**As at 2026-11-18.** Written so the work survives the loss of the Odoo.sh
 trial instance and can be picked up against a new one.
 
 Read this first, then `CLAUDE.md` for how to work in the repository.
@@ -46,21 +46,31 @@ records that reflect real agreements rather than generated ones.
 
 ## 3. Where the code stands
 
-| Module | Version | Notes |
+| Module | Layer | Notes |
 | --- | --- | --- |
-| `sinclaire_base` | 19.0.1.0.0 | Branding, company config |
-| `c2p_property_lease` | 19.0.1.7.1 | Core domain |
-| `c2p_ceo_command_center` | 19.0.1.3.0 | Dashboard |
+| `sinclaire_base` | 1 | Branding, company config, and the `sin-*` design tokens and components |
+| `c2p_property_lease` | 2 | Core domain — buildings, units, tenancies, head leases, cheque register |
+| `c2p_ceo_command_center` | 2 | Leadership dashboard |
+| `sinclaire_workspace` | 3 | Portfolio, Building 360, Unit 360, Collections, Tenant 360 — presentation only |
 
-- `main` is at **`7c2ae8c`** — PRs #7 through #13 merged.
-- Branch **`claude/intelligent-franklin-j9gtkn`** is at **`588b49b`** and is
-  **[PR #14](https://github.com/Core2Plus-odoo/Sinclaire/pull/14), open and
-  green**, carrying the payment-instrument states *and a HIGH-severity security
-  fix*. See §5 — I would merge this before anything else.
-- Nothing uncommitted, no stashes, everything pushed.
-- CI on `588b49b`: **0 failed, 0 errors of 147 tests** (106 before that PR).
-  The only skips are three `Subscriptions is not installed` cases, which is
-  expected — `sale_subscription` is Enterprise and cannot be installed in CI.
+Versions live in the manifests and are deliberately not copied here.
+
+- `main` has moved a long way: **PRs #15 through #23 merged**, adding the unit
+  release gate, the landlord/payee split, the design system with a WCAG
+  contrast gate in CI, the Property Portfolio with Building 360 and Unit 360,
+  the Collections register, and a self-approval fix on the cheque exception.
+- Branch **`claude/intelligent-franklin-j9gtkn`** is
+  **[PR #14](https://github.com/Core2Plus-odoo/Sinclaire/pull/14)**. It was
+  opened on 6 October and sat while `main` moved underneath it, so most of
+  what it originally carried — the seven instrument states, the
+  cheque-exception write guard — **arrived on `main` independently** and the
+  branch has been reduced to what is still missing. See §5.
+- **The architecture settled while that PR was open, and this matters more
+  than the PR does.** 360 screens are **inherited form views** plus derived
+  fields, using the `sin-*` components. An OWL client action was written for
+  Tenant 360 and deleted unmerged: it duplicated what a form view does, grew
+  a second set of design tokens, and sat in the supplier-licensed module.
+  `CLAUDE.md` records the rule.
 
 ### Built so far
 
@@ -74,8 +84,16 @@ records that reflect real agreements rather than generated ones.
   approved `c2p.lease.cheque.exception`.
 - **CEO Command Center** — occupancy, contracted rent, vacancy loss, expiry
   profile at 30/60/90, cheque position, bounce rate, deal margin.
-- **Tooling** — six checkers in `tools/`, all wired into CI, each one written
-  after a specific defect got through.
+- **The workspace layer** — Property Portfolio, Building 360, Unit 360, the
+  Collections register and Tenant 360, over the records above rather than
+  beside them.
+- **Tenant 360 (BR-098, Partial)** — tenure from the earliest tenancy, rent
+  contracted on running tenancies, cheque performance with a bounce rate that
+  survives a replacement, deposit held, shortfall exposure, stacked concerns
+  and the tenancy history. The *event log* BR-098 also asks for — complaints,
+  breaches, legal cases — does not exist yet, which is why it stays Partial.
+- **Tooling** — eight checkers in `tools/`, all wired into CI, each one
+  written after a specific defect got through.
 - **Stage 1 documentation** — requirement response matrix (186), report
   catalogue (90), data dictionary (generated from source), status matrix,
   migration plan, decisions log, open-decisions register.
@@ -83,14 +101,12 @@ records that reflect real agreements rather than generated ones.
 ## 4. What is deployed
 
 Production was last upgraded on **2026-10-06 at 17:43**, to
-`c2p_property_lease 19.0.1.6.0` and `c2p_ceo_command_center 19.0.1.2.2` — the
-state of `main` at that moment. PR #13 was docs-only and changed no version.
-**Nothing in PR #14 is deployed.**
-
-| | Version live | Gap |
-| --- | --- | --- |
-| `c2p_property_lease` | 19.0.1.6.0 | PR #14 takes it to 19.0.1.7.1 |
-| `c2p_ceo_command_center` | 19.0.1.2.2 | PR #14 takes it to 19.0.1.3.0 |
+`c2p_property_lease 19.0.1.6.0` and `c2p_ceo_command_center 19.0.1.2.2`.
+**Nothing merged since then has been deployed**, and that is now nine PRs'
+worth of gap, including two new modules' worth of UI. Whoever stands up the
+next instance is installing all of it at once rather than upgrading through
+it — which is the safer direction, but means the first install is the first
+time this combination has ever run outside CI.
 
 One migration has run against real data: **19.0.1.3.0 `pre-migrate`**, which
 moved **23 units** from Vacant to Available on 2026-10-06. It logged the count
@@ -98,23 +114,27 @@ but not the identities, so that edit is **not reversible from the data** — the
 reason the reversibility rule now exists. `docs/migration_plan.md` §8 carries
 the register.
 
-The **19.0.1.7.0 `post-migrate`** backfill (`has_bounced`) has **never run
-anywhere** — CI builds fresh databases, so no migration executes there. Watch
-for its `flagged N previously bounced cheque(s)` line on the first real
-upgrade.
+Two migrations have **never run anywhere**, because CI builds fresh databases
+and no migration executes there:
+
+- **19.0.1.8.0 `post-migrate`** (on `main`).
+- **19.0.1.12.0 `post-migrate`** (on PR #14) — the `has_bounced` backfill.
+  Watch for its `flagged N previously bounced cheque(s)` line on the first
+  real upgrade.
 
 ## 5. Open items, in the order I would take them
 
 ### Blocking the next deploy
 
-1. **Merge PR #14.** It contains a HIGH-severity fix: before it,
-   `c2p.lease.cheque.exception.state` was an ordinary writable Selection in a
-   clickable status bar, so a leasing agent could approve their own cheque
-   exception in two clicks and activate a lease with its cheques missing —
-   defeating BRD §5.1 and §8.4's no-self-approval rule from exactly the role
-   those rules constrain. **That hole is live in whatever instance is running
-   19.0.1.6.0.** If the trial is being discarded anyway the exposure ends with
-   it; if it is kept, deploy this.
+1. **Merge PR #14**, which is no longer the PR its description was written
+   for. `main` grew its own copy of the instrument states and its own
+   cheque-exception write guard while it waited, so the security fix it was
+   urgent for is **already on `main`** via #22. What is left on the branch is
+   genuinely still missing: `has_bounced` and the one shared bounce-rate
+   definition, the register wizard's duplicated schedule map (**still a live
+   `KeyError` on a 3-cheque lease on `main` today**), the renewal-alert bands
+   extracted so one screen cannot disagree with the cron, Tenant 360, and
+   these two handover documents.
 2. **BR-075 UAT.** `docs/uat/BR-075_cheque_gate.md` — 27 cases, needs a staging
    database restored from production, two logins in different roles, and a
    named business owner. Section 4 of that script asks four questions that are

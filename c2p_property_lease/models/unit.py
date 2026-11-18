@@ -43,6 +43,33 @@ UNIT_TYPES = [
     ("office", "Office"),
 ]
 
+# BR-018: a unit is released for letting only once the data a lease depends on
+# is actually present. Each entry is (field, label, test). The test is given a
+# unit and answers "is this satisfied?" - so a rule that is not met names
+# itself in the refusal rather than failing anonymously.
+#
+# Why each one is here rather than merely desirable:
+#   area, type    - the lease quotes rent against them
+#   floor         - the unit cannot be found for a viewing or a handover
+#   market rent   - BR-017's floor-rent override and every vacancy-loss figure
+#                   read it; zero silently reports the unit as worthless
+#   DEWA premise  - utilities cannot be transferred at move-in without it
+#   analytic a/c  - BR-012 posts all rent and cost for the building against it;
+#                   letting a unit on a building without one produces rent that
+#                   cannot be attributed to the property that earned it
+RELEASE_REQUIREMENTS = [
+    ("unit_type", "Unit type", lambda u: bool(u.unit_type)),
+    ("floor", "Floor", lambda u: bool(u.floor)),
+    ("area_sqft", "Area (sq ft)", lambda u: u.area_sqft > 0),
+    ("market_rent", "Market rent", lambda u: u.market_rent > 0),
+    ("dewa_no", "DEWA premise number", lambda u: bool(u.dewa_no)),
+    (
+        "building_id",
+        "Analytic account on the building",
+        lambda u: bool(u.building_id.analytic_account_id),
+    ),
+]
+
 
 class C2pUnit(models.Model):
     _name = "c2p.unit"
@@ -63,16 +90,30 @@ class C2pUnit(models.Model):
         string="Market Rent (Annual)",
         help="Reference rent used when quoting. Compare against the RERA rental index band on renewal.",
     )
+    # BR-017: three rate sets. Market rent is what the unit is quoted at; floor
+    # rent is the approved minimum below which an offer needs a manager. They
+    # are held per term rather than derived from the annual figure, because a
+    # monthly let is not an annual rent divided by twelve - short lets carry a
+    # premium, and the daily rate is an exception product under BRD 5.
+    #
+    # market_rent is the annual figure and keeps its name: the dashboard,
+    # building statistics and vacancy loss all read it.
+    market_rent_monthly = fields.Monetary(string="Market Rent (Monthly)")
+    market_rent_daily = fields.Monetary(string="Market Rent (Daily)")
+    floor_rent = fields.Monetary(
+        string="Floor Rent (Annual)",
+        help="Approved minimum annual rent. An offer below this needs Leasing Manager approval.",
+    )
+    floor_rent_monthly = fields.Monetary(string="Floor Rent (Monthly)")
+    floor_rent_daily = fields.Monetary(string="Floor Rent (Daily)")
     rera_index_low = fields.Monetary(string="RERA Index Low")
     rera_index_high = fields.Monetary(string="RERA Index High")
     state = fields.Selection(
         UNIT_STATES,
-        # BRD §4.1 requires units to be released for marketing only after
-        # mandatory data and approval checks pass, which would make Draft the
-        # right default. That gate is BR-018 and is not built yet; defaulting
-        # to Draft before it exists would strand every unit a loader or import
-        # creates. The default moves to "draft" with BR-018.
-        default="available",
+        # BR-018. BRD §4.1 requires units to be released for marketing only
+        # after mandatory data and approval checks pass, so a new unit starts
+        # in Draft and reaches Available only through action_release.
+        default="draft",
         required=True,
         tracking=True,
     )
@@ -87,11 +128,31 @@ class C2pUnit(models.Model):
     tenant_id = fields.Many2one(related="current_lease_id.tenant_id", string="Tenant", store=True)
     lease_end = fields.Date(related="current_lease_id.date_end", string="Lease Ends", store=True)
     dewa_no = fields.Char(string="DEWA Premise No.")
+    release_blockers = fields.Char(
+        compute="_compute_release_blockers",
+        string="Missing Before Release",
+        help="What still has to be filled in before this unit can be released for letting (BR-018).",
+    )
+    is_releasable = fields.Boolean(compute="_compute_release_blockers")
 
     _unit_uniq = models.Constraint(
         "UNIQUE (building_id, name)",
         "Unit numbers must be unique per building.",
     )
+
+    @api.depends(
+        "unit_type",
+        "floor",
+        "area_sqft",
+        "market_rent",
+        "dewa_no",
+        "building_id.analytic_account_id",
+    )
+    def _compute_release_blockers(self):
+        for rec in self:
+            missing = [label for _f, label, ok in RELEASE_REQUIREMENTS if not ok(rec)]
+            rec.release_blockers = ", ".join(missing)
+            rec.is_releasable = not missing
 
     @api.depends("name", "building_id.code")
     def _compute_display_name(self):
@@ -118,7 +179,29 @@ class C2pUnit(models.Model):
         self.state = target
 
     def action_release(self):
-        """Draft → Available. BR-018 will add the mandatory-data check here."""
+        """Draft → Available: the unit enters the lettable portfolio.
+
+        BR-018. This is the only way out of Draft, and it is refused while
+        anything a lease depends on is still missing. The refusal names every
+        gap at once rather than one per attempt, because the person filling
+        the record in wants the whole list.
+
+        Releasing is a Leasing Manager action: it is the approval the BRD asks
+        for, and the point after which the unit can be marketed and let.
+        """
+        # env.su covers the loader and any automated path: those create units
+        # with complete data and have no interactive approver to be.
+        if not self.env.su and not self.env.user.has_group("c2p_property_lease.group_property_manager"):
+            raise UserError(self.env._("Releasing a unit for letting is a Leasing Manager action."))
+        for rec in self:
+            if rec.state == "draft" and rec.release_blockers:
+                raise UserError(
+                    self.env._(
+                        "%(unit)s cannot be released for letting. Still missing: %(missing)s.",
+                        unit=rec.display_name,
+                        missing=rec.release_blockers,
+                    )
+                )
         self._move_to("available", ("draft",))
 
     def action_market(self):

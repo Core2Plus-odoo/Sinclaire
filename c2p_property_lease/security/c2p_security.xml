@@ -23,7 +23,24 @@
         <field name="name">Leasing Manager</field>
         <field name="sequence">20</field>
         <field name="privilege_id" ref="res_groups_privilege_property"/>
-        <field name="implied_ids" eval="[(4, ref('group_property_user'))]"/>
+        <!-- Billing comes with the manager role, not with the user role.
+             Clearing, depositing and bouncing a cheque are writes on
+             account.payment, and without an accounting group a manager cannot
+             even read the register: the Collections screen installs cleanly
+             and is invisible, which is the same defect the comment below
+             records.
+
+             Deliberately NOT given to group_property_user. A leasing agent
+             does not bank cheques, and money handling is the one thing that
+             should not widen by default. When the BRD's twenty roles are
+             mapped, a dedicated collections role may take this over. -->
+        <field name="implied_ids"
+               eval="[(4, ref('group_property_user')), (4, ref('account.group_account_invoice'))]"/>
+        <!-- Without a member, nobody sees the Property menu after install - it is
+             gated on group_property_user, and no user is in either group by
+             default. The module installed and was invisible, administrator
+             included. sinclaire_base seeds its own manager group the same way. -->
+        <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
         <field name="comment">Full access including buildings, head leases, bank facilities and terminations.</field>
     </record>
 

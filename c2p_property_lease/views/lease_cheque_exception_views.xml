@@ -37,12 +37,16 @@
                     <button name="action_reject" type="object" string="Reject"
                             invisible="state != 'draft'"
                             groups="c2p_property_lease.group_property_manager"/>
-                    <!-- readonly: a clickable status bar let the requester
-                         approve their own exception in one click. The rules are
-                         now enforced on write as well, so this is defence in
-                         depth rather than the control itself. -->
-                    <field name="state" widget="statusbar" readonly="1"
-                           statusbar_visible="draft,approved,fulfilled"/>
+                    <!--
+                      Not clickable. An Odoo statusbar is clickable by
+                      default, which made approving your own exception a
+                      single click in the header. The write() guard refuses
+                      it now whatever the UI offers, but offering it at all
+                      invites people to try and then meet an error, which is
+                      a worse screen than one that does not offer it.
+                    -->
+                    <field name="state" widget="statusbar" statusbar_visible="draft,approved,fulfilled"
+                           options="{'clickable': False}"/>
                 </header>
                 <sheet>
                     <div class="oe_title">

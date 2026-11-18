@@ -13,11 +13,16 @@ class TestHeadLease(TransactionCase):
         super().setUpClass()
         cls.landlord = cls.env["res.partner"].create({"name": "HL Landlord"})
         cls.tenant = cls.env["res.partner"].create({"name": "HL Tenant"})
+        plan = cls.env["account.analytic.plan"].create({"name": "Properties"})
         cls.building = cls.env["c2p.building"].create(
             {
                 "name": "Underwritten Tower",
                 "code": "UWT",
                 "owner_id": cls.landlord.id,
+                # BR-018 refuses release without an analytic account.
+                "analytic_account_id": cls.env["account.analytic.account"]
+                .create({"name": "Underwritten Tower", "plan_id": plan.id})
+                .id,
             }
         )
         # Two units at 100k market rent each: potential rent 200k.
@@ -29,10 +34,15 @@ class TestHeadLease(TransactionCase):
                     "unit_type": "2br",
                     "market_rent": 100000.0,
                     "area_sqft": 1200,
+                    "floor": "1",
+                    "dewa_no": f"230000{i}",
                 }
             )
             for i in (1, 2)
         ]
+        # BR-018: released so they are lettable, as these tests assume.
+        for unit in (cls.unit_a, cls.unit_b):
+            unit.sudo().action_release()
 
     def _head_lease(self, amount=140000.0, **kw):
         vals = {

@@ -1,38 +1,25 @@
-"""The payment instrument and its seven states.
-
-BRD §3.2 and §6.2: Expected → In Hand → Deposited/Presented → Cleared or
-Bounced → Replaced / Cancelled, with the standing rule that **no status may be
-overwritten without history**. `docs/status_matrix.md` §3 is the specification,
-including which moves reverse and which do not.
-
-The three states added here are the ones that were missing:
-
-* **Expected** — the instrument the schedule says is coming but which nobody
-  has handed over yet. Without it a cheque slot and a cheque in the drawer are
-  the same record, so there is no forward cash forecast (BR-114) and no honest
-  answer to "what is outstanding".
-* **Replaced** — required by the bounce scenario (BR-117). A replacement is
-  linked both ways, so the chain from the returned cheque to the one that made
-  good is readable from either end.
-* **Cancelled** — an instrument withdrawn before it was ever banked, which is
-  not the same as one that failed.
-
-Two rules the states alone would not carry:
-
-* `has_bounced` is set on a bounce and **never unset**. Replacing a cheque is a
-  recovery, not a retraction: without this, replacing bounced cheques would
-  quietly walk the bounce rate down to zero, which is the opposite of what the
-  history rule is for.
-* `write` refuses a direct `pdc_state` change. Each move is its own action with
-  its own reason and chatter entry; a writable status field would make the
-  history optional.
-"""
-
 from odoo import api
 from odoo import fields
 from odoo import models
 from odoo.exceptions import UserError
+from odoo.exceptions import ValidationError
 
+# BR-114 / BRD §6.2. The register has to answer "where is every instrument"
+# every day, and two of these states were missing:
+#
+#   expected  - the schedule says a cheque is due and none has been handed over
+#               yet. Without it a missing cheque is indistinguishable from a
+#               cheque nobody has entered, which is the difference between a
+#               collection problem and a data-entry one.
+#   replaced  - this instrument bounced and a replacement has been linked.
+#               Leaving it Bounced forever makes the bounce register grow
+#               without ever showing which bounces were made good.
+#   cancelled - withdrawn before it was ever banked: the lease terminated
+#               early, the terms were renegotiated, or the cheque was handed
+#               back. Distinct from Bounced, which is a cheque that failed,
+#               and from Replaced, which is a bounce made good. Without it
+#               those cheques either sit In Hand forever, overstating the
+#               cover, or get deleted, destroying the custody trail.
 PDC_STATES = [
     ("expected", "Expected"),
     ("held", "In Hand"),
@@ -43,37 +30,18 @@ PDC_STATES = [
     ("cancelled", "Cancelled"),
 ]
 
-# Physically with us, and therefore part of the custody count that §8.3.1 wants
-# reconciled to the safe every month.
+# The instrument is in our custody: handed over, and not yet resolved either
+# way. "Custody" is a judgement about each state rather than something
+# derivable from the list, so this is a subset written by hand - and therefore
+# exactly the shape that has caused five defects here. The guard is a test that
+# walks every member of PDC_STATES and fails on any state this tuple has not
+# classified, so adding a state to the model forces a decision about it instead
+# of silently dropping those cheques out of the held figure.
 CUSTODY_STATES = ("held", "deposited")
-
-# Nothing further will happen to the instrument itself.
-CONCLUDED_STATES = ("cleared", "bounced", "replaced", "cancelled")
-
-# Allowed moves, from docs/status_matrix.md §3. Read as "to: from which".
-# Cleared has no entry pointing out of it on purpose - a reversal after
-# clearing is a new accounting event, not a status change.
-PDC_TRANSITIONS = {
-    "held": ("expected", "deposited"),
-    "expected": ("held",),
-    "deposited": ("held",),
-    "cleared": ("deposited",),
-    "bounced": ("deposited",),
-    "replaced": ("bounced",),
-    "cancelled": ("expected", "held"),
-}
-
-# Moves the BRD marks "reason mandatory": the two reversals and a cancellation.
-REASON_REQUIRED = {("held", "expected"), ("deposited", "held"), ("expected", "cancelled"), ("held", "cancelled")}
 
 
 class AccountPayment(models.Model):
     _inherit = "account.payment"
-
-    # The context key the state actions set. Named for what it asserts rather
-    # than for the check it passes: a caller setting this is saying it has
-    # recorded the move, not that it would like to skip the rule.
-    PDC_MOVE_CONTEXT_KEY = "c2p_pdc_move_recorded"
 
     lease_id = fields.Many2one("c2p.lease", string="Lease", index=True, copy=False)
     head_lease_id = fields.Many2one(
@@ -90,221 +58,259 @@ class AccountPayment(models.Model):
     )
     unit_id = fields.Many2one(related="lease_id.unit_id", store=True)
     building_id = fields.Many2one(related="lease_id.building_id", store=True)
+    operating_model = fields.Selection(related="building_id.operating_model", store=True, string="Operating Model")
     cheque_no = fields.Char(string="Cheque No.", copy=False)
     cheque_bank = fields.Char(string="Drawn On")
     maturity_date = fields.Date(help="Date the cheque may be banked.")
     is_pdc = fields.Boolean(string="Post-Dated Cheque", compute="_compute_is_pdc", store=True)
-    pdc_state = fields.Selection(
-        PDC_STATES,
-        default="held",
+    pdc_state = fields.Selection(PDC_STATES, default="held", copy=False, tracking=True)
+
+    # ---------------------------------------------------------- BR-047, payer
+    drawer_partner_id = fields.Many2one(
+        "res.partner",
+        string="Drawer",
         copy=False,
-        tracking=True,
-        string="Instrument Status",
+        help="Whoever signed the instrument. Usually the tenant; a third-party cheque "
+        "is one signed by somebody else on the tenant's behalf (BRD §4.2.3).",
     )
-    pdc_state_reason = fields.Text(
+    is_third_party = fields.Boolean(
+        compute="_compute_third_party",
+        store=True,
+        help="The drawer is not the tenant who owes the money.",
+    )
+
+    # -------------------------------------------------- BR-043, BR-116, payee
+    payee_partner_id = fields.Many2one(
+        "res.partner",
+        string="Payee",
+        compute="_compute_payee",
+        store=True,
+        readonly=False,
         copy=False,
-        readonly=True,
-        help="Why the instrument was reversed, recalled or cancelled.",
+        help="Who the instrument is payable to. Derived from the building's operating "
+        "model (BRD §4.2.2) and overridable where the contract says otherwise.",
     )
-    has_bounced = fields.Boolean(
-        readonly=True,
+    is_owner_funds = fields.Boolean(
+        compute="_compute_payee",
+        store=True,
+        string="Owner Funds",
+        help="Payable to the landlord, held by this company. Never this company's cash or rental income (BRD §6.1).",
+    )
+    # BR-116 wants "deposit evidence", and this deliberately does NOT reuse
+    # account.payment.partner_bank_id. On an inbound payment Odoo already uses
+    # that field for the account the money is received INTO, and computes it
+    # from the journal - so it arrives pre-filled and would silently satisfy a
+    # guard written against it. The landlord's account is a different fact and
+    # needs a field of its own.
+    owner_deposit_bank_id = fields.Many2one(
+        "res.partner.bank",
+        string="Deposited Into",
         copy=False,
-        help="This instrument was returned unpaid at least once. Never cleared, "
-        "so replacing it does not erase the bounce from the record.",
+        help="The landlord's own bank account this instrument was banked into on the due date (BRD §4.2.1).",
     )
-    bounced_date = fields.Date(readonly=True, copy=False)
+
+    # ------------------------------------------------------------ BR-117, bounce
+    bounce_reason = fields.Char(copy=False)
+    bounce_charge = fields.Monetary(copy=False, help="Bank charge incurred on the return, recoverable from the tenant.")
     replacement_payment_id = fields.Many2one(
         "account.payment",
         string="Replaced By",
-        readonly=True,
         copy=False,
-        help="The instrument received in place of this one.",
+        index="btree_not_null",
+        help="The instrument given to make good this one after it bounced.",
     )
-    replaces_payment_id = fields.Many2one(
-        "account.payment",
-        string="Replaces",
-        readonly=True,
+    # Set on a bounce and never unset. `pdc_state` cannot answer "has this
+    # instrument ever failed?", because Replaced overwrites Bounced the moment
+    # the tenant makes it good - so a bounce rate read off the state walks down
+    # to zero as the backlog is worked through, while the payment behaviour it
+    # claims to measure stays exactly as bad. BRD §3.2 requires status history
+    # to survive; this is that requirement applied to the reporting.
+    has_bounced = fields.Boolean(
+        string="Ever Bounced",
         copy=False,
-        help="The returned instrument this one makes good.",
+        index="btree_not_null",
+        readonly=True,
+        help="This instrument was returned unpaid at least once, even if it was later replaced.",
     )
+    bounced_date = fields.Date(copy=False, readonly=True, help="When the instrument was first returned unpaid.")
 
     @api.depends("head_lease_id")
     def _compute_is_landlord_cheque(self):
         for rec in self:
             rec.is_landlord_cheque = bool(rec.head_lease_id)
 
-    @api.depends("cheque_no", "pdc_state", "lease_id", "head_lease_id")
+    @api.depends("cheque_no")
     def _compute_is_pdc(self):
-        """A cheque number is the usual marker, but an Expected instrument does
-        not have one yet - it is a slot in the agreed schedule, and the number
-        arrives with the cheque.
+        for rec in self:
+            rec.is_pdc = bool(rec.cheque_no)
 
-        `pdc_state` cannot carry this alone because it defaults to "held" on
-        every payment in the database, cheque or not; that default predates
-        these states and changing it would mean rewriting every existing row.
-        So Expected additionally requires a lease or head lease behind it.
+    @api.depends("drawer_partner_id", "lease_id.tenant_id")
+    def _compute_third_party(self):
+        """BR-047: the legal payer and the debtor are different questions.
+
+        The receivable stays against the tenant whatever happens - somebody
+        else paying does not move the obligation. What changes is who the bank
+        will chase if the instrument is returned, and that is the person the
+        undertaking has to name.
         """
         for rec in self:
-            rec.is_pdc = bool(rec.cheque_no) or (
-                rec.pdc_state == "expected" and bool(rec.lease_id or rec.head_lease_id)
-            )
+            tenant = rec.lease_id.tenant_id
+            rec.is_third_party = bool(rec.drawer_partner_id and tenant and rec.drawer_partner_id != tenant)
 
-    # ------------------------------------------------------------------- guard
-    def write(self, vals):
-        """§3's standing rule: status may not be set directly.
+    @api.depends("building_id.operating_model", "building_id.owner_id", "company_id", "head_lease_id")
+    def _compute_payee(self):
+        """BR-043 / BRD §4.2.2: "Payee names shall be derived from the operating model".
 
-        Each move is its own action, which is where the reason and the chatter
-        entry come from. A status field anyone can write makes that history
-        optional, and the form's status bar writes it directly.
+        Under a head lease this company has bought the income, so tenant rent
+        is payable to it. Under Owner Management the landlord owns the income
+        and the cheque is written in the landlord's name - this company holds
+        it and banks it into the landlord's account on the due date. Those are
+        other people's funds passing through our hands, and the BRD says in
+        terms they "must not be presented as company funds".
 
-        `create` is left alone: an import or the sample loader builds
-        instruments that are already in some state, and the register creates
-        cheques that are already in hand.
+        A cheque this company issues to a landlord under a head lease is money
+        out, so its payee is the landlord but the funds were always ours.
         """
-        if "pdc_state" in vals and not self.env.context.get(self.PDC_MOVE_CONTEXT_KEY):
-            for rec in self:
-                if rec.pdc_state != vals["pdc_state"]:
-                    raise UserError(
-                        self.env._(
-                            "The status of cheque %(cheque)s cannot be changed directly. "
-                            "Use the buttons on the cheque - each move records who made it "
-                            "and why.",
-                            cheque=rec.cheque_no or rec.display_name,
-                        )
-                    )
-        return super().write(vals)
-
-    def _pdc_move(self, target, reason=None):
-        """Apply one transition, after checking it is one the BRD allows."""
-        allowed_from = PDC_TRANSITIONS.get(target, ())
-        labels = dict(PDC_STATES)
         for rec in self:
-            if rec.pdc_state not in allowed_from:
-                raise UserError(
-                    self.env._(
-                        "Cheque %(cheque)s is %(current)s and cannot move to %(target)s.",
-                        cheque=rec.cheque_no or rec.display_name,
-                        current=labels.get(rec.pdc_state, rec.pdc_state),
-                        target=labels[target],
-                    )
-                )
-            if (rec.pdc_state, target) in REASON_REQUIRED and not (reason or "").strip():
-                raise UserError(
-                    self.env._(
-                        "Moving cheque %(cheque)s to %(target)s needs a reason.",
-                        cheque=rec.cheque_no or rec.display_name,
-                        target=labels[target],
-                    )
-                )
-            previous = rec.pdc_state
-            values = {"pdc_state": target}
-            if reason:
-                values["pdc_state_reason"] = reason
-            rec.with_context(**{self.PDC_MOVE_CONTEXT_KEY: True}).write(values)
-            note = self.env._(
-                "Instrument status: %(old)s → %(new)s.",
-                old=labels.get(previous, previous),
-                new=labels[target],
-            )
-            rec.message_post(body=f"{note} {reason}" if reason else note)
+            if rec.head_lease_id:
+                rec.payee_partner_id = rec.head_lease_id.landlord_id
+                rec.is_owner_funds = False
+                continue
+            model = rec.building_id.operating_model
+            if model == "owner_management":
+                rec.payee_partner_id = rec.building_id.owner_id
+                rec.is_owner_funds = True
+            else:
+                rec.payee_partner_id = rec.company_id.partner_id
+                rec.is_owner_funds = False
 
+    @api.constrains("owner_deposit_bank_id", "payee_partner_id")
+    def _check_owner_deposit_account(self):
+        """The account recorded has to be the payee's own.
+
+        Otherwise "deposited to the landlord's account" can be satisfied by
+        naming any account at all, including one of this company's, which is
+        the thing BR-116 exists to rule out.
+        """
+        for rec in self:
+            account = rec.owner_deposit_bank_id
+            if not account or not rec.payee_partner_id:
+                continue
+            if account.partner_id != rec.payee_partner_id:
+                raise ValidationError(
+                    self.env._(
+                        "%(account)s belongs to %(holder)s, not to %(payee)s. Owner funds "
+                        "must be banked into the payee's own account.",
+                        account=account.display_name,
+                        holder=account.partner_id.display_name,
+                        payee=rec.payee_partner_id.display_name,
+                    )
+                )
+
+    @api.constrains("replacement_payment_id")
+    def _check_replacement(self):
+        for rec in self:
+            link = rec.replacement_payment_id
+            if not link:
+                continue
+            if link == rec:
+                raise ValidationError(self.env._("An instrument cannot replace itself."))
+            if link.lease_id != rec.lease_id:
+                raise ValidationError(
+                    self.env._("A replacement must sit on the same lease as the instrument it replaces.")
+                )
+
+    # --------------------------------------------------------------- reporting
     @api.model
     def _c2p_bounce_rate(self, ever_bounced, cleared):
-        """Instruments that failed at least once, as a share of those that
-        reached an outcome.
+        """One definition of the bounce rate, for every screen that shows one.
 
-        One definition, because there are now two screens reporting it — the
-        Command Center across the portfolio and the Tenant 360 for one tenant
-        — and two places computing the same ratio is how they come to disagree
-        about the same tenant. The numerator is "ever bounced", never
-        "currently Bounced": a replacement is a recovery, not a retraction.
+        Denominator is *concluded* instruments - ones that reached an outcome,
+        by clearing or by failing. Cheques still in hand are excluded
+        deliberately: counting them would make the rate improve every time a
+        tenant hands over a new cheque, before anybody knows whether it is
+        good.
+
+        A module-level function rather than a figure each screen computes,
+        because the Command Center and the tenant dossier both report this
+        number and two copies of a ratio is how a client comes to be shown two
+        different bounce rates for the same tenant on the same morning.
         """
         concluded = ever_bounced + cleared
         return (ever_bounced / concluded * 100.0) if concluded else 0.0
 
-    # ----------------------------------------------------------------- actions
-    def action_pdc_receive(self):
-        """Expected → In Hand. The cheque has physically arrived.
-
-        Its number is required here, and not only because a cheque in hand
-        without one is not much of a record: `is_pdc` keys off the number for
-        the in-custody states, so an unnumbered instrument would drop straight
-        out of the register the moment it was received.
-        """
-        missing = self.filtered(lambda p: not (p.cheque_no or "").strip())
-        if missing:
-            raise UserError(
-                self.env._(
-                    "Enter the cheque number before recording it as received. %s instrument(s) have none.",
-                    len(missing),
-                )
-            )
-        self._pdc_move("held")
-
+    # ------------------------------------------------------------------ actions
     def action_pdc_deposit(self):
-        self._pdc_move("deposited")
+        self.filtered(lambda p: p.pdc_state == "held").write({"pdc_state": "deposited"})
 
     def action_pdc_clear(self):
-        """Deposited → Cleared.
+        """BR-116: owner funds clear into the landlord's account, not ours.
 
-        Only from Deposited, which is a tightening: a cheque cannot clear
-        without having been presented, and BR-118 requires bank or landlord
-        confirmation before anything is treated as cleared.
+        Without the bank account on the record there is nothing showing where
+        the money went, and an owner-funds cheque marked Cleared with no
+        destination is indistinguishable from one this company banked for
+        itself. That is the exact confusion BRD §6.1 exists to prevent.
         """
-        self._pdc_move("cleared")
+        for rec in self:
+            if rec.is_owner_funds and not rec.owner_deposit_bank_id:
+                raise UserError(
+                    rec.env._(
+                        "%(ref)s is payable to %(payee)s and is owner funds. Record the "
+                        "landlord's bank account it was deposited into before clearing it.",
+                        ref=rec.cheque_no or rec.display_name,
+                        payee=rec.payee_partner_id.name or "the landlord",
+                    )
+                )
+        self.filtered(lambda p: p.pdc_state in ("held", "deposited")).write({"pdc_state": "cleared"})
 
     def action_pdc_bounce(self):
-        """Deposited → Bounced. Reopens the receivable and raises follow-up."""
-        self._pdc_move("bounced")
-        today = fields.Date.context_today(self)
         for rec in self:
-            rec.with_context(**{self.PDC_MOVE_CONTEXT_KEY: True}).write({"has_bounced": True, "bounced_date": today})
+            rec.pdc_state = "bounced"
+            # First bounce only: the date records when this instrument failed,
+            # and a second return of the same cheque is the same failure
+            # continuing rather than a new one.
+            if not rec.has_bounced:
+                rec.has_bounced = True
+                rec.bounced_date = fields.Date.context_today(rec)
+            rec.message_post(body=self.env._("Cheque returned unpaid. Follow up with the tenant."))
+
+    def action_pdc_cancel(self, reason=None):
+        """Withdraw an instrument that was never banked (BR-114).
+
+        A cleared cheque cannot be cancelled - the money moved, and undoing
+        that is a credit note or a refund, not a change of status on the
+        register. A bounced one cannot either: it failed, which is a fact
+        about what happened and not something to erase.
+        """
+        for rec in self:
+            if rec.pdc_state in ("cleared", "bounced", "replaced"):
+                raise UserError(
+                    rec.env._(
+                        "%(ref)s is %(state)s and cannot be cancelled. Cancelling is for "
+                        "an instrument that was never banked.",
+                        ref=rec.cheque_no or rec.display_name,
+                        state=dict(rec._fields["pdc_state"].selection)[rec.pdc_state],
+                    )
+                )
+            rec.pdc_state = "cancelled"
+            if reason:
+                note = rec.env._("Cheque cancelled: %(reason)s", reason=reason)
+            else:
+                note = rec.env._("Cheque cancelled before presentation.")
+            rec.message_post(body=note)
+
+    def action_link_replacement(self, replacement):
+        """BR-117: a bounce is closed by the instrument that makes it good.
+
+        The bounced cheque moves to Replaced rather than staying Bounced, so
+        the bounce register shows what is still outstanding instead of every
+        bounce that ever happened.
+        """
+        for rec in self:
+            if rec.pdc_state != "bounced":
+                raise UserError(rec.env._("Only a bounced instrument can be replaced."))
+            rec.replacement_payment_id = replacement
+            rec.pdc_state = "replaced"
             rec.message_post(
-                body=self.env._(
-                    "Cheque returned unpaid. The receivable is open again; record any "
-                    "bank charges and obtain a replacement instrument."
-                )
+                body=rec.env._("Replaced by %(ref)s.", ref=replacement.cheque_no or replacement.display_name)
             )
-            if rec.lease_id:
-                rec.lease_id.activity_schedule(
-                    "mail.mail_activity_data_todo",
-                    date_deadline=today,
-                    summary=self.env._("Cheque %s returned unpaid", rec.cheque_no or ""),
-                    note=self.env._("Chase the tenant for a replacement cheque and recover bank charges."),
-                )
-
-    def action_pdc_replace(self):
-        """Open the wizard that creates the replacement and links it both ways."""
-        self.ensure_one()
-        return {
-            "type": "ir.actions.act_window",
-            "name": self.env._("Replace Cheque"),
-            "res_model": "c2p.pdc.replace",
-            "view_mode": "form",
-            "target": "new",
-            "context": {"default_payment_id": self.id},
-        }
-
-    def _pdc_reason_wizard(self, move):
-        self.ensure_one()
-        return {
-            "type": "ir.actions.act_window",
-            "name": dict(PDC_STATES).get(move, move),
-            "res_model": "c2p.pdc.reason",
-            "view_mode": "form",
-            "target": "new",
-            "context": {"default_payment_id": self.id, "default_move": move},
-        }
-
-    def action_pdc_unreceive(self):
-        """In Hand → Expected, with a reason. The instrument was recorded as
-        received and was not."""
-        return self._pdc_reason_wizard("expected")
-
-    def action_pdc_recall(self):
-        """Deposited → In Hand, with a reason: the deposit was recalled."""
-        return self._pdc_reason_wizard("held")
-
-    def action_pdc_cancel(self):
-        """Expected or In Hand → Cancelled, with a reason."""
-        return self._pdc_reason_wizard("cancelled")

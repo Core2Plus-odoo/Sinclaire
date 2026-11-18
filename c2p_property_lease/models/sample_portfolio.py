@@ -190,8 +190,19 @@ class SamplePortfolio(models.AbstractModel):
         tag = self.env["res.partner.category"].search([("name", "=", "Tenant")], limit=1)
         return tag or self.env["res.partner.category"].create({"name": "Tenant"})
 
+    def _analytic_plan(self):
+        """The plan every building's analytic account hangs from.
+
+        Odoo 19 requires a plan on account.analytic.account, so the loader
+        cannot create one without first having somewhere to put it.
+        """
+        Plan = self.env["account.analytic.plan"]
+        plan = Plan.search([("name", "=", "Properties")], limit=1)
+        return plan or Plan.create({"name": "Properties"})
+
     def _buildings(self, landlords, created):
         buildings = {}
+        plan = self._analytic_plan()
         for code, name, community, owner_i, _cost_share, *_ in BUILDINGS:
             building = self.env["c2p.building"].search([("code", "=", code)], limit=1)
             if not building:
@@ -202,9 +213,23 @@ class SamplePortfolio(models.AbstractModel):
                         "community": community,
                         "city": "Dubai",
                         "owner_id": landlords[owner_i].id,
+                        # BR-012: every building carries its own analytic
+                        # account, so rent and cost land against the property
+                        # that earned or incurred them. Without it the invoice
+                        # lines below post with no analytic distribution at all
+                        # and building profitability cannot be computed.
+                        "analytic_account_id": self.env["account.analytic.account"]
+                        .create({"name": name, "plan_id": plan.id})
+                        .id,
                     }
                 )
                 created["buildings"] += 1
+            elif not building.analytic_account_id:
+                # A building loaded before BR-012 was enforced. Without this
+                # the release gate below would refuse every one of its units.
+                building.analytic_account_id = self.env["account.analytic.account"].create(
+                    {"name": building.name, "plan_id": plan.id}
+                )
             buildings[code] = building
         return buildings
 
@@ -251,7 +276,7 @@ class SamplePortfolio(models.AbstractModel):
         low, high = BAND[unit_type]
         area_low, area_high = AREA[unit_type]
         created["units"] += 1
-        return self.env["c2p.unit"].create(
+        unit = self.env["c2p.unit"].create(
             {
                 "name": name,
                 "building_id": building.id,
@@ -264,6 +289,11 @@ class SamplePortfolio(models.AbstractModel):
                 "dewa_no": str(rng.randint(2000000, 2999999)),
             }
         )
+        # BR-018: units now start in Draft. The loader fills in everything the
+        # release gate asks for, so it releases them itself - a demo portfolio
+        # of unlettable units would be useless.
+        unit.sudo().action_release()
+        return unit
 
     def _lease(self, unit, unit_type, tag, tenant_i, today, rng, created):
         low, high = BAND[unit_type]

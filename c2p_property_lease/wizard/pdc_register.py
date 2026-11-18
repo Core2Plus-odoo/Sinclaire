@@ -1,7 +1,11 @@
+from dateutil.relativedelta import relativedelta
+
 from odoo import api
 from odoo import fields
 from odoo import models
 from odoo.exceptions import UserError
+
+from ..models.lease import CHEQUE_PLAN
 
 
 class PdcRegister(models.TransientModel):
@@ -24,30 +28,52 @@ class PdcRegister(models.TransientModel):
     first_cheque_no = fields.Char(required=True, help="Subsequent cheque numbers increment from this one.")
     line_ids = fields.One2many("c2p.pdc.register.line", "wizard_id", string="Cheques")
 
+    # BR-043 / BRD §4.2.2. Whoever is taking cheques in at the counter needs to
+    # know whose name to ask for before the tenant writes them, not after. Under
+    # Owner Management that is the landlord, and a cheque made out to the wrong
+    # party has to go back to the tenant to be rewritten.
+    payee_partner_id = fields.Many2one("res.partner", compute="_compute_payee_hint", string="Cheques Payable To")
+    payee_is_landlord = fields.Boolean(compute="_compute_payee_hint")
+
+    @api.depends("lease_id")
+    def _compute_payee_hint(self):
+        for rec in self:
+            building = rec.lease_id.building_id
+            if building.operating_model == "owner_management":
+                rec.payee_partner_id = building.owner_id
+                rec.payee_is_landlord = True
+            else:
+                rec.payee_partner_id = rec.lease_id.company_id.partner_id
+                rec.payee_is_landlord = False
+
     @api.onchange("lease_id", "first_maturity", "first_cheque_no", "bank_name")
     def _onchange_generate(self):
         if not (self.lease_id and self.first_maturity and self.first_cheque_no):
             return
+        # CHEQUE_PLAN, not a second copy of it. This wizard carried its own
+        # months-per-instalment map, and when the 3-cheque schedule was added
+        # to the lease the copy here never gained it - so registering cheques
+        # on a 3-cheque lease raised KeyError on a field the form offers.
+        step = CHEQUE_PLAN[int(self.lease_id.cheque_count)]
         try:
             base = int("".join(c for c in self.first_cheque_no if c.isdigit()))
         except ValueError:
             base = 0
-        # The schedule comes from the lease. This wizard used to carry its own
-        # months-per-instalment map, which never gained the 3-cheque schedule
-        # Stage 2 added - so a 3-cheque lease raised KeyError here.
-        lines = [
-            (
-                0,
-                0,
-                {
-                    "maturity_date": maturity,
-                    "amount": amount,
-                    "cheque_no": str(base + i) if base else self.first_cheque_no,
-                    "bank_name": self.bank_name,
-                },
+        lines = []
+        for i in range(int(self.lease_id.cheque_count)):
+            lines.append(
+                (
+                    0,
+                    0,
+                    {
+                        "maturity_date": self.first_maturity + relativedelta(months=step * i),
+                        "amount": self.lease_id.instalment_amount,
+                        "cheque_no": str(base + i) if base else self.first_cheque_no,
+                        "bank_name": self.bank_name,
+                        "drawer_partner_id": self.lease_id.tenant_id.id,
+                    },
+                )
             )
-            for i, (maturity, amount) in enumerate(self.lease_id._cheque_schedule(self.first_maturity))
-        ]
         self.line_ids = [(5, 0, 0), *lines]
 
     def action_confirm(self):
@@ -71,6 +97,10 @@ class PdcRegister(models.TransientModel):
                     "cheque_no": line.cheque_no,
                     "cheque_bank": line.bank_name,
                     "maturity_date": line.maturity_date,
+                    # BR-047: the debtor is the tenant either way - partner_id
+                    # above - but the drawer is whoever actually signed, and a
+                    # third-party cheque is only visible if that is recorded.
+                    "drawer_partner_id": line.drawer_partner_id.id or self.lease_id.tenant_id.id,
                     "pdc_state": "held",
                     "memo": f"PDC {line.cheque_no} {line.bank_name} – {self.lease_id.unit_id.display_name}",
                 }
@@ -89,3 +119,8 @@ class PdcRegisterLine(models.TransientModel):
     amount = fields.Monetary(required=True)
     cheque_no = fields.Char(required=True)
     bank_name = fields.Char(string="Drawn On")
+    drawer_partner_id = fields.Many2one(
+        "res.partner",
+        string="Signed By",
+        help="Leave as the tenant unless somebody else signed this cheque on their behalf.",
+    )

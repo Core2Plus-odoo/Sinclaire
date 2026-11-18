@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+      Collections.
+
+      The cheque register has existed as fields on a form since the property
+      module was written. This is the screen that makes it a day's work: what
+      needs banking, what has failed, what nobody has handed over, and - kept
+      apart throughout - whose money each instrument is.
+
+      A list rather than a kanban on purpose. A kanban grouped by state would
+      invite dragging a cheque into Cleared, which would move money past the
+      guards that exist to stop exactly that.
+    -->
+    <record id="view_collections_list" model="ir.ui.view">
+        <field name="name">account.payment.list.collections</field>
+        <field name="model">account.payment</field>
+        <field name="arch" type="xml">
+            <list string="Cheque Register"
+                  default_order="maturity_date asc, id asc"
+                  decoration-danger="collection_tone == 'critical'"
+                  decoration-warning="collection_tone == 'warn'"
+                  decoration-muted="collection_bucket in ('settled','closed')"
+                  create="false">
+                <field name="maturity_date" string="Banks on"/>
+                <field name="days_to_maturity" string="Days"/>
+                <field name="cheque_no" string="Cheque"/>
+                <field name="partner_id" string="Tenant"/>
+                <field name="drawer_partner_id" string="Signed by" optional="hide"/>
+                <field name="is_third_party" string="3rd party" optional="hide"/>
+                <!-- Hidden by default: the unit's own name carries its
+                     building, and the width is better spent on the alert. -->
+                <field name="building_id" optional="hide"/>
+                <field name="unit_id" optional="show"/>
+                <field name="cheque_bank" string="Drawn on" optional="hide"/>
+                <field name="amount" sum="Total" string="Amount"/>
+                <!--
+                  Whose money, on every row. BRD §6.1 keeps owner funds out of
+                  company cash, and a register that does not say which is
+                  which on the row itself is one where somebody eventually
+                  banks the wrong cheque into the wrong account.
+                -->
+                <field name="funds_label" string="Funds"/>
+                <field name="is_owner_funds" column_invisible="1"/>
+                <field name="payee_partner_id" string="Payable to" optional="show"/>
+                <field name="pdc_state" string="Status" widget="badge"/>
+                <field name="collection_alert" string="Needs attention" optional="show"/>
+                <field name="replacement_payment_id" string="Replaced by" optional="hide"/>
+                <field name="collection_tone" column_invisible="1"/>
+                <field name="collection_bucket" column_invisible="1"/>
+                <field name="currency_id" column_invisible="1"/>
+                <button name="action_pdc_deposit" type="object" string="Deposit"
+                        icon="fa-university" invisible="pdc_state != 'held'"/>
+                <button name="action_pdc_clear" type="object" string="Cleared"
+                        icon="fa-check" invisible="pdc_state not in ('held','deposited')"/>
+                <!-- Only a real instrument can bounce. An Expected cheque
+                     has not been handed over, so offering to bounce it invites
+                     recording a failure for something that never arrived. -->
+                <button name="action_pdc_bounce" type="object" string="Bounced"
+                        icon="fa-times" invisible="pdc_state not in ('held','deposited')"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_collections_search" model="ir.ui.view">
+        <field name="name">account.payment.search.collections</field>
+        <field name="model">account.payment</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="cheque_no"/>
+                <field name="partner_id" string="Tenant"/>
+                <field name="building_id"/>
+                <field name="payee_partner_id" string="Payable to"/>
+
+                <!--
+                  The working day, in the order somebody would deal with it:
+                  what failed, what is late, what is bankable now, what never
+                  arrived.
+                -->
+                <filter name="f_bounced" string="Bounced"
+                        domain="[('collection_bucket','=','bounced')]"
+                        help="Returned unpaid with no replacement linked. A bounce that has
+                              been made good moves to Replaced and leaves this filter."/>
+                <filter name="f_overdue" string="Past due"
+                        domain="[('collection_bucket','=','overdue')]"
+                        help="Matured and still not cleared."/>
+                <filter name="f_due_soon" string="Due this week"
+                        domain="[('collection_bucket','=','due_soon')]"/>
+                <filter name="f_missing" string="Not handed over"
+                        domain="[('collection_bucket','=','missing')]"
+                        help="BR-114. The lease schedule expects this instrument and nobody
+                              has produced it."/>
+                <separator/>
+                <filter name="f_needs_attention" string="Needs attention"
+                        domain="[('collection_tone','in',('warn','critical'))]"/>
+                <separator/>
+
+                <!-- BRD §6.1. The separation that must never blur. -->
+                <filter name="f_company_funds" string="Company funds"
+                        domain="[('is_owner_funds','=',False)]"/>
+                <filter name="f_owner_funds" string="Owner funds"
+                        domain="[('is_owner_funds','=',True)]"
+                        help="Held and banked for the landlord. Never company cash or revenue."/>
+                <separator/>
+                <filter name="f_third_party" string="Third-party cheques"
+                        domain="[('is_third_party','=',True)]"
+                        help="Signed by somebody other than the tenant. The receivable stays
+                              with the tenant either way."/>
+                <separator/>
+                <filter name="f_open" string="Still open"
+                        domain="[('collection_bucket','not in',('settled','closed'))]"/>
+
+                <group>
+                    <filter name="g_bucket" string="Bucket" context="{'group_by':'collection_bucket'}"/>
+                    <filter name="g_state" string="Status" context="{'group_by':'pdc_state'}"/>
+                    <filter name="g_funds" string="Whose funds" context="{'group_by':'is_owner_funds'}"/>
+                    <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
+                    <filter name="g_payee" string="Payable to" context="{'group_by':'payee_partner_id'}"/>
+                    <filter name="g_maturity" string="Banking month" context="{'group_by':'maturity_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_collections" model="ir.actions.act_window">
+        <field name="name">Collections</field>
+        <field name="res_model">account.payment</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('is_pdc','=',True),('head_lease_id','=',False)]</field>
+        <field name="search_view_id" ref="view_collections_search"/>
+        <field name="context">{'search_default_f_open': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No tenant cheques on record</p>
+            <p>
+                Cheques are registered against a tenancy. Open the lease and use
+                Register Cheques, which numbers them from the first cheque and
+                spaces the maturity dates across the term.
+            </p>
+        </field>
+    </record>
+
+    <record id="action_collections_list" model="ir.actions.act_window.view">
+        <field name="sequence">1</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_collections_list"/>
+        <field name="act_window_id" ref="action_collections"/>
+    </record>
+
+    <!--
+      Landlord cheques are money out under a head lease, not collections. They
+      share the model and nothing else, so they get their own entry rather
+      than a filter somebody has to remember to apply.
+    -->
+    <record id="action_landlord_cheques" model="ir.actions.act_window">
+        <field name="name">Landlord Cheques</field>
+        <field name="res_model">account.payment</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('head_lease_id','!=',False)]</field>
+        <field name="search_view_id" ref="view_collections_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No landlord cheques issued</p>
+            <p>
+                These are issued from the head lease. Open the underwriting
+                agreement and use Issue Landlord Cheques.
+            </p>
+        </field>
+    </record>
+
+    <!--
+      Gated on the manager group, which carries the billing access these
+      screens need. A plain leasing user cannot read account.payment at all,
+      so an ungated menu here would install cleanly and be invisible - the
+      defect this project has already shipped once.
+    -->
+    <menuitem id="menu_collections"
+              name="Collections"
+              parent="c2p_property_lease.menu_property_root"
+              action="action_collections"
+              groups="c2p_property_lease.group_property_manager"
+              sequence="3"/>
+
+    <menuitem id="menu_landlord_cheques"
+              name="Landlord Cheques"
+              parent="c2p_property_lease.menu_property_root"
+              action="action_landlord_cheques"
+              groups="c2p_property_lease.group_property_manager"
+              sequence="4"/>
+</odoo>

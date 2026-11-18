@@ -125,6 +125,30 @@ class HeadLease(models.Model):
             if rec.date_start and rec.date_end and rec.date_end <= rec.date_start:
                 raise ValidationError(self.env._("A head lease must end after it starts."))
 
+    @api.constrains("building_id")
+    def _check_building_is_head_leased(self):
+        """BR-019. A head lease on an owner-managed building is a contradiction.
+
+        Head leasing means this company pays the landlord a fixed rent and
+        keeps the tenant rent. Owner Management means the landlord keeps the
+        tenant rent and this company earns a fee. A building cannot be both,
+        and attaching a head lease to one marked Owner Management is how the
+        margin figures would silently start reporting the landlord's money
+        again.
+        """
+        for rec in self:
+            model = rec.building_id.operating_model
+            if model and model != "head_lease":
+                raise ValidationError(
+                    self.env._(
+                        "%(building)s is set to %(model)s, so it cannot carry a head lease. "
+                        "Change the building's operating model first if it is being "
+                        "underwritten.",
+                        building=rec.building_id.display_name,
+                        model=dict(rec.building_id._fields["operating_model"].selection)[model],
+                    )
+                )
+
     @api.constrains("state", "building_id", "date_start", "date_end")
     def _check_no_overlap(self):
         """A building cannot be underwritten twice for the same period."""

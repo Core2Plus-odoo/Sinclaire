@@ -10,6 +10,13 @@ from .unit import EARNING_STATES
 
 CHEQUE_PLAN = {1: 12, 2: 6, 3: 4, 4: 3, 6: 2, 12: 1}  # cheques -> months per instalment
 
+# How far ahead a renewal is chased, outermost band first. The expiry cron
+# raises an activity on each of these days, and the tenant dossier calls a
+# tenancy "expiring soon" inside the outermost one - so the two agree about
+# what expiring means by reading the same tuple rather than both having 90
+# typed into them.
+RENEWAL_ALERT_DAYS = (90, 60, 30)
+
 # BRD §3.2: Draft → Pending Approval → Offered → Awaiting Signature → Signed →
 # Registration Pending → Active → Under Notice → Renewed/Expired/Terminated/
 # Cancelled. Allowed transitions and roles are in docs/status_matrix.md.
@@ -39,6 +46,14 @@ LEASE_STATES = [
 # A cheque counts as received once it is physically in hand, and still counts
 # once banked or cleared. A bounced cheque does not: the instrument exists but
 # the money never arrived, which is precisely the situation BR-075 is about.
+#
+# The three states added for BR-114 are all deliberately absent. "expected" is a
+# cheque the schedule says is due and nobody has handed over, so counting it as
+# received would turn the missing-cheque flag into a tick. "replaced" is a
+# bounced instrument that has been made good by another one - the replacement is
+# a payment record of its own and is counted there, so counting the original too
+# would report the cover twice. "cancelled" was withdrawn before it was ever
+# banked, so it is a custody record, not cover.
 RECEIVED_CHEQUE_STATES = ("held", "deposited", "cleared")
 
 LIVE_STATES = ("active", "notice")
@@ -85,6 +100,15 @@ class C2pLease(models.Model):
         string="Payment Cheques",
     )
     instalment_amount = fields.Monetary(compute="_compute_instalment", store=True)
+    # BR-017: the override behind a below-floor let. Writable only by a Leasing
+    # Manager, so the control cannot be lifted by the person it constrains.
+    below_floor_approved = fields.Boolean(
+        string="Below-Floor Rent Approved",
+        copy=False,
+        tracking=True,
+        help="A Leasing Manager has approved letting this unit below its approved floor rent.",
+    )
+    floor_rent = fields.Monetary(related="unit_id.floor_rent", string="Unit Floor Rent")
     security_deposit = fields.Monetary(help="Typically 5% of annual rent for unfurnished residential.")
     commission = fields.Monetary(help="Leasing commission charged to the tenant, usually 5% of annual rent.")
 
@@ -147,6 +171,29 @@ class C2pLease(models.Model):
         for rec in self:
             if rec.date_start and rec.date_end and rec.date_end <= rec.date_start:
                 raise ValidationError(self.env._("A lease must end after it starts."))
+
+    @api.constrains("annual_rent", "unit_id", "below_floor_approved")
+    def _check_floor_rent(self):
+        """BR-017: the approved minimum is a control, not a suggestion.
+
+        A lease under the unit's floor rent is refused unless a Leasing
+        Manager has marked it approved. The flag is the override, and it is
+        writable only by that group - see `write`. A unit with no floor rent
+        set is unconstrained, which is how units behaved before BR-017.
+        """
+        for rec in self:
+            floor = rec.unit_id.floor_rent
+            if floor and rec.annual_rent < floor and not rec.below_floor_approved:
+                raise ValidationError(
+                    self.env._(
+                        "%(rent)s is below the approved floor rent of %(floor)s for %(unit)s. "
+                        "A Leasing Manager must approve the discount before this lease can "
+                        "be saved.",
+                        rent=f"{rec.annual_rent:,.2f}",
+                        floor=f"{floor:,.2f}",
+                        unit=rec.unit_id.display_name,
+                    )
+                )
 
     @api.depends("annual_rent", "cheque_count")
     def _compute_instalment(self):
@@ -249,6 +296,14 @@ class C2pLease(models.Model):
         one. Which means the gate is a workflow control, not a permission
         boundary - anyone who may create a lease may create an active one.
         """
+        # BR-017: the below-floor override is the control, so it cannot be set
+        # by the person it constrains. env.su covers the loader and migration.
+        if (
+            "below_floor_approved" in vals
+            and not self.env.su
+            and not self.env.user.has_group("c2p_property_lease.group_property_manager")
+        ):
+            raise UserError(self.env._("Approving a below-floor rent is a Leasing Manager action."))
         if vals.get("state") == "active":
             for rec in self:
                 if rec.state == "active" or self.env.context.get(self.LOADED_CONTEXT_KEY):
@@ -288,6 +343,19 @@ class C2pLease(models.Model):
                         unit=rec.unit_id.display_name,
                         state=dict(rec.unit_id._fields["state"].selection)[rec.unit_id.state],
                         tenant=rec.unit_id.current_lease_id.tenant_id.name or "another lease",
+                    )
+                )
+            # BR-018. A unit still in Draft has never been released for
+            # letting, so its mandatory data was never checked. Without this
+            # the release gate is decorative: a lease could be written against
+            # a unit with no market rent, no DEWA number and no analytic
+            # account, and activation would put a tenant in it.
+            if rec.unit_id.state == "draft":
+                raise UserError(
+                    self.env._(
+                        "Unit %(unit)s has not been released for letting. Still missing: %(missing)s.",
+                        unit=rec.unit_id.display_name,
+                        missing=rec.unit_id.release_blockers or self.env._("manager approval"),
                     )
                 )
             exception = rec._approved_cheque_exception()
@@ -646,9 +714,9 @@ class C2pLease(models.Model):
     # ------------------------------------------------------------------ cron
     @api.model
     def _cron_lease_expiry_alerts(self):
-        """Raise a renewal activity 90, 60 and 30 days before expiry."""
+        """Raise a renewal activity on each of the RENEWAL_ALERT_DAYS bands."""
         today = fields.Date.context_today(self)
-        for days in (90, 60, 30):
+        for days in RENEWAL_ALERT_DAYS:
             target = today + relativedelta(days=days)
             leases = self.search([("state", "in", LIVE_STATES), ("date_end", "=", target)])
             if not leases:
