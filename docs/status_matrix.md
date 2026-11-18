@@ -156,11 +156,30 @@ Replaced/Cancelled. "No status may be overwritten without history."
 - Status may not be set directly; each move is its own action with its own
   history row.
 
-**Current implementation:** four states — In Hand, Deposited, Cleared, Bounced.
-**Three are missing**: Expected, Replaced, Cancelled. *Expected* is what makes a
-forward cash forecast possible (BRD §9.2 "generate and monitor landlord
-commitments and a forward cash forecast"); *Replaced* is required by the bounce
-acceptance scenario.
+**Current implementation:** all seven states, with the transition table above
+enforced by `_pdc_move`. Each move is its own action; `write` refuses a direct
+`pdc_state` change, so the status bar and a scripted write go through the same
+rules as the buttons. Three moves require a reason and collect it in a dialog:
+In Hand → Expected, Deposited → In Hand, and a cancellation.
+
+Two rules the state list alone would not carry:
+
+- **`has_bounced` is set on a bounce and never unset.** A replacement is a
+  recovery, not a retraction. The dashboard's bounce rate counts instruments
+  that bounced at any point, so working through a backlog of returned cheques
+  cannot walk the figure to zero while payment behaviour is unchanged.
+- **`is_pdc` treats an Expected instrument as part of the register** even
+  though it has no cheque number yet — the number arrives with the cheque.
+  `pdc_state` cannot carry that alone because it defaults to In Hand on every
+  payment in the database, cheque or not; that default predates these states.
+
+Expected instruments are created from the lease by **Generate Expected
+Schedule**, which derives the dates and amount from `CHEQUE_PLAN`. They are
+**not** cover for BR-075: a schedule is a promise, and the gate counts only
+instruments in hand.
+
+**Not yet built:** the landlord-name custody rule (BR-116, blocked on OD-02's
+custody control account) and bank-statement reconciliation (BR-118).
 
 ---
 

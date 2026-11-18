@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from dateutil.relativedelta import relativedelta
 from psycopg2 import IntegrityError
 
 from odoo import fields
@@ -471,6 +472,47 @@ class TestChequeSchedules(TransactionCase):
     was unusable on the tenant lease while the head lease accepted it.
     """
 
+    def _lease_for_schedule(self, cheque_count):
+        """A lettable unit and a lease on it, for one cheque schedule.
+
+        Built per subtest rather than once: a unit takes one tenancy at a
+        time, so six schedules need six units.
+        """
+        landlord = self.env["res.partner"].create({"name": f"Schedule Landlord {cheque_count}"})
+        plan = self.env["account.analytic.plan"].create({"name": f"Schedule Properties {cheque_count}"})
+        building = self.env["c2p.building"].create(
+            {
+                "name": f"Schedule Tower {cheque_count}",
+                "code": f"SC{cheque_count}",
+                "owner_id": landlord.id,
+                "analytic_account_id": self.env["account.analytic.account"]
+                .create({"name": f"Schedule Tower {cheque_count}", "plan_id": plan.id})
+                .id,
+            }
+        )
+        unit = self.env["c2p.unit"].create(
+            {
+                "name": f"SC{cheque_count}-101",
+                "building_id": building.id,
+                "unit_type": "1br",
+                "floor": "1",
+                "area_sqft": 900.0,
+                "market_rent": 120000.0,
+                "dewa_no": f"70{cheque_count:05d}",
+            }
+        )
+        unit.sudo().action_release()
+        return self.env["c2p.lease"].create(
+            {
+                "unit_id": unit.id,
+                "tenant_id": self.env["res.partner"].create({"name": f"Schedule Tenant {cheque_count}"}).id,
+                "date_start": "2026-01-01",
+                "date_end": "2026-12-31",
+                "annual_rent": 120000.0,
+                "cheque_count": str(cheque_count),
+            }
+        )
+
     def test_tenant_lease_offers_the_six_uae_schedules(self):
         selection = {int(v) for v, _ in self.env["c2p.lease"]._fields["cheque_count"].selection}
         self.assertEqual(selection, {1, 2, 3, 4, 6, 12})
@@ -496,6 +538,48 @@ class TestChequeSchedules(TransactionCase):
 
         for cheques, months in CHEQUE_PLAN.items():
             self.assertEqual(cheques * months, 12, f"{cheques} cheques x {months} months != 12")
+
+    def test_the_register_wizard_spaces_cheques_by_the_shared_plan(self):
+        """The wizard must not carry a schedule map of its own.
+
+        It did, and the copy never gained the 3-cheque option, so registering
+        cheques on a 3-cheque lease raised KeyError on a value the form
+        offers. Deleting the copy is not the fix on its own - whichever copy
+        survives is the one that drifts next - so this drives the wizard for
+        every offered count and checks the spacing against CHEQUE_PLAN. It
+        fails if a second map comes back, however it is spelled.
+        """
+        from odoo.addons.c2p_property_lease.models.lease import CHEQUE_PLAN
+
+        journal = self.env["account.journal"].search(
+            [("type", "=", "bank"), ("company_id", "=", self.env.company.id)], limit=1
+        )
+        if not journal or not journal.inbound_payment_method_line_ids:
+            self.skipTest("no bank journal with an inbound payment method")
+
+        first_maturity = fields.Date.to_date("2026-02-01")
+        for count, months in sorted(CHEQUE_PLAN.items()):
+            with self.subTest(cheques=count):
+                lease = self._lease_for_schedule(count)
+                wizard = self.env["c2p.pdc.register"].create(
+                    {
+                        "lease_id": lease.id,
+                        "journal_id": journal.id,
+                        "first_maturity": first_maturity,
+                        "first_cheque_no": "700001",
+                        # Required on the wizard, and the onchange reads it.
+                        "bank_name": "Schedule Bank",
+                    }
+                )
+                wizard._onchange_generate()
+                dates = sorted(wizard.line_ids.mapped("maturity_date"))
+                self.assertEqual(len(dates), count, "the wizard generated the wrong number of cheques")
+                for i, date in enumerate(dates):
+                    self.assertEqual(
+                        date,
+                        first_maturity + relativedelta(months=months * i),
+                        f"cheque {i + 1} of {count} is not {months} month(s) after the one before",
+                    )
 
 
 @tagged("post_install", "-at_install")

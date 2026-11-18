@@ -80,6 +80,52 @@ def check_xml(errors: list[str]) -> None:
             errors.append(f"{xml_file}: malformed XML ({exc})")
             continue
         check_percentage_widget(xml_file, tree, errors)
+        check_removed_v19_fields(xml_file, tree, errors)
+
+
+# Fields that v19 removed or renamed on a core model, with what to do instead.
+# Keyed by the model an `ir.ui.view`-style record declares, because the same
+# field name is still perfectly valid on other models - `groups_id` lives on
+# plenty of them, just not on a view.
+REMOVED_V19_RECORD_FIELDS = {
+    "ir.ui.view": {
+        "groups_id": (
+            'put groups="module.group_xmlid" on the elements inside the arch '
+            "instead, which also strips them from the arch the user is sent"
+        ),
+    },
+}
+
+
+def check_removed_v19_fields(xml_file: Path, tree: ElementTree.ElementTree, errors: list[str]) -> None:
+    """Ban fields v19 removed from core models in data records.
+
+    `ir.ui.view.groups_id` no longer exists in v19, and setting it does not
+    degrade - it raises `ValueError: Invalid field 'groups_id' in 'ir.ui.view'`
+    while the module's data loads, which **fails the whole install**. The
+    module before it in the graph is already committed, so the database is left
+    half-upgraded.
+
+    Nothing else here catches it. The XML is well formed, the xmlid resolves,
+    and there is no Odoo in the dev container - so CI is the first thing that
+    executes it, and it costs a full run to find out. This check is static and
+    takes no Odoo at all.
+
+    Written after exactly that happened on the Tenant 360 view: the line was
+    copied from an earlier file that had never been installed.
+    """
+    for record in tree.iter("record"):
+        banned = REMOVED_V19_RECORD_FIELDS.get(record.get("model", ""))
+        if not banned:
+            continue
+        for field in record.iter("field"):
+            remedy = banned.get(field.get("name", ""))
+            if remedy:
+                errors.append(
+                    f'{xml_file}: <record model="{record.get("model")}"> sets '
+                    f'"{field.get("name")}", which Odoo 19 removed - this fails the '
+                    f"install rather than being ignored. Instead: {remedy}."
+                )
 
 
 def check_percentage_widget(xml_file: Path, tree: ElementTree.ElementTree, errors: list[str]) -> None:

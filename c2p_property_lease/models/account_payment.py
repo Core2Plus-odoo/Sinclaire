@@ -30,6 +30,15 @@ PDC_STATES = [
     ("cancelled", "Cancelled"),
 ]
 
+# The instrument is in our custody: handed over, and not yet resolved either
+# way. "Custody" is a judgement about each state rather than something
+# derivable from the list, so this is a subset written by hand - and therefore
+# exactly the shape that has caused five defects here. The guard is a test that
+# walks every member of PDC_STATES and fails on any state this tuple has not
+# classified, so adding a state to the model forces a decision about it instead
+# of silently dropping those cheques out of the held figure.
+CUSTODY_STATES = ("held", "deposited")
+
 
 class AccountPayment(models.Model):
     _inherit = "account.payment"
@@ -110,6 +119,20 @@ class AccountPayment(models.Model):
         index="btree_not_null",
         help="The instrument given to make good this one after it bounced.",
     )
+    # Set on a bounce and never unset. `pdc_state` cannot answer "has this
+    # instrument ever failed?", because Replaced overwrites Bounced the moment
+    # the tenant makes it good - so a bounce rate read off the state walks down
+    # to zero as the backlog is worked through, while the payment behaviour it
+    # claims to measure stays exactly as bad. BRD §3.2 requires status history
+    # to survive; this is that requirement applied to the reporting.
+    has_bounced = fields.Boolean(
+        string="Ever Bounced",
+        copy=False,
+        index="btree_not_null",
+        readonly=True,
+        help="This instrument was returned unpaid at least once, even if it was later replaced.",
+    )
+    bounced_date = fields.Date(copy=False, readonly=True, help="When the instrument was first returned unpaid.")
 
     @api.depends("head_lease_id")
     def _compute_is_landlord_cheque(self):
@@ -197,6 +220,25 @@ class AccountPayment(models.Model):
                     self.env._("A replacement must sit on the same lease as the instrument it replaces.")
                 )
 
+    # --------------------------------------------------------------- reporting
+    @api.model
+    def _c2p_bounce_rate(self, ever_bounced, cleared):
+        """One definition of the bounce rate, for every screen that shows one.
+
+        Denominator is *concluded* instruments - ones that reached an outcome,
+        by clearing or by failing. Cheques still in hand are excluded
+        deliberately: counting them would make the rate improve every time a
+        tenant hands over a new cheque, before anybody knows whether it is
+        good.
+
+        A module-level function rather than a figure each screen computes,
+        because the Command Center and the tenant dossier both report this
+        number and two copies of a ratio is how a client comes to be shown two
+        different bounce rates for the same tenant on the same morning.
+        """
+        concluded = ever_bounced + cleared
+        return (ever_bounced / concluded * 100.0) if concluded else 0.0
+
     # ------------------------------------------------------------------ actions
     def action_pdc_deposit(self):
         self.filtered(lambda p: p.pdc_state == "held").write({"pdc_state": "deposited"})
@@ -224,6 +266,12 @@ class AccountPayment(models.Model):
     def action_pdc_bounce(self):
         for rec in self:
             rec.pdc_state = "bounced"
+            # First bounce only: the date records when this instrument failed,
+            # and a second return of the same cheque is the same failure
+            # continuing rather than a new one.
+            if not rec.has_bounced:
+                rec.has_bounced = True
+                rec.bounced_date = fields.Date.context_today(rec)
             rec.message_post(body=self.env._("Cheque returned unpaid. Follow up with the tenant."))
 
     def action_pdc_cancel(self, reason=None):

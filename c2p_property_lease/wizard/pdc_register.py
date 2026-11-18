@@ -5,7 +5,7 @@ from odoo import fields
 from odoo import models
 from odoo.exceptions import UserError
 
-MONTHS = {1: 12, 2: 6, 4: 3, 6: 2, 12: 1}
+from ..models.lease import CHEQUE_PLAN
 
 
 class PdcRegister(models.TransientModel):
@@ -50,7 +50,11 @@ class PdcRegister(models.TransientModel):
     def _onchange_generate(self):
         if not (self.lease_id and self.first_maturity and self.first_cheque_no):
             return
-        step = MONTHS[int(self.lease_id.cheque_count)]
+        # CHEQUE_PLAN, not a second copy of it. This wizard carried its own
+        # months-per-instalment map, and when the 3-cheque schedule was added
+        # to the lease the copy here never gained it - so registering cheques
+        # on a 3-cheque lease raised KeyError on a field the form offers.
+        step = CHEQUE_PLAN[int(self.lease_id.cheque_count)]
         try:
             base = int("".join(c for c in self.first_cheque_no if c.isdigit()))
         except ValueError:
