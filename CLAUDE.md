@@ -86,6 +86,12 @@ Say so when you report, rather than implying you ran them.
 
 - `models.Constraint` replaces `_sql_constraints` — **v19 ignores the latter
   silently**, so a uniqueness rule written the old way lets duplicates through.
+- **`ir.ui.view` has no `groups_id` in v19.** Setting it on a view record does
+  not degrade — it raises `ValueError: Invalid field 'groups_id'` while the
+  module's data loads and **fails the whole install**, leaving the database
+  half-upgraded. Restrict view *content* with a `groups=` attribute on the
+  elements inside the arch, which also strips them from the arch the reader
+  is sent. `tools/validate_manifests.py` now refuses the field.
 - `res.groups.privilege_id`, `res.users.group_ids`, `<list>` not `<tree>`, no
   `attrs`/`states`, and `<group>` inside a search view takes neither `expand`
   nor `string`.

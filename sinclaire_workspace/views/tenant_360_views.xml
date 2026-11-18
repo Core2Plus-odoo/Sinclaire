@@ -14,27 +14,34 @@
       tenancy dossier full of zeroes on a supplier record teaches people to
       ignore the block on the records where it matters.
 
-      BR-008 keeps tenants out of Odoo entirely, so this is a staff screen:
-      the group restriction is on the view record itself.
+      BR-008 keeps tenants out of Odoo entirely, so this is a staff screen.
 
       Manager, not plain leasing user, and not by preference. The cheque
       figures read `account.payment`, which `group_property_user` has no
       access to at all - so for a leasing user these computes would raise
       AccessError and take the whole contact form down with them, on every
-      contact, not just tenants. Gating the view means the fields are never
-      read for those users. Same call as the Collections register, for the
-      same reason. If leasing needs the dossier, that is an OD-06 question
-      about what a leasing agent may see of the money, not something to work
-      around here with sudo().
+      contact, not just tenants. Same call as the Collections register, for
+      the same reason. If leasing needs the dossier, that is an OD-06
+      question about what a leasing agent may see of the money, not something
+      to work around here with sudo().
+
+      The gate is a `groups` attribute on each block this view adds, not a
+      group on the view record: v19 removed `ir.ui.view.groups_id`, and
+      setting it does not degrade - it raises ValueError while the module's
+      data loads and fails the whole install. Odoo strips an element the
+      reader is not in the group for before the arch is sent, so the fields
+      inside are never read for them, which is what actually prevents the
+      AccessError. `tools/validate_manifests.py` now refuses that field,
+      because this cost a CI run.
     -->
     <record id="view_partner_form_tenant_360" model="ir.ui.view">
         <field name="name">res.partner.form.tenant.360</field>
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>
-        <field name="groups_id" eval="[(4, ref('c2p_property_lease.group_property_manager'))]"/>
         <field name="arch" type="xml">
             <xpath expr="//sheet" position="before">
-                <div class="sin-stack p-3 pb-0" invisible="tenant_lease_count == 0">
+                <div class="sin-stack p-3 pb-0" invisible="tenant_lease_count == 0"
+                     groups="c2p_property_lease.group_property_manager">
                     <!--
                       One list, worst thing first, and only when there is
                       something to say. Same component as the building alert
@@ -167,7 +174,8 @@
               through underneath.
             -->
             <xpath expr="//notebook" position="inside">
-                <page string="Tenancies" name="tenant_360" invisible="tenant_lease_count == 0">
+                <page string="Tenancies" name="tenant_360" invisible="tenant_lease_count == 0"
+                      groups="c2p_property_lease.group_property_manager">
                     <group>
                         <group string="Cheque register">
                             <field name="tenant_cheque_breakdown" nolabel="1" readonly="1"/>
