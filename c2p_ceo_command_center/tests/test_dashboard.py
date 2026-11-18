@@ -285,16 +285,22 @@ class TestCeoDashboard(TransactionCase):
         before = self._dashboard().bounce_rate
         self.assertGreater(before, 0.0)
 
-        wizard = self.env["c2p.pdc.replace"].create(
+        replacement = self.env["account.payment"].create(
             {
-                "payment_id": cheque.id,
+                "payment_type": "inbound",
+                "partner_type": "customer",
+                "partner_id": self.tenant.id,
+                "amount": cheque.amount,
+                "journal_id": journal.id,
+                "payment_method_line_id": journal.inbound_payment_method_line_ids[0].id,
+                "company_id": self.env.company.id,
+                "lease_id": self.lease.id,
                 "cheque_no": "990002",
                 "cheque_bank": "CC Bank",
                 "maturity_date": self.lease.date_start,
-                "amount": cheque.amount,
             }
         )
-        wizard.action_confirm()
+        cheque.action_link_replacement(replacement)
         self.assertEqual(cheque.pdc_state, "replaced")
         self.assertAlmostEqual(self._dashboard().bounce_rate, before, places=6)
 

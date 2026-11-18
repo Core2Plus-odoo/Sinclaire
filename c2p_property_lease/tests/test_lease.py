@@ -567,6 +567,8 @@ class TestChequeSchedules(TransactionCase):
                         "journal_id": journal.id,
                         "first_maturity": first_maturity,
                         "first_cheque_no": "700001",
+                        # Required on the wizard, and the onchange reads it.
+                        "bank_name": "Schedule Bank",
                     }
                 )
                 wizard._onchange_generate()
