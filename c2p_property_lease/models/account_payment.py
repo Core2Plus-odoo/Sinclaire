@@ -208,6 +208,20 @@ class AccountPayment(models.Model):
             )
             rec.message_post(body=f"{note} {reason}" if reason else note)
 
+    @api.model
+    def _c2p_bounce_rate(self, ever_bounced, cleared):
+        """Instruments that failed at least once, as a share of those that
+        reached an outcome.
+
+        One definition, because there are now two screens reporting it — the
+        Command Center across the portfolio and the Tenant 360 for one tenant
+        — and two places computing the same ratio is how they come to disagree
+        about the same tenant. The numerator is "ever bounced", never
+        "currently Bounced": a replacement is a recovery, not a retraction.
+        """
+        concluded = ever_bounced + cleared
+        return (ever_bounced / concluded * 100.0) if concluded else 0.0
+
     # ----------------------------------------------------------------- actions
     def action_pdc_receive(self):
         """Expected → In Hand. The cheque has physically arrived.

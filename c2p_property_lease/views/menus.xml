@@ -14,6 +14,8 @@
 
     <menuitem id="menu_cheque_exception" name="Cheque Exceptions" parent="menu_property_operations"
               action="action_lease_cheque_exception" sequence="40"/>
+    <menuitem id="menu_tenant" name="Tenants" parent="menu_property_operations"
+              action="action_tenant_360_list" sequence="35"/>
 
     <menuitem id="menu_property_finance" name="Finance" parent="menu_property_root" sequence="20"/>
     <menuitem id="menu_pdc" name="Tenant Cheques" parent="menu_property_finance"

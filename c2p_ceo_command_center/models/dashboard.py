@@ -250,8 +250,7 @@ class CeoDashboard(models.TransientModel):
             # bounces would walk this figure down to zero while the tenant's
             # payment behaviour stayed exactly as bad.
             rec.pdc_ever_bounced_count = Payment.search_count([*base, ("has_bounced", "=", True)])
-            concluded = rec.pdc_cleared_count + rec.pdc_ever_bounced_count
-            rec.bounce_rate = rec.pdc_ever_bounced_count / concluded * 100.0 if concluded else 0.0
+            rec.bounce_rate = Payment._c2p_bounce_rate(rec.pdc_ever_bounced_count, rec.pdc_cleared_count)
 
     @api.depends("company_id", "date_from", "date_to")
     def _compute_income(self):

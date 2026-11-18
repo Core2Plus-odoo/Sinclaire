@@ -5,5 +5,6 @@ from . import building
 from . import head_lease
 from . import lease
 from . import lease_cheque_exception
+from . import res_partner
 from . import sample_portfolio
 from . import unit

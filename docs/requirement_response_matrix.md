@@ -164,7 +164,7 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 | BR-095 | 5.1.4.2 | Move-out compares against the **immutable signed move-in baseline**; a changed baseline requires a documented correction workflow and both-party acknowledgement | Must | Cus | handover | Baseline lock | S3 | — |
 | BR-096 | 5.1.4.2 | Charges from an approved rate, quotation or assessed amount, **approved before deposit deduction or invoice**; minor/major labels do not determine legal liability | Must | Cus | handover | Approval gate | S3 | — |
 | BR-097 | 5.1.4.3 | Keys, cards, remotes, locks and devices tracked by type, identifier, quantity, issue/return condition, dates and custodian; completion needs both signatures or a documented refusal/absence process | Must | Cus | handover | Custody tracking | S3 | — |
-| BR-098 | 5.3 | Tenancy monitoring: payment and cheque performance, arrears, promises, bounces, complaints, disturbances, unauthorised subletting, unusual utility use, missing deposits or documents, maintenance history, breaches, warnings, legal cases, resolutions — each with date, category, seriousness, evidence, owner, action, deadline, result and renewal impact | Must | Cus | new event model | Tenancy event log | S3 | — |
+| BR-098 | 5.3 | Tenancy monitoring: payment and cheque performance, arrears, promises, bounces, complaints, disturbances, unauthorised subletting, unusual utility use, missing deposits or documents, maintenance history, breaches, warnings, legal cases, resolutions — each with date, category, seriousness, evidence, owner, action, deadline, result and renewal impact | Must | Cus | new event model | **Tenant 360** dossier covers payment and cheque performance, bounces and renewal exposure; the event log for complaints, breaches, warnings and legal cases is still to come | S3 | Partial |
 | BR-099 | 5.3 | Warnings, breach notices, non-renewals and terminations follow approved workflow with approved reason, evidence, correct notice method and legal review; **the system must not make legal decisions on its own** | Must | Cus | notice workflow | Human-gated | S3 | — |
 | BR-100 | 5.4 | Renewal cases created automatically at configurable intervals, normally 90/60/30 days before expiry | Must | Cus | `c2p.lease` | Cron exists for alerts | S2 | Partial |
 | BR-101 | 5.4 | Renewal calculates current and proposed rent, increase percentage, admin/renewal charges, registration fees, taxes, new period, payment count and any management-contract end-date restriction | Must | Cus | renewal wizard | Calculation | S3 | Partial |
@@ -283,8 +283,8 @@ Dependencies on client decisions are named inline as `OD-nn` and are tracked in
 | Status | Count |
 | --- | --- |
 | Built | 9 |
-| Partial | 33 |
-| Not started | 144 |
+| Partial | 34 |
+| Not started | 143 |
 
 186 requirements, BR-001 to BR-186 with no gaps or duplicates, of which **3
 carry the BRD's own IDs** (BR-001 to BR-003). Counts are generated from the
