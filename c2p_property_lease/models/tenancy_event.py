@@ -387,9 +387,13 @@ class C2pTenancyEvent(models.Model):
         for rec in self:
             rec._set_state("referred", reason=reason)
 
-    def action_resolve(self, reason=None):
+    def action_resolve(self, reason=None, result=None):
+        """`result` is a parameter because _set_state refuses Resolved without
+        one, so every caller needs a way to supply it in the same move - the
+        wizard, a test, and any future automation."""
+        extra = {"result": result} if result else {}
         for rec in self:
-            rec._set_state("resolved", reason=reason)
+            rec._set_state("resolved", reason=reason, **extra)
 
     def action_close(self, reason=None):
         for rec in self:

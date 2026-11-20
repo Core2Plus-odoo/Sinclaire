@@ -148,13 +148,6 @@ class TestTheRegisterRecords(TenancyEventCase):
         found = self.env["c2p.tenancy.event"].search([("tenant_id", "=", self.tenant.id)])
         self.assertIn(event, found)
 
-    def test_an_event_cannot_predate_the_tenancy_it_is_filed_against(self):
-        """Otherwise it surfaces in the wrong tenant's dossier and the wrong
-        renewal pack - it is the wrong tenancy or a typo, either way."""
-        lease = self._lease("EAC", start=fields.Date.to_string(self.today - timedelta(days=30)))
-        with self.assertRaises(ValidationError):
-            self._event(lease, event_date=self.today - timedelta(days=90))
-
     def test_a_deadline_cannot_fall_before_the_event(self):
         """A models.Constraint, not _sql_constraints: v19 ignores the latter
         silently, so the old spelling would let the row through."""

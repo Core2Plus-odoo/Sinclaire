@@ -88,6 +88,7 @@ remaining decisions, next action.
 ruff check . && ruff format --check .
 python tools/validate_manifests.py
 python tools/check_test_hygiene.py
+python tools/check_action_kwargs.py
 python tools/check_contrast.py
 python tools/check_version_bumps.py
 python tools/check_requirement_matrix.py
@@ -95,7 +96,7 @@ python tools/gen_data_dictionary.py --check
 python -m unittest discover -s tools/tests
 ```
 
-All eight run in CI (`.github/workflows/ci.yml`). The Odoo tests
+All nine run in CI (`.github/workflows/ci.yml`). The Odoo tests
 (`.github/workflows/odoo-tests.yml`) install the addons into a real database
 and are the **only** gate that catches an install failure — there is no Odoo in
 the dev container, so CI is the first execution of any Odoo test you write.

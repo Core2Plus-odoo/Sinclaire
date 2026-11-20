@@ -191,7 +191,7 @@ BRD §2.3 names twenty roles; the system has two. Every *(proposed)* role in `st
 Production was last upgraded 2026-10-06 to `c2p_property_lease 19.0.1.6.0`; `main` is at `19.0.1.12.0` and PR #25 takes it to `19.0.1.13.0`. The next deploy installs everything at once, including two modules of UI that have never run outside CI. **Two migrations have never executed anywhere** (`19.0.1.8.0`, `19.0.1.12.0`), because CI builds fresh databases and no migration runs there.
 
 **R5 — The local gate cannot catch Odoo-runtime faults. (Medium, structural)**
-There is no Odoo in the dev container, so none of the eight local checks loads a view, instantiates a model or runs against the ORM. In PR #14 the full local gate passed on two commits CI then rejected — once for `ir.ui.view.groups_id`, which v19 removed and which fails the whole install. One static guard was added for that class of error; the gap is permanent and must be stated in every report. **Never run on an Odoo.sh staging branch** — only CI and production, which makes CI the sole pre-production gate.
+There is no Odoo in the dev container, so none of the eight local checks loads a view, instantiates a model or runs against the ORM. In PR #14 the full local gate passed on two commits CI then rejected — once for `ir.ui.view.groups_id`, which v19 removed and which fails the whole install. Two static guards now exist for classes of error CI found this way — `validate_manifests.py` refuses fields v19 removed, and `check_action_kwargs.py` refuses a call passing a keyword no `action_*` definition accepts. Each converts a CI-only failure into a one-second local one, but the gap itself is permanent and must be stated in every report. **Never run on an Odoo.sh staging branch** — only CI and production, which makes CI the sole pre-production gate.
 
 **R6 — VAT documented, not enforced. (Medium)** ADR-006 localization gap.
 
@@ -272,7 +272,7 @@ Per blueprint §23 and `docs/quality/RELEASE_GATE_CHECKLIST.md` in the pack. A c
 
 - [ ] Requirement traced to a `BR-nnn`, and the standard-Odoo option rejected for a stated reason
 - [ ] `docs/status_matrix.md` updated first where a state machine changes — the spec leads, the code follows
-- [ ] All eight local checks pass
+- [ ] All nine local checks pass
 - [ ] **CI Odoo job green** — the only gate that catches an install failure
 - [ ] Negative and permission tests included, not just the happy path
 - [ ] Multi-company scope verified for any model carrying `company_id`
