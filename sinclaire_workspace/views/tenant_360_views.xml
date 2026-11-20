@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+      Tenant 360.
+
+      Inherits the standard contact form rather than replacing it, so a tenant
+      stays an ordinary res.partner with an ordinary address, and everything
+      Odoo or any other module adds to a contact keeps working. What this adds
+      is the answer to "who is this tenant and should I worry?" above the
+      fold, where somebody picking up the phone can see it.
+
+      The whole block is invisible on a contact with no tenancies. Most
+      contacts in this database are landlords, suppliers and staff, and a
+      tenancy dossier full of zeroes on a supplier record teaches people to
+      ignore the block on the records where it matters.
+
+      BR-008 keeps tenants out of Odoo entirely, so this is a staff screen.
+
+      Manager, not plain leasing user, and not by preference. The cheque
+      figures read `account.payment`, which `group_property_user` has no
+      access to at all - so for a leasing user these computes would raise
+      AccessError and take the whole contact form down with them, on every
+      contact, not just tenants. Same call as the Collections register, for
+      the same reason. If leasing needs the dossier, that is an OD-06
+      question about what a leasing agent may see of the money, not something
+      to work around here with sudo().
+
+      The gate is a `groups` attribute on each block this view adds, not a
+      group on the view record: v19 removed `ir.ui.view.groups_id`, and
+      setting it does not degrade - it raises ValueError while the module's
+      data loads and fails the whole install. Odoo strips an element the
+      reader is not in the group for before the arch is sent, so the fields
+      inside are never read for them, which is what actually prevents the
+      AccessError. `tools/validate_manifests.py` now refuses that field,
+      because this cost a CI run.
+    -->
+    <record id="view_partner_form_tenant_360" model="ir.ui.view">
+        <field name="name">res.partner.form.tenant.360</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <div class="sin-stack p-3 pb-0" invisible="tenant_lease_count == 0"
+                     groups="c2p_property_lease.group_property_manager">
+                    <!--
+                      One list, worst thing first, and only when there is
+                      something to say. Same component as the building alert
+                      and the unit release checklist.
+                    -->
+                    <field name="tenant_alert" nolabel="1" readonly="1" invisible="not tenant_alert"/>
+
+                    <div class="sin-grid">
+                        <div class="sin-card">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Tenant for</span>
+                                <span class="sin-kpi__value">
+                                    <field name="tenant_tenure_display"/>
+                                </span>
+                                <span class="sin-kpi__meta">
+                                    <field name="tenant_lease_count"/> tenancies,
+                                    <field name="tenant_renewal_count"/> renewed
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="sin-card">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Contracted rent</span>
+                                <span class="sin-kpi__value">
+                                    <field name="tenant_live_rent" widget="monetary"
+                                           options="{'currency_field': 'tenant_currency_id'}"/>
+                                </span>
+                                <!--
+                                  Said on the screen, not only in the model.
+                                  This is what was agreed, not what came in -
+                                  the cheque card to the right is the
+                                  collected side, and conflating the two is
+                                  how a tenant who never paid comes to look
+                                  like a good one.
+                                -->
+                                <span class="sin-kpi__meta">
+                                    Agreed on <field name="tenant_live_lease_count"/> running tenancies.
+                                    Not what has been collected.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="sin-card"
+                             invisible="tenant_cleared_count == 0 and tenant_ever_bounced_count == 0">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Bounce rate</span>
+                                <!--
+                                  digits, not widget="percentage": that widget
+                                  expects a 0-1 fraction and this is already
+                                  0-100. The mismatch is what put "8200%" on
+                                  the Command Center.
+
+                                  Two spans rather than a conditional class:
+                                  a form view has no decoration-* attribute,
+                                  so the tone is expressed by showing one of
+                                  the two.
+                                -->
+                                <span class="sin-kpi__value sin-kpi__value--critical"
+                                      invisible="tenant_cheque_tone != 'critical'">
+                                    <field name="tenant_bounce_rate" digits="[16,1]"/>%
+                                </span>
+                                <span class="sin-kpi__value" invisible="tenant_cheque_tone == 'critical'">
+                                    <field name="tenant_bounce_rate" digits="[16,1]"/>%
+                                </span>
+                                <span class="sin-kpi__meta">
+                                    <field name="tenant_ever_bounced_count"/> of their concluded
+                                    cheques bounced
+                                </span>
+                                <!--
+                                  The figure opens the records behind it. A
+                                  number nobody can open is a number nobody
+                                  can check, and this project has shipped two
+                                  that were quietly wrong.
+                                -->
+                                <button name="action_tenant_ever_bounced" type="object"
+                                        class="btn btn-link p-0 sin-kpi__meta"
+                                        string="See which"
+                                        invisible="tenant_ever_bounced_count == 0"/>
+                            </div>
+                        </div>
+
+                        <div class="sin-card" invisible="tenant_custody_count == 0">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Cheques in hand</span>
+                                <span class="sin-kpi__value">
+                                    <field name="tenant_custody_amount" widget="monetary"
+                                           options="{'currency_field': 'tenant_currency_id'}"/>
+                                </span>
+                                <span class="sin-kpi__meta">
+                                    <field name="tenant_custody_count"/> instruments held
+                                </span>
+                                <button name="action_tenant_cheques" type="object"
+                                        class="btn btn-link p-0 sin-kpi__meta"
+                                        string="Open the register"/>
+                            </div>
+                        </div>
+
+                        <div class="sin-card" invisible="tenant_deposit_held == 0">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Deposit held</span>
+                                <span class="sin-kpi__value">
+                                    <field name="tenant_deposit_held" widget="monetary"
+                                           options="{'currency_field': 'tenant_currency_id'}"/>
+                                </span>
+                                <span class="sin-kpi__meta">Refundable at the end of the tenancy</span>
+                            </div>
+                        </div>
+
+                        <div class="sin-card" invisible="tenant_cheque_shortfall == 0">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Cheque shortfall</span>
+                                <span class="sin-kpi__value sin-kpi__value--warn">
+                                    <field name="tenant_cheque_shortfall" widget="monetary"
+                                           options="{'currency_field': 'tenant_currency_id'}"/>
+                                </span>
+                                <span class="sin-kpi__meta">
+                                    Rent agreed on running tenancies with no cheque behind it
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+
+            <!--
+              The detail below the fold: the register broken down by state,
+              and the tenancy history. Progressive disclosure - the numbers
+              somebody checks on a call first, the records they go digging
+              through underneath.
+            -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Tenancies" name="tenant_360" invisible="tenant_lease_count == 0"
+                      groups="c2p_property_lease.group_property_manager">
+                    <group>
+                        <group string="Cheque register">
+                            <field name="tenant_cheque_breakdown" nolabel="1" readonly="1"/>
+                        </group>
+                        <group string="History">
+                            <field name="tenant_since" readonly="1"/>
+                            <field name="tenant_lease_count" readonly="1"/>
+                            <field name="tenant_renewal_count" readonly="1"/>
+                            <field name="tenant_cleared_count" readonly="1"/>
+                        </group>
+                    </group>
+                    <field name="tenant_lease_ids" nolabel="1" readonly="1">
+                        <list decoration-muted="state in ('renewed', 'expired', 'terminated', 'cancelled')">
+                            <field name="name"/>
+                            <field name="unit_id"/>
+                            <field name="building_id"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="annual_rent"/>
+                            <field name="cheques_complete" string="Cheques"/>
+                            <field name="state"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!--
+      A way in from the menu as well as from a contact record. The domain is
+      the tenancy itself rather than `customer_rank`: a landlord who is also
+      invoiced has a customer rank and is not a tenant, and a list called
+      Tenants that includes landlords is worse than no list.
+    -->
+    <record id="action_tenants" model="ir.actions.act_window">
+        <field name="name">Tenants</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('tenant_lease_ids', '!=', False)]</field>
+        <field name="context">{'res_partner_search_mode': 'customer'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No tenants yet</p>
+            <p>
+                A contact appears here once a tenancy names them as the tenant.
+                Open one to see their cheque performance and tenancy history.
+            </p>
+        </field>
+    </record>
+
+    <!--
+      Gated on the manager group for the same reason as Collections: the
+      dossier reads account.payment, and a plain leasing user cannot, so an
+      ungated menu would install cleanly and show a screen of blanks.
+    -->
+    <menuitem id="menu_tenants"
+              name="Tenants"
+              parent="c2p_property_lease.menu_property_root"
+              action="action_tenants"
+              groups="c2p_property_lease.group_property_manager"
+              sequence="5"/>
+</odoo>
