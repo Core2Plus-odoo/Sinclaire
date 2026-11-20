@@ -3,3 +3,4 @@ from . import lease_renew
 from . import lease_terminate
 from . import pdc_register
 from . import sample_loader
+from . import tenancy_event_move

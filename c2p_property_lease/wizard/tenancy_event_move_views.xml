@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_tenancy_event_move_form" model="ir.ui.view">
+        <field name="name">c2p.tenancy.event.move.form</field>
+        <field name="model">c2p.tenancy.event.move</field>
+        <field name="arch" type="xml">
+            <form string="Move Event">
+                <group>
+                    <field name="event_id" invisible="1"/>
+                    <field name="current_state"/>
+                    <field name="move"/>
+                    <field name="reason_required" invisible="1"/>
+                    <field name="wants_result" invisible="1"/>
+                    <field name="result_required" invisible="1"/>
+                    <field name="event_has_evidence" invisible="1"/>
+                </group>
+                <!--
+                  The evidence rule is on the model, not here. This notice
+                  only saves the reader a refusal they would otherwise meet
+                  on confirm; removing it changes nothing about the control.
+                -->
+                <div class="alert alert-warning" role="alert"
+                     invisible="move != 'referred' or event_has_evidence">
+                    There is no evidence attached. A referral leads to a warning or a notice,
+                    and BRD §5.3 requires the evidence to exist first — this will be refused.
+                </div>
+                <group>
+                    <field name="reason" nolabel="1" required="reason_required"
+                           placeholder="Why this move is being made."/>
+                </group>
+                <group invisible="not wants_result">
+                    <field name="result" nolabel="1" required="result_required"
+                           placeholder="How it ended."/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirm" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_tenancy_event_move" model="ir.actions.act_window">
+        <field name="name">Move Event</field>
+        <field name="res_model">c2p.tenancy.event.move</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>
