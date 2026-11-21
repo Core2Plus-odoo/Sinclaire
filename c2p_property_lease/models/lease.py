@@ -82,6 +82,21 @@ class C2pLease(models.Model):
     unit_id = fields.Many2one("c2p.unit", required=True, tracking=True)
     building_id = fields.Many2one(related="unit_id.building_id", store=True)
     owner_id = fields.Many2one(related="building_id.owner_id", string="Landlord", store=True)
+    # The report catalogue's first non-negotiable rule: never aggregate across
+    # operating models. Head-lease rental revenue, owner-management gross rent
+    # administered and brokerage transaction value are not the same kind of
+    # number and must never sum into one "revenue" figure (BRD §8.1).
+    #
+    # The lease carried no operating model at all, so no lease report could
+    # split by one and the pivot summed all three together. Stored, because a
+    # non-stored related field cannot be grouped or filtered - and the
+    # catalogue makes operating model a mandatory filter on every report.
+    # Same declaration as account.payment, which already had it.
+    operating_model = fields.Selection(
+        related="building_id.operating_model",
+        store=True,
+        string="Operating Model",
+    )
 
     date_start = fields.Date(required=True, default=fields.Date.context_today, tracking=True)
     date_end = fields.Date(required=True, tracking=True)

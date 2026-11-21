@@ -196,6 +196,51 @@ reconciling to the source workbook **and** the general ledger.
 
 ---
 
+## RPT-017, RPT-018, RPT-019 — built, and still Partial
+
+These three now exist as reports rather than as dashboard tiles: **Rent Roll**,
+**Lease Register** and **Renewal Pipeline**, under Property → Reports. They are
+native list, pivot and graph views on `c2p.lease`, not QWeb documents, which is
+the standard-first answer and satisfies three of §8.3's five requirements for
+free — a row opens the source tenancy, the native exporter produces the Excel,
+and a pivot compares periods.
+
+**They remain `Partial`, and the reason is the acceptance test, not the
+rendering.** §8.3.7 requires reproducing an approved month from a supplied
+workbook and reconciling to both the workbook and the general ledger. No
+workbook has been supplied, so none of this has been reconciled to anything.
+A report showing the right columns that does not tie to the ledger fails that
+test, and the catalogue says so.
+
+What else is outstanding on them specifically:
+
+- **Scheduled delivery** (§8.3). Odoo gives a list or pivot view no native
+  scheduler, so this needs either a spreadsheet dashboard or a cron that mails
+  the export. Not built, and not faked.
+- **Role visibility and the export audit log** — **OD-06**. All three carry
+  tenant names and contracted rent. They are gated on the manager group as the
+  narrower default until the approval and segregation-of-duties rules arrive;
+  that is a holding position, not an answer.
+
+### The defect found while building them
+
+`c2p.lease` carried **no operating model at all**, so no lease report could
+split by one — and `view_lease_pivot` summed `annual_rent` by building and
+cheque count with no such dimension. Its total therefore added head-lease
+rental revenue to owner-management gross rent administered, which **rule 1
+forbids outright**. `account.payment` had carried the field since BR-043; the
+lease never did.
+
+The field is now on the lease, stored so it can be grouped and filtered, and it
+leads the default grouping of all three reports. Fixing the one pivot does not
+stop the next one repeating it, so
+`sinclaire_workspace/tests/test_reports.py` walks **every** pivot on
+`c2p.lease` carrying a monetary measure and fails if it has no operating-model
+dimension. That is this repository's recurring defect in its reporting form:
+two structures that must agree, with nothing asserting it.
+
+---
+
 ## Summary
 
 | Status | Count |
