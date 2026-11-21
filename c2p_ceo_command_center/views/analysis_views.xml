@@ -19,7 +19,16 @@
         <field name="name">c2p.lease.pivot</field>
         <field name="model">c2p.lease</field>
         <field name="arch" type="xml">
+            <!--
+              Operating model is the first row, not a nicety: without it this
+              pivot's total summed head-lease rental revenue, owner-management
+              gross rent administered and brokerage value into one "revenue"
+              figure, which the report catalogue's rule 1 forbids outright.
+              `test_reports` walks every money pivot on this model and fails if
+              one loses the dimension again.
+            -->
             <pivot string="Leases" sample="1">
+                <field name="operating_model" type="row"/>
                 <field name="building_id" type="row"/>
                 <field name="cheque_count" type="col"/>
                 <field name="annual_rent" type="measure"/>

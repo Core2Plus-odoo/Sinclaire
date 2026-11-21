@@ -1,3 +1,4 @@
 from . import test_collections
 from . import test_portfolio
+from . import test_reports
 from . import test_tenant_360

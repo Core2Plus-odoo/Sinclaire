@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+      RPT-017 Rent roll, RPT-018 Lease register, RPT-019 Renewal pipeline.
+
+      All three read `c2p.lease` and all three are native list, pivot and graph
+      views rather than QWeb documents. That is the standard-first answer and
+      it is also what satisfies most of BRD §8.3's bar for free: clicking a row
+      opens the source transaction, the native exporter produces the Excel, and
+      a pivot compares periods on its own. A bespoke report engine would have
+      re-implemented all three, worse.
+
+      What §8.3 still wants and Odoo does not give a list or pivot view:
+      scheduled delivery. Recorded as the remaining gap on each row of
+      docs/report_catalogue.md rather than quietly dropped.
+
+      Rule 1 shapes every action here. Operating model leads the default
+      grouping on each one, so the figure a reader meets first is split by
+      model and no combined total appears unless they deliberately regroup -
+      which is exactly the latitude §4.1.2 allows. `tests/test_reports.py`
+      asserts it for every action in this file, and separately walks every
+      money pivot on the model so a new one cannot lose the dimension.
+    -->
+
+    <record id="view_lease_rent_roll_list" model="ir.ui.view">
+        <field name="name">c2p.lease.list.rent.roll</field>
+        <field name="model">c2p.lease</field>
+        <field name="arch" type="xml">
+            <!--
+              Contracted rent, and the column says so. Rule 2 keeps
+              operational and financial sources apart: this is the commitment
+              from the property model, not cash from the ledger, and a column
+              headed "Rent" would be read as collected.
+            -->
+            <list string="Rent Roll" create="false" sample="1">
+                <field name="operating_model" optional="show"/>
+                <field name="building_id"/>
+                <field name="unit_id"/>
+                <field name="tenant_id"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="annual_rent" string="Contracted Annual Rent" sum="Contracted"/>
+                <field name="instalment_amount" string="Per Instalment" optional="show"/>
+                <field name="cheque_count" string="Cheques" optional="show"/>
+                <field name="cheque_cover" string="Covered by Cheques" optional="hide" sum="Covered"/>
+                <field name="cheque_shortfall" string="Not Covered" optional="show" sum="Uncovered"/>
+                <field name="security_deposit" optional="hide"/>
+                <field name="ejari_no" optional="hide"/>
+                <field name="state"/>
+                <!-- §8.3: every report shows when it was last updated. -->
+                <field name="write_date" string="Last Updated" optional="hide"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_lease_rent_roll_pivot" model="ir.ui.view">
+        <field name="name">c2p.lease.pivot.rent.roll</field>
+        <field name="model">c2p.lease</field>
+        <field name="arch" type="xml">
+            <pivot string="Rent Roll" sample="1">
+                <field name="operating_model" type="row"/>
+                <field name="building_id" type="row"/>
+                <field name="annual_rent" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_lease_renewal_graph" model="ir.ui.view">
+        <field name="name">c2p.lease.graph.renewal</field>
+        <field name="model">c2p.lease</field>
+        <field name="arch" type="xml">
+            <graph string="Renewal Pipeline" type="bar" stacked="1" sample="1">
+                <field name="date_end" interval="month"/>
+                <field name="operating_model"/>
+                <field name="annual_rent" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- RPT-017 -->
+    <record id="action_rpt_rent_roll" model="ir.actions.act_window">
+        <field name="name">Rent Roll</field>
+        <field name="res_model">c2p.lease</field>
+        <field name="view_mode">list,pivot,form</field>
+        <field name="search_view_id" ref="c2p_property_lease.view_lease_search"/>
+        <field name="domain">[('state', 'in', ('active', 'notice'))]</field>
+        <field name="context">{'search_default_g_model': 1, 'search_default_g_building': 2}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No running tenancies</p>
+            <p>
+                Contracted rent on the tenancies that are running, split by operating
+                model. This is what was agreed, not what has been collected — the
+                cheque register and the ledger answer that.
+            </p>
+        </field>
+    </record>
+
+    <record id="action_rpt_rent_roll_list" model="ir.actions.act_window.view">
+        <field name="sequence">1</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_lease_rent_roll_list"/>
+        <field name="act_window_id" ref="action_rpt_rent_roll"/>
+    </record>
+
+    <record id="action_rpt_rent_roll_pivot" model="ir.actions.act_window.view">
+        <field name="sequence">2</field>
+        <field name="view_mode">pivot</field>
+        <field name="view_id" ref="view_lease_rent_roll_pivot"/>
+        <field name="act_window_id" ref="action_rpt_rent_roll"/>
+    </record>
+
+    <!-- RPT-018 -->
+    <record id="action_rpt_lease_register" model="ir.actions.act_window">
+        <field name="name">Lease Register</field>
+        <field name="res_model">c2p.lease</field>
+        <field name="view_mode">list,pivot,form</field>
+        <field name="search_view_id" ref="c2p_property_lease.view_lease_search"/>
+        <field name="context">{'search_default_g_model': 1, 'search_default_g_state': 2}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No tenancies yet</p>
+            <p>
+                Every tenancy at every status, including the closed ones. Grouped by
+                operating model and then status, because a register that totals across
+                models reports a number that means nothing (BRD §8.1).
+            </p>
+        </field>
+    </record>
+
+    <record id="action_rpt_lease_register_list" model="ir.actions.act_window.view">
+        <field name="sequence">1</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_lease_rent_roll_list"/>
+        <field name="act_window_id" ref="action_rpt_lease_register"/>
+    </record>
+
+    <record id="action_rpt_lease_register_pivot" model="ir.actions.act_window.view">
+        <field name="sequence">2</field>
+        <field name="view_mode">pivot</field>
+        <field name="view_id" ref="view_lease_rent_roll_pivot"/>
+        <field name="act_window_id" ref="action_rpt_lease_register"/>
+    </record>
+
+    <!-- RPT-019 -->
+    <record id="action_rpt_renewal_pipeline" model="ir.actions.act_window">
+        <field name="name">Renewal Pipeline</field>
+        <field name="res_model">c2p.lease</field>
+        <field name="view_mode">list,graph,pivot,form</field>
+        <field name="search_view_id" ref="c2p_property_lease.view_lease_search"/>
+        <!--
+          The 90-day band, which is the outermost of the cron's renewal alert
+          bands. The dossier reads the same tuple, so the pipeline and the
+          alert cannot disagree about what is coming up.
+        -->
+        <field name="domain">[('state', '=', 'active'), ('days_to_expiry', '&lt;=', 90)]</field>
+        <field name="context">{'search_default_g_model': 1, 'search_default_g_end': 2}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Nothing expiring inside 90 days</p>
+            <p>
+                Tenancies reaching their end date within 90 days, by expiry month.
+                The 30 and 60 day filters narrow it further.
+            </p>
+        </field>
+    </record>
+
+    <record id="action_rpt_renewal_pipeline_list" model="ir.actions.act_window.view">
+        <field name="sequence">1</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_lease_rent_roll_list"/>
+        <field name="act_window_id" ref="action_rpt_renewal_pipeline"/>
+    </record>
+
+    <record id="action_rpt_renewal_pipeline_graph" model="ir.actions.act_window.view">
+        <field name="sequence">2</field>
+        <field name="view_mode">graph</field>
+        <field name="view_id" ref="view_lease_renewal_graph"/>
+        <field name="act_window_id" ref="action_rpt_renewal_pipeline"/>
+    </record>
+
+    <!--
+      Gated on the manager group, as the Collections register and Tenant 360
+      are. These carry tenant names and contracted rent, and which role may
+      run a report carrying tenant or cheque data is OD-06 - still outstanding,
+      so the narrower group is the safe default until it is answered.
+    -->
+    <menuitem id="menu_reports" name="Reports"
+              parent="c2p_property_lease.menu_property_root"
+              groups="c2p_property_lease.group_property_manager"
+              sequence="25"/>
+
+    <menuitem id="menu_rpt_rent_roll" name="Rent Roll" parent="menu_reports"
+              action="action_rpt_rent_roll" sequence="10"/>
+    <menuitem id="menu_rpt_lease_register" name="Lease Register" parent="menu_reports"
+              action="action_rpt_lease_register" sequence="20"/>
+    <menuitem id="menu_rpt_renewal_pipeline" name="Renewal Pipeline" parent="menu_reports"
+              action="action_rpt_renewal_pipeline" sequence="30"/>
+</odoo>

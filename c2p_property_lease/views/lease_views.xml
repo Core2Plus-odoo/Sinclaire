@@ -157,6 +157,10 @@
                 <field name="tenant_id"/>
                 <field name="unit_id"/>
                 <field name="building_id"/>
+                <!-- The catalogue makes operating model a mandatory filter on
+                     every report, because rule 1 forbids aggregating across
+                     them. -->
+                <field name="operating_model"/>
                 <filter name="f_active" string="Active" domain="[('state','=','active')]"/>
                 <filter name="f_pipeline" string="In Progress"
                         domain="[('state','in',('draft','pending_approval','offered','awaiting_signature','signed','registration_pending'))]"/>
@@ -170,6 +174,7 @@
                 <separator/>
                 <filter name="f_noejari" string="Ejari Missing" domain="[('ejari_no','=',False)]"/>
                 <group>
+                    <filter name="g_model" string="Operating Model" context="{'group_by':'operating_model'}"/>
                     <filter name="g_building" string="Building" context="{'group_by':'building_id'}"/>
                     <filter name="g_state" string="Status" context="{'group_by':'state'}"/>
                     <filter name="g_end" string="Expiry Month" context="{'group_by':'date_end:month'}"/>
