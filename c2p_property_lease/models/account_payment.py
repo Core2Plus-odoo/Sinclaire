@@ -157,7 +157,19 @@ class AccountPayment(models.Model):
             tenant = rec.lease_id.tenant_id
             rec.is_third_party = bool(rec.drawer_partner_id and tenant and rec.drawer_partner_id != tenant)
 
-    @api.depends("building_id.operating_model", "building_id.owner_id", "company_id", "head_lease_id")
+    @api.depends(
+        "building_id.operating_model",
+        "building_id.owner_id",
+        # The STORED one2many, not building_id.head_lease_id: that one is a
+        # non-stored compute, and a depends routed through it cannot build a
+        # reliable trigger. The payee would then go stale whenever a landlord
+        # agreement's collection authority was corrected - silently, and on
+        # the field that decides whose money a cheque is.
+        "building_id.head_lease_ids.collection_party",
+        "building_id.head_lease_ids.state",
+        "company_id",
+        "head_lease_id",
+    )
     def _compute_payee(self):
         """BR-043 / BRD §4.2.2: "Payee names shall be derived from the operating model".
 
@@ -180,9 +192,24 @@ class AccountPayment(models.Model):
             if model == "owner_management":
                 rec.payee_partner_id = rec.building_id.owner_id
                 rec.is_owner_funds = True
-            else:
-                rec.payee_partner_id = rec.company_id.partner_id
-                rec.is_owner_funds = False
+                continue
+
+            # BR-022 / BRD §4.2.2: "...derived from the operating model AND
+            # contract authority". The operating model was only ever half of
+            # it. A head-lease agreement can authorise this company to sign
+            # tenancy contracts while still requiring rent to be collected in
+            # the landlord's name, and where it does, those cheques are the
+            # landlord's money passing through our hands exactly as under
+            # Owner Management - whatever the building's operating model says.
+            active = rec.building_id.head_lease_ids.filtered(lambda h: h.state == "active")[:1]
+            authority = active.collection_party
+            if model == "head_lease" and authority == "owner":
+                rec.payee_partner_id = rec.building_id.owner_id
+                rec.is_owner_funds = True
+                continue
+
+            rec.payee_partner_id = rec.company_id.partner_id
+            rec.is_owner_funds = False
 
     @api.constrains("owner_deposit_bank_id", "payee_partner_id")
     def _check_owner_deposit_account(self):

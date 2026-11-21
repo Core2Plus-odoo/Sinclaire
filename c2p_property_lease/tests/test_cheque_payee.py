@@ -147,6 +147,8 @@ class TestPayeeDerivation(ChequeCase):
                 "cheque_count": "4",
             }
         )
+        # Not activated: this test only needs the record to exist so the
+        # outbound cheque can hang off it.
         journal = self._journal()
         cheque = self.env["account.payment"].create(
             {

@@ -78,6 +78,33 @@ class C2pBuilding(models.Model):
     city = fields.Char(default="Dubai")
     community = fields.Char()
 
+    # BR-021 / BRD §4.1.1. The references a building is identified by in Dubai.
+    # A head lease cannot be activated without them (BR-027), because a
+    # building nobody can identify to the municipality is one whose tenancies
+    # cannot be registered.
+    plot_no = fields.Char(string="Plot No.", tracking=True)
+    municipality_no = fields.Char(
+        string="Municipality No.",
+        tracking=True,
+        help="The Dubai Municipality building number. Required before a head lease can be activated.",
+    )
+    makani_no = fields.Char(string="Makani No.")
+    handover_date = fields.Date(string="Handed Over On")
+    handover_condition = fields.Selection(
+        [
+            ("shell", "Shell and core"),
+            ("fitted", "Fitted"),
+            ("furnished", "Furnished"),
+        ],
+        string="Handover Condition",
+        help="What was handed over. Drives the move-in inspection template and "
+        "what the landlord is responsible for making good.",
+    )
+    amenities = fields.Text(
+        string="Amenities",
+        help="Pool, gym, parking, security and so on, as the agreement describes them.",
+    )
+
     # BR-016: what the head lease or the building declaration says this
     # building contains. Units are then reconciled against it, so an import
     # that silently drops rows is visible as a variance rather than as a

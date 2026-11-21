@@ -43,7 +43,19 @@
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,active,expired"/>
                 </header>
+                <!--
+                  BR-027. The Activate button refuses a head lease that is not
+                  evidenced, so the form says what is missing before anyone
+                  presses it rather than after.
+                -->
+                <div class="p-3 pb-0" invisible="state != 'draft' or is_activatable">
+                    <div class="alert alert-warning mb-0" role="alert">
+                        <strong>This head lease cannot be activated yet.</strong>
+                        Still missing: <field name="activation_blockers" nolabel="1" class="oe_inline"/>
+                    </div>
+                </div>
                 <sheet>
+                    <field name="is_activatable" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_cheques" type="object" class="oe_stat_button"
                                 icon="fa-money">
@@ -57,22 +69,52 @@
                         <group string="Agreement">
                             <field name="building_id"/>
                             <field name="landlord_id"/>
+                            <field name="agreement_ref"/>
+                            <field name="date_signed"/>
                             <field name="date_start"/>
                             <field name="date_end"/>
+                            <field name="free_period_days"/>
+                            <field name="renewal_of_id"
+                                   domain="[('building_id','=',building_id),('id','!=',id)]"/>
                             <field name="ejari_no"/>
                             <field name="ejari_date"/>
+                            <field name="insurance_expiry"/>
                         </group>
                         <group string="What We Pay">
                             <field name="annual_amount"/>
                             <field name="cheque_count"/>
                             <field name="instalment_amount"/>
                             <field name="security_deposit"/>
+                            <field name="landlord_bank_id"
+                                   domain="[('partner_id','=',landlord_id)]"/>
+                            <field name="escalation_pct"/>
                             <field name="paid_amount"/>
                             <field name="outstanding_amount"/>
                             <field name="currency_id" invisible="1"/>
                             <field name="company_id" invisible="1"/>
                         </group>
                     </group>
+                    <!--
+                      BR-022. What the landlord agreement permits, recorded from
+                      the document. "Rent collected in the name of" is not
+                      administrative detail: it decides who tenant cheques are
+                      made out to, and under "The landlord" those cheques are
+                      the landlord's money even though this is a head lease.
+                    -->
+                    <group string="What the landlord authorises">
+                        <group>
+                            <field name="contracting_party"/>
+                            <field name="collection_party"/>
+                            <field name="sublease_permitted"/>
+                        </group>
+                        <group>
+                            <field name="may_register_ejari"/>
+                            <field name="may_pursue_arrears"/>
+                            <field name="may_appoint_legal"/>
+                            <field name="may_place_signage"/>
+                        </group>
+                    </group>
+
                     <group string="Does the deal work?">
                         <group>
                             <field name="potential_rent"/>
