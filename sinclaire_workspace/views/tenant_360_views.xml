@@ -151,6 +151,26 @@
                             </div>
                         </div>
 
+                        <div class="sin-card" invisible="tenant_event_count == 0">
+                            <div class="sin-kpi">
+                                <span class="sin-kpi__label">Events logged</span>
+                                <span class="sin-kpi__value sin-kpi__value--critical"
+                                      invisible="tenant_adverse_event_count == 0">
+                                    <field name="tenant_event_count"/>
+                                </span>
+                                <span class="sin-kpi__value" invisible="tenant_adverse_event_count &gt; 0">
+                                    <field name="tenant_event_count"/>
+                                </span>
+                                <span class="sin-kpi__meta">
+                                    <field name="tenant_open_event_count"/> open,
+                                    <field name="tenant_adverse_event_count"/> of them serious
+                                </span>
+                                <button name="action_tenant_events" type="object"
+                                        class="btn btn-link p-0 sin-kpi__meta"
+                                        string="Open the register"/>
+                            </div>
+                        </div>
+
                         <div class="sin-card" invisible="tenant_cheque_shortfall == 0">
                             <div class="sin-kpi">
                                 <span class="sin-kpi__label">Cheque shortfall</span>
@@ -179,6 +199,14 @@
                     <group>
                         <group string="Cheque register">
                             <field name="tenant_cheque_breakdown" nolabel="1" readonly="1"/>
+                        </group>
+                        <!--
+                          Grouped by category, not by date: one noise complaint
+                          is an incident and the third is a pattern, and the
+                          pattern is what a renewal conversation turns on.
+                        -->
+                        <group string="Events by category" invisible="tenant_event_count == 0">
+                            <field name="tenant_event_breakdown" nolabel="1" readonly="1"/>
                         </group>
                         <group string="History">
                             <field name="tenant_since" readonly="1"/>

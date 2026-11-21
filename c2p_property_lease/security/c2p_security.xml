@@ -67,4 +67,35 @@
         <field name="model_id" ref="model_c2p_lease_cheque_exception"/>
         <field name="domain_force">[('company_id','in',company_ids)]</field>
     </record>
+
+    <record id="rule_tenancy_event_company" model="ir.rule">
+        <field name="name">Tenancy event: multi-company</field>
+        <field name="model_id" ref="model_c2p_tenancy_event"/>
+        <field name="domain_force">[('company_id','in',company_ids)]</field>
+    </record>
+
+    <!--
+      BR-004 gives two legal entities. These two models carried `company_id`
+      from the start and had no rule, so every head lease in the database was
+      readable by any leasing user and every banking facility by a manager of
+      either company - landlord commitments and bank limits, the two most
+      commercially sensitive models here.
+
+      Odoo creates no record rule implicitly: a `company_id` field scopes
+      nothing on its own. The five rules above are what shows these two were
+      missed rather than excluded, and
+      `test_security.TestCompanyScope.test_every_company_scoped_model_has_a_record_rule`
+      now walks the registry so the next model cannot be missed the same way.
+    -->
+    <record id="rule_head_lease_company" model="ir.rule">
+        <field name="name">Head lease: multi-company</field>
+        <field name="model_id" ref="model_c2p_head_lease"/>
+        <field name="domain_force">[('company_id','in',company_ids)]</field>
+    </record>
+
+    <record id="rule_bank_facility_company" model="ir.rule">
+        <field name="name">Banking facility: multi-company</field>
+        <field name="model_id" ref="model_c2p_bank_facility"/>
+        <field name="domain_force">[('company_id','in',company_ids)]</field>
+    </record>
 </odoo>

@@ -7,6 +7,7 @@ from odoo.addons.c2p_property_lease.models.account_payment import CUSTODY_STATES
 from odoo.addons.c2p_property_lease.models.account_payment import PDC_STATES
 from odoo.addons.c2p_property_lease.models.lease import LIVE_STATES
 from odoo.addons.c2p_property_lease.models.lease import RENEWAL_ALERT_DAYS
+from odoo.addons.c2p_property_lease.models.tenancy_event import EVENT_CATEGORIES
 
 # A tenancy inside the outermost renewal band is close enough to expiry that
 # whoever opens the dossier should see it without going looking. Read from the
@@ -29,9 +30,11 @@ class ResPartner(models.Model):
     figure is read from the property module; the dossier contributes the
     gathering and the ordering.
 
-    The event log that BR-098 also describes - complaints, breaches, legal
-    cases - does not exist yet, so the requirement stays Partial. This is
-    where it will surface when it lands.
+    The event register BR-098 also describes - complaints, breaches, legal
+    cases - is `c2p.tenancy.event`, and surfaces here. What it contributes to
+    the dossier is counts and the concern line, never a verdict: BR-099 keeps
+    warnings, non-renewals and terminations with a person, so nothing here
+    reads an event and decides anything.
     """
 
     _inherit = "res.partner"
@@ -88,6 +91,19 @@ class ResPartner(models.Model):
         sanitize=False,
         string="Cheque register",
     )
+    # BR-098's register, as counts. No verdict field: see the class docstring.
+    tenant_event_count = fields.Integer(compute="_compute_tenant_events", string="Events logged")
+    tenant_open_event_count = fields.Integer(compute="_compute_tenant_events", string="Open events")
+    tenant_adverse_event_count = fields.Integer(
+        compute="_compute_tenant_events",
+        string="Serious open events",
+    )
+    tenant_event_breakdown = fields.Html(
+        compute="_compute_tenant_events",
+        sanitize=False,
+        string="Event history",
+    )
+
     tenant_alert = fields.Html(
         compute="_compute_tenant_alert",
         sanitize=False,
@@ -223,12 +239,62 @@ class ResPartner(models.Model):
             rec.tenant_cheque_breakdown = Markup('<div class="sin-stack">%s</div>') % Markup("").join(rows)
 
     @api.depends(
+        "tenant_lease_ids.event_ids.is_open",
+        "tenant_lease_ids.event_ids.is_adverse",
+        "tenant_lease_ids.event_ids.category",
+    )
+    def _compute_tenant_events(self):
+        """The register, counted and grouped by category.
+
+        By category rather than by date: one noise complaint is an incident and
+        the third is a pattern, and the pattern is the thing a renewal
+        conversation turns on. A reverse-chronological list buries it.
+
+        Counts and a breakdown, and deliberately nothing that reads like a
+        judgement - no score, no "risk" label. BR-099 reserves that for a
+        person, and a number on a dossier is read as a verdict however it is
+        captioned.
+        """
+        labels = dict(EVENT_CATEGORIES)
+        for rec in self:
+            events = rec.tenant_lease_ids.mapped("event_ids")
+            rec.tenant_event_count = len(events)
+            rec.tenant_open_event_count = len(events.filtered("is_open"))
+            rec.tenant_adverse_event_count = len(events.filtered(lambda e: e.is_open and e.is_adverse))
+
+            if not events:
+                rec.tenant_event_breakdown = False
+                continue
+            # Walks EVENT_CATEGORIES rather than the events, so the order is
+            # the model's order and a category added there appears here without
+            # anybody editing this screen.
+            rows = []
+            for key, _label in EVENT_CATEGORIES:
+                in_category = events.filtered(lambda e, k=key: e.category == k)
+                if not in_category:
+                    continue
+                open_count = len(in_category.filtered("is_open"))
+                detail = (
+                    rec.env._("%(total)s, %(open)s open", total=len(in_category), open=open_count)
+                    if open_count
+                    else rec.env._("%(total)s, all closed", total=len(in_category))
+                )
+                rows.append(
+                    Markup('<div class="sin-row"><span class="sin-label">%(label)s</span><span>%(detail)s</span></div>')
+                    % {"label": labels[key], "detail": detail}
+                )
+            rec.tenant_event_breakdown = Markup('<div class="sin-stack">%s</div>') % Markup("").join(rows)
+
+    @api.depends(
         "tenant_lease_ids.state",
         "tenant_lease_ids.days_to_expiry",
         "tenant_lease_ids.cheques_complete",
         "tenant_lease_ids.cheque_exception_ids.state",
         "tenant_lease_ids.payment_ids.pdc_state",
         "tenant_lease_ids.payment_ids.has_bounced",
+        "tenant_lease_ids.event_ids.is_open",
+        "tenant_lease_ids.event_ids.is_adverse",
+        "tenant_lease_ids.event_ids.is_overdue",
     )
     def _compute_tenant_alert(self):
         """Every current concern, worst first - stacked, not exclusive.
@@ -262,6 +328,26 @@ class ResPartner(models.Model):
                         days=min(expiring.mapped("days_to_expiry")),
                     )
                 )
+            events = rec.tenant_lease_ids.mapped("event_ids")
+            referred = events.filtered(lambda e: e.state == "referred")
+            if referred:
+                concerns.append(
+                    rec.env._(
+                        "%(count)s matter(s) referred for a decision and not yet decided",
+                        count=len(referred),
+                    )
+                )
+            adverse = events.filtered(lambda e: e.is_open and e.is_adverse and e.state != "referred")
+            if adverse:
+                concerns.append(rec.env._("%(count)s serious event(s) still open", count=len(adverse)))
+            overdue_events = events.filtered("is_overdue")
+            if overdue_events:
+                concerns.append(
+                    rec.env._(
+                        "%(count)s event(s) past the deadline somebody owns",
+                        count=len(overdue_events),
+                    )
+                )
             if instruments.filtered("has_bounced") and not instruments.filtered(lambda p: p.pdc_state == "bounced"):
                 concerns.append(rec.env._("Has bounced a cheque before, since made good"))
 
@@ -293,6 +379,17 @@ class ResPartner(models.Model):
             "res_model": "account.payment",
             "view_mode": "list,form",
             "domain": [("id", "in", self._tenant_instruments().ids)],
+        }
+
+    def action_tenant_events(self):
+        """Open the register the dossier counted, newest first."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": self.env._("Tenancy Events"),
+            "res_model": "c2p.tenancy.event",
+            "view_mode": "list,form",
+            "domain": [("lease_id", "in", self.tenant_lease_ids.ids)],
         }
 
     def action_tenant_ever_bounced(self):

@@ -264,16 +264,68 @@ history.
 
 ---
 
+## 7. Tenancy event — `c2p.tenancy.event`
+
+BR-098 (§5.3) names what has to be recorded against a running tenancy, and
+BR-099 names the limit on what the system may then do about it: warnings,
+breach notices, non-renewals and terminations follow an approved workflow with
+legal review, and **"the system must not make legal decisions on its own."**
+
+Those two together decide the shape of this model. It is a register, not a
+referee. Nothing here blocks an activation, a renewal or a termination; the
+`Referred` state routes a matter to a human and stops.
+
+| From | To | Role | Trigger / condition | Reversal |
+| --- | --- | --- | --- | --- |
+| — | Logged | Property Management User | Event observed and recorded against a tenancy | n/a |
+| Logged | Being Actioned | Property Management User | Owner has started work; action and deadline recorded | Being Actioned → Logged, same user, reason |
+| Logged / Being Actioned | Referred for Decision | Property Manager *(proposed)* | Needs a management or legal decision. **Evidence mandatory** (BR-099) | Referred → Being Actioned, Property Manager *(proposed)*, reason |
+| Logged / Being Actioned / Referred | Resolved | Property Management User | Result recorded | Resolved → Being Actioned, Property Manager *(proposed)*, reason |
+| Logged / Being Actioned | Closed Without Action | Property Manager *(proposed)* | No action to take; reason mandatory | Closed → Logged, Property Manager *(proposed)*, reason |
+
+**Blocked by rule**
+
+- **The system takes no legal or contractual action from an event** (BR-099).
+  An adverse event does not block activation, does not block renewal and does
+  not terminate anything. `renewal_impact` is the recorder's opinion, carried
+  to whoever decides; it is not a gate. A test asserts this, because it is the
+  kind of helpfulness that would be added later by accident.
+- **Referred for Decision requires evidence.** BR-099 requires evidence and
+  legal review for the notices that follow, so referring a matter upward with
+  nothing attached is refused. This is the one evidence rule the BRD itself
+  supplies; any *other* mandatory-evidence threshold is **OD-06**.
+- **Resolved requires a result.** BR-098 lists "result" among the attributes
+  every event carries, and Resolved is the state that claims there was one.
+  Closed Without Action is exempt: it concludes with a reason, which is
+  required separately, and has no result by definition.
+- **An event may be dated before the tenancy starts.** A missing deposit or
+  document is chased between signature and start, so refusing an early date
+  would make the commonest pre-start category unrecordable. What is refused is
+  an event dated inside a *different* tenancy of the same unit - that belongs
+  to whoever had the unit at the time.
+- Status may not be set directly; each move is its own action with its own
+  history row, as for every other model here.
+
+**What seriousness does not do.** The scale records how serious the recorder
+judged the matter. Which seriousness compels which action, and who must sign
+off at each level, is **OD-06** — the model deliberately does not infer it.
+
+**Current implementation:** all five states, transitions enforced on `write`
+rather than only in the actions, since `state` is a writable field.
+
+---
+
 ## Summary of gaps
 
 | Model | BRD states | Built | Missing |
 | --- | --- | --- | --- |
 | Unit | 10 | **10** | — |
 | Lease | 12 | **12** | — |
-| Payment instrument | 7 | 4 | 3 |
+| Payment instrument | 7 | **7** | — |
 | Property listing | 8 | 0 | 8 — model not created |
 | Buyer/tenant requirement | 7 | 0 | 7 — model not created |
 | Brokerage transaction | 15 | 0 | 15 — model not created |
+| Tenancy event | n/a (BR-098) | **5** | — |
 
 Every *(proposed)* role in this document is a recommendation pending **OD-06**,
 which asks the client for the approval matrix and segregation-of-duties rules.
