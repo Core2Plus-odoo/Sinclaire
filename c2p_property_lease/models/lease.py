@@ -157,6 +157,23 @@ class C2pLease(models.Model):
     cheque_exception_count = fields.Integer(compute="_compute_cheque_exceptions")
     has_open_cheque_exception = fields.Boolean(compute="_compute_cheque_exceptions")
 
+    # BR-098. copy=False for the same reason the cheque exceptions are: a
+    # renewal is made with copy(), and an incident belongs to the tenancy it
+    # happened under. Copied forward, last year's noise complaints would arrive
+    # on the new tenancy dated before it began - which the event's own
+    # constraint would then refuse, so the renewal would simply fail.
+    event_ids = fields.One2many(
+        "c2p.tenancy.event",
+        "lease_id",
+        string="Events",
+        copy=False,
+    )
+    event_count = fields.Integer(compute="_compute_events")
+    open_adverse_event_count = fields.Integer(
+        compute="_compute_events",
+        help="Serious events still open on this tenancy. Advisory: nothing is blocked by it.",
+    )
+
     state = fields.Selection(
         LEASE_STATES,
         default="draft",
@@ -242,6 +259,20 @@ class C2pLease(models.Model):
             rec.cheque_shortfall = max(currency.round(shortfall) if currency else shortfall, 0.0)
             covered = currency.compare_amounts(cover, rec.annual_rent) >= 0 if currency else cover >= rec.annual_rent
             rec.cheques_complete = bool(rec.cheques_received >= rec.cheques_expected and covered)
+
+    @api.depends("event_ids.is_open", "event_ids.is_adverse")
+    def _compute_events(self):
+        """Counts only. BR-099 keeps the system out of the decision.
+
+        Deliberately no `has_blocking_event` and no gate anywhere that reads
+        these: an adverse event does not stop an activation, a renewal or a
+        termination. `tests/test_tenancy_event.py` asserts that, because a
+        helpful-looking gate is exactly what gets added here later by somebody
+        who has not read BR-099.
+        """
+        for rec in self:
+            rec.event_count = len(rec.event_ids)
+            rec.open_adverse_event_count = len(rec.event_ids.filtered(lambda e: e.is_open and e.is_adverse))
 
     @api.depends("cheque_exception_ids.state")
     def _compute_cheque_exceptions(self):
@@ -428,6 +459,17 @@ class C2pLease(models.Model):
             "type": "ir.actions.act_window",
             "name": self.env._("Cheque Exceptions"),
             "res_model": "c2p.lease.cheque.exception",
+            "view_mode": "list,form",
+            "domain": [("lease_id", "=", self.id)],
+            "context": {"default_lease_id": self.id},
+        }
+
+    def action_view_events(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": self.env._("Tenancy Events"),
+            "res_model": "c2p.tenancy.event",
             "view_mode": "list,form",
             "domain": [("lease_id", "=", self.id)],
             "context": {"default_lease_id": self.id},

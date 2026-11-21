@@ -41,6 +41,25 @@ conflict** rather than resolving it silently. Where the BRD is silent on a
 policy, **do not guess it** — log it in `docs/decisions_required.md` as an
 `OD-nn` and build the mechanism without inventing the value.
 
+## Engineering standard
+
+C2P's ERP delivery standard (the Claude Code ERP Blueprint Pack) governs how work
+is planned and reported here. `docs/project/AUDIT_WAVE0.md` is the Wave 0 audit of
+this repository against it — read it for where the project stands against the
+standard, the open blockers and the next task. `docs/project/DECISION_REGISTER.md`
+maps the blueprint's twelve mandatory ADRs onto this project's evidence and its
+open `OD-nn` decisions.
+
+The pack itself is **not vendored**: this repository is public and the pack is
+C2P's commercial methodology. Whether it may be committed is an open decision
+(audit §8, D8), so the blueprint is referenced by section number rather than
+copied in.
+
+Report development work in the pack's form: task, repository status, impact,
+plan, what was actually implemented, what was **verified** (or `NOT RUN`, which
+is the honest answer for any Odoo test in this container), reconciliation,
+remaining decisions, next action.
+
 ## Hard rules
 
 1. **This repository is public.** Never commit a live hostname, database name,
@@ -69,6 +88,7 @@ policy, **do not guess it** — log it in `docs/decisions_required.md` as an
 ruff check . && ruff format --check .
 python tools/validate_manifests.py
 python tools/check_test_hygiene.py
+python tools/check_action_kwargs.py
 python tools/check_contrast.py
 python tools/check_version_bumps.py
 python tools/check_requirement_matrix.py
@@ -76,7 +96,7 @@ python tools/gen_data_dictionary.py --check
 python -m unittest discover -s tools/tests
 ```
 
-All eight run in CI (`.github/workflows/ci.yml`). The Odoo tests
+All nine run in CI (`.github/workflows/ci.yml`). The Odoo tests
 (`.github/workflows/odoo-tests.yml`) install the addons into a real database
 and are the **only** gate that catches an install failure — there is no Odoo in
 the dev container, so CI is the first execution of any Odoo test you write.

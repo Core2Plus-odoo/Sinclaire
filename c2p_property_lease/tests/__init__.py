@@ -5,3 +5,4 @@ from . import test_head_lease_onboarding
 from . import test_lease
 from . import test_sample_portfolio
 from . import test_security
+from . import test_tenancy_event

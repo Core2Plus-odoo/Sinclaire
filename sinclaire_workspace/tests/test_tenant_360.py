@@ -14,6 +14,7 @@ from odoo import fields
 from odoo.addons.c2p_property_lease.models.account_payment import CUSTODY_STATES
 from odoo.addons.c2p_property_lease.models.account_payment import PDC_STATES
 from odoo.addons.c2p_property_lease.models.lease import RENEWAL_ALERT_DAYS
+from odoo.addons.c2p_property_lease.models.tenancy_event import EVENT_CATEGORIES
 from odoo.addons.sinclaire_workspace.models.res_partner import EXPIRING_SOON_DAYS
 from odoo.tests.common import TransactionCase
 
@@ -351,3 +352,97 @@ class TestTheAlert(Tenant360Case):
         """
         self.assertEqual(EXPIRING_SOON_DAYS, max(RENEWAL_ALERT_DAYS))
         self.assertEqual(EXPIRING_SOON_DAYS, 90)
+
+
+class TestTheEventRegisterOnTheDossier(Tenant360Case):
+    """BR-098's register, as the dossier shows it.
+
+    The dossier's job here is counting and grouping. BR-099 keeps the decision
+    with a person, so these also assert the dossier offers no verdict.
+    """
+
+    def _event(self, lease, **kw):
+        vals = {
+            "lease_id": lease.id,
+            "summary": "Noise after midnight",
+            "category": "disturbance",
+            "seriousness": "medium",
+            "event_date": self.today,
+        }
+        vals.update(kw)
+        return self.env["c2p.tenancy.event"].create(vals)
+
+    def test_a_tenant_with_no_events_shows_no_event_card(self):
+        self._lease("TGA", "TGA-101")
+        self.tenant.invalidate_recordset()
+        self.assertEqual(self.tenant.tenant_event_count, 0)
+        self.assertFalse(self.tenant.tenant_event_breakdown)
+
+    def test_the_breakdown_groups_by_category_not_by_date(self):
+        """Three complaints read as a pattern; three dated rows do not."""
+        lease = self._lease("TGB", "TGB-101")
+        for _ in range(3):
+            self._event(lease, category="complaint", summary="Rubbish in the corridor")
+        self._event(lease, category="maintenance", summary="Tap leaking")
+        self.tenant.invalidate_recordset()
+        breakdown = self.tenant.tenant_event_breakdown
+        self.assertIn("Complaint", breakdown)
+        self.assertIn("Maintenance", breakdown)
+        self.assertIn("3, 3 open", breakdown, "the breakdown did not count the repeats")
+        self.assertEqual(self.tenant.tenant_event_count, 4)
+
+    def test_every_category_the_model_offers_can_be_rendered(self):
+        """Walks EVENT_CATEGORIES, so a category added to the model cannot go
+        uncounted on this screen - the drift that has caused six defects."""
+        lease = self._lease("TGC", "TGC-101")
+        for key, _label in EVENT_CATEGORIES:
+            self._event(lease, category=key, summary=f"{key} event")
+        self.tenant.invalidate_recordset()
+        breakdown = self.tenant.tenant_event_breakdown
+        for _key, label in EVENT_CATEGORIES:
+            with self.subTest(category=label):
+                self.assertIn(label, breakdown)
+
+    def test_open_and_serious_are_counted_separately(self):
+        lease = self._lease("TGD", "TGD-101")
+        self._event(lease, seriousness="critical", category="breach")
+        resolved = self._event(lease, seriousness="critical", category="breach")
+        resolved.action_resolve(result="Dealt with and closed off.")
+        minor = self._event(lease, seriousness="low")
+        self.assertTrue(minor.is_open)
+        self.tenant.invalidate_recordset()
+        self.assertEqual(self.tenant.tenant_event_count, 3)
+        self.assertEqual(self.tenant.tenant_open_event_count, 2)
+        self.assertEqual(self.tenant.tenant_adverse_event_count, 1)
+
+    def test_a_serious_open_event_reaches_the_concern_line(self):
+        lease = self._lease("TGE", "TGE-101", end=fields.Date.to_string(self.today + timedelta(days=300)))
+        lease._activate_as_loaded()
+        self._event(lease, seriousness="critical", category="breach")
+        self.tenant.invalidate_recordset()
+        self.assertIn("serious event", self.tenant.tenant_alert)
+
+    def test_the_drill_through_opens_exactly_what_was_counted(self):
+        lease = self._lease("TGF", "TGF-101")
+        self._event(lease)
+        self._event(lease, category="complaint")
+        action = self.tenant.action_tenant_events()
+        opened = self.env["c2p.tenancy.event"].search(action["domain"])
+        self.assertEqual(len(opened), self.tenant.tenant_event_count)
+
+    def test_the_dossier_offers_counts_and_no_verdict(self):
+        """BR-099. No score, no risk grade, no renewal recommendation computed
+        from the events - a number on a dossier is read as a verdict however
+        it is captioned."""
+        for forbidden in (
+            "tenant_risk_score",
+            "tenant_event_verdict",
+            "tenant_renewal_recommendation",
+            "tenant_blacklisted",
+        ):
+            with self.subTest(field=forbidden):
+                self.assertNotIn(
+                    forbidden,
+                    self.env["res.partner"]._fields,
+                    f"res.partner grew {forbidden} - BR-099 keeps that judgement with a person",
+                )

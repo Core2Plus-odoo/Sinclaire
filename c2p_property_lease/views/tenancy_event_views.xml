@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_tenancy_event_list" model="ir.ui.view">
+        <field name="name">c2p.tenancy.event.list</field>
+        <field name="model">c2p.tenancy.event</field>
+        <field name="arch" type="xml">
+            <list string="Tenancy Events" decoration-danger="is_overdue" decoration-bf="is_adverse">
+                <field name="event_date"/>
+                <field name="name" optional="hide"/>
+                <field name="tenant_id" optional="show"/>
+                <field name="lease_id" optional="show"/>
+                <field name="unit_id" optional="hide"/>
+                <field name="category"/>
+                <field name="summary"/>
+                <field name="seriousness" widget="badge"
+                       decoration-danger="seriousness == 'critical'"
+                       decoration-warning="seriousness == 'high'"/>
+                <field name="responsible_user_id" widget="many2one_avatar_user"/>
+                <field name="deadline"/>
+                <!--
+                  Shown as a column because "is there evidence?" is the first
+                  question anybody asks of a breach or a warning, and BR-099
+                  will not let a referral proceed without it.
+                -->
+                <field name="evidence_count" string="Evidence"/>
+                <field name="renewal_impact" optional="show"/>
+                <field name="is_overdue" column_invisible="1"/>
+                <field name="is_adverse" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'resolved'"
+                       decoration-warning="state == 'referred'"
+                       decoration-muted="state == 'closed'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tenancy_event_form" model="ir.ui.view">
+        <field name="name">c2p.tenancy.event.form</field>
+        <field name="model">c2p.tenancy.event</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_start" type="object" string="Start Work"
+                            class="btn-primary" invisible="state != 'open'"/>
+                    <!--
+                      One wizard for every move that carries a reason or a
+                      result; each button names the target it is moving to.
+                      The wizard reads the transition table to decide whether
+                      a reason is mandatory, so there is no second list of
+                      which moves need one.
+                    -->
+                    <button name="%(action_tenancy_event_move)d" type="action" string="Refer for Decision"
+                            context="{'default_event_id': id, 'default_move': 'referred'}"
+                            invisible="state not in ('open', 'in_progress')"/>
+                    <button name="%(action_tenancy_event_move)d" type="action" string="Resolve"
+                            class="btn-primary"
+                            context="{'default_event_id': id, 'default_move': 'resolved'}"
+                            invisible="state in ('resolved', 'closed')"/>
+                    <button name="%(action_tenancy_event_move)d" type="action" string="Close, No Action"
+                            context="{'default_event_id': id, 'default_move': 'closed'}"
+                            invisible="state not in ('open', 'in_progress')"
+                            groups="c2p_property_lease.group_property_manager"/>
+                    <button name="%(action_tenancy_event_move)d" type="action" string="Reopen"
+                            context="{'default_event_id': id, 'default_move': 'in_progress'}"
+                            invisible="state != 'resolved'"
+                            groups="c2p_property_lease.group_property_manager"/>
+                    <button name="%(action_tenancy_event_move)d" type="action" string="Reopen"
+                            context="{'default_event_id': id, 'default_move': 'open'}"
+                            invisible="state != 'closed'"
+                            groups="c2p_property_lease.group_property_manager"/>
+                    <!--
+                      Not clickable, and for the same reason as the cheque
+                      exception's: an Odoo statusbar writes `state` directly,
+                      which would walk straight past the transition table and
+                      the evidence rule on Referred. write() refuses it
+                      regardless, but offering the click only invites an
+                      error.
+                    -->
+                    <field name="state" widget="statusbar" readonly="1"
+                           statusbar_visible="open,in_progress,referred,resolved"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                        <h2><field name="summary" placeholder="What happened, in one line"/></h2>
+                    </div>
+                    <div class="alert alert-warning" role="alert" invisible="not is_overdue">
+                        Past its deadline and still open.
+                    </div>
+                    <group>
+                        <group string="The event">
+                            <field name="event_date"/>
+                            <field name="category"/>
+                            <field name="seriousness"/>
+                            <field name="lease_id"/>
+                            <field name="tenant_id" readonly="1"/>
+                            <field name="unit_id" readonly="1"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="Who owns it">
+                            <field name="responsible_user_id" widget="many2one_avatar_user"/>
+                            <field name="deadline"/>
+                            <field name="is_overdue" invisible="1"/>
+                            <!--
+                              Advisory, and the label says so on the screen
+                              rather than only in the help text. BR-099
+                              reserves the renewal decision for a person, and
+                              a field called "renewal impact" sitting on a
+                              record reads like a verdict unless it is
+                              labelled.
+                            -->
+                            <field name="renewal_impact"/>
+                            <div class="text-muted" colspan="2">
+                                A recommendation for whoever decides the renewal. It blocks nothing.
+                            </div>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Detail" name="detail">
+                            <group>
+                                <field name="description" nolabel="1"
+                                       placeholder="What happened, who was involved, what was observed."/>
+                            </group>
+                            <group string="Action">
+                                <field name="action_taken" nolabel="1"
+                                       placeholder="What was done about it."/>
+                            </group>
+                            <group string="Result" invisible="state not in ('resolved', 'closed')">
+                                <field name="result" nolabel="1"
+                                       placeholder="How it ended."/>
+                            </group>
+                        </page>
+                        <page string="Evidence" name="evidence">
+                            <div class="alert alert-info" role="alert" invisible="has_evidence">
+                                No evidence attached. A matter cannot be referred for a decision
+                                without it (BRD §5.3).
+                            </div>
+                            <field name="attachment_ids" widget="many2many_binary" nolabel="1"/>
+                            <field name="has_evidence" invisible="1"/>
+                            <field name="evidence_count" invisible="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_tenancy_event_search" model="ir.ui.view">
+        <field name="name">c2p.tenancy.event.search</field>
+        <field name="model">c2p.tenancy.event</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="summary"/>
+                <field name="tenant_id"/>
+                <field name="lease_id"/>
+                <field name="unit_id"/>
+                <field name="responsible_user_id"/>
+                <filter name="open" string="Open" domain="[('is_open', '=', True)]"/>
+                <filter name="adverse" string="Serious" domain="[('is_adverse', '=', True)]"/>
+                <filter name="overdue" string="Past deadline" domain="[('is_overdue', '=', True)]"/>
+                <separator/>
+                <filter name="mine" string="My events"
+                        domain="[('responsible_user_id', '=', uid)]"/>
+                <filter name="referred" string="Awaiting a decision" domain="[('state', '=', 'referred')]"/>
+                <separator/>
+                <filter name="this_year" string="This year"
+                        domain="[('event_date', '&gt;=', context_today().strftime('%Y-01-01'))]"/>
+                <!-- Bare <group>: a search view's group takes neither string nor expand in v19. -->
+                <group>
+                    <filter name="by_tenant" string="Tenant" context="{'group_by': 'tenant_id'}"/>
+                    <filter name="by_category" string="Category" context="{'group_by': 'category'}"/>
+                    <filter name="by_seriousness" string="Seriousness" context="{'group_by': 'seriousness'}"/>
+                    <filter name="by_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="by_building" string="Building" context="{'group_by': 'building_id'}"/>
+                    <filter name="by_month" string="Month" context="{'group_by': 'event_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_tenancy_event" model="ir.actions.act_window">
+        <field name="name">Tenancy Events</field>
+        <field name="res_model">c2p.tenancy.event</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_tenancy_event_search"/>
+        <field name="context">{'search_default_open': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Nothing logged against any tenancy</p>
+            <p>
+                Complaints, disturbances, missing documents, breaches, warnings and legal
+                cases are recorded here, each with its evidence, owner and deadline
+                (BRD §5.3).
+            </p>
+        </field>
+    </record>
+</odoo>

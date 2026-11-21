@@ -1,6 +1,6 @@
 {
     "name": "C2P Property & Lease Management",
-    "version": "19.0.1.13.0",
+    "version": "19.0.1.15.0",
     "category": "Services/Real Estate",
     "summary": "Underwritten buildings, tenancy leases, tenant and landlord "
     "cheque registers, and deal margin for UAE property management",
@@ -33,6 +33,10 @@
         "views/unit_views.xml",
         "views/lease_views.xml",
         "views/lease_cheque_exception_views.xml",
+        # Before the event views: their header buttons reference this
+        # action by xmlid, and %(xmlid)d is resolved as the view loads.
+        "wizard/tenancy_event_move_views.xml",
+        "views/tenancy_event_views.xml",
         "views/account_payment_views.xml",
         "wizard/pdc_register_views.xml",
         "wizard/lease_renew_views.xml",

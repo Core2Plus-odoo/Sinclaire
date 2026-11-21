@@ -6,4 +6,5 @@ from . import head_lease
 from . import lease
 from . import lease_cheque_exception
 from . import sample_portfolio
+from . import tenancy_event
 from . import unit

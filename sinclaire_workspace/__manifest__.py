@@ -19,7 +19,7 @@ property module is the supplier's work under OPL-1; the look and feel is the
 client's under LGPL-3. Keeping them apart means the boundary stays legible
 instead of becoming an argument later.
 """,
-    "version": "19.0.1.3.1",
+    "version": "19.0.1.4.1",
     "category": "Services/Real Estate",
     "author": "C2P Consultants",
     "website": "https://github.com/core2plus-odoo/sinclaire",
