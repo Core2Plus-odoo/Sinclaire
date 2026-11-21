@@ -180,9 +180,11 @@ Ordered by exposure. R1 and R2 are the ones I would fix before any new feature.
 BR-118 requires that no cheque is treated as cleared before bank or landlord confirmation. Today `action_pdc_clear` writes `pdc_state = 'cleared'` on a user's click, while Odoo's own `account.payment.state` and outstanding-account machinery sit unconnected beside it. By the blueprint's §17.2 this is an explicit *blocker* condition — "posting logic would bypass native accounting" — and by principle 4 (Financial Integrity) it is the most serious defect in the system. It is also **my own earlier design**, recorded as a correction in `docs/PROJECT_STATE.md`.
 *Blocked on:* **OD-02** (custody control account) and **OD-05** (payment methods and custody controls). Cannot be fixed correctly without them, because the fix must know which account landlord-name cheques post to.
 
-**R2 — Multi-company leak: two sensitive models have no record rule. (High, and fixable now)**
+**R2 — Multi-company leak: two sensitive models had no record rule. (High — FIXED, pending CI)**
 `c2p.head.lease` and `c2p.bank.facility` both declare `company_id` but neither appears in `security/c2p_security.xml`. Odoo does not create record rules implicitly, and the repository declares five explicitly for building, unit, lease, cheque exception and tenancy event — which establishes the convention and shows these two were missed. Under BR-004's two legal entities, a `group_property_user` can read **every head lease in the database** (ACL row 13 grants read) and a manager of either company can read **every banking facility**. Those are the two most commercially sensitive models in the system: landlord commitments and bank limits.
-This is blueprint §17.2's "record rules leak company data" blocker and §10.1's access rules. **It is pre-existing on `main`, not introduced by recent work.**
+This is blueprint §17.2's "record rules leak company data" blocker and §10.1's access rules. It was pre-existing on `main`, not introduced by recent work.
+
+**Closed** by `rule_head_lease_company` and `rule_bank_facility_company`, with `test_security.TestCompanyScope` proving isolation under `with_user` — the superuser the rest of the suite runs as ignores record rules entirely. The durable part is `test_every_company_scoped_model_has_a_record_rule`, which walks the registry rather than listing the models, so the next model carrying `company_id` cannot be missed the same way. **Verified by CI only; see §10.**
 
 **R3 — Twenty roles, two groups. (Medium, blocked)**
 BRD §2.3 names twenty roles; the system has two. Every *(proposed)* role in `status_matrix.md` is a recommendation pending **OD-06**, and the approval matrix is what the blueprint's ADR-007 and principle 6 (segregation of duties) require. Six requirements are explicitly blocked on it. The mechanisms are built in the right place — the no-self-approval rule on the cheque exception is enforced on `write`, not in a button — but *who may approve what* is unanswerable today.
@@ -247,9 +249,9 @@ The pack's `README.md` installation step 2 says to place its `CLAUDE.md` at the 
 
 ---
 
-## 10. Next smallest safe development task
+## 10. Next smallest safe development task — done
 
-**R2 — add the two missing multi-company record rules.**
+**R2 — add the two missing multi-company record rules. Implemented; awaiting the CI Odoo job.**
 
 Chosen because it is the only High risk that is **not** blocked on a sponsor decision, it is small and self-contained, it is a security fix rather than a feature, and it closes a blueprint §17.2 blocker condition.
 
