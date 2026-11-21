@@ -203,7 +203,7 @@ class TestCompanyScope(TransactionCase):
         direct read too, or anyone who knows an id walks straight past it."""
         theirs = self._head_lease(self.company_b)
         with self.assertRaises(AccessError):
-            theirs.with_user(self.user_a).read(["annual_rent"])
+            theirs.with_user(self.user_a).read(["annual_amount"])
 
     # --- banking facilities ------------------------------------------------
     def test_a_banking_facility_is_invisible_to_the_other_company(self):
